@@ -1,6 +1,6 @@
-package org.jetbrains.plugins.template.services
+package com.github.sirywell.methodhandleplugin.services
 
-import org.jetbrains.plugins.template.MyBundle
+import com.github.sirywell.methodhandleplugin.MyBundle
 
 class MyApplicationService {
 
