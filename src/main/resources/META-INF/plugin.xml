@@ -5,14 +5,12 @@
     <vendor>sirywell</vendor>
 
     <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.java</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <applicationService serviceImplementation="com.github.sirywell.methodhandleplugin.services.MyApplicationService"/>
-        <projectService serviceImplementation="com.github.sirywell.methodhandleplugin.services.MyProjectService"/>
+        <codeInsight.inlayProvider language="JAVA" implementationClass="com.github.sirywell.methodhandleplugin.MethodTypeInlayProvider"/>
     </extensions>
 
     <applicationListeners>
-        <listener class="com.github.sirywell.methodhandleplugin.listeners.MyProjectManagerListener"
-                  topic="com.intellij.openapi.project.ProjectManagerListener"/>
     </applicationListeners>
 </idea-plugin>
