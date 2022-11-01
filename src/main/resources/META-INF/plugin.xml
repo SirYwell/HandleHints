@@ -8,9 +8,16 @@
     <depends>com.intellij.modules.java</depends>
 
     <extensions defaultExtensionNs="com.intellij">
+        <localInspection implementationClass="com.github.sirywell.methodhandleplugin.dfa.MethodHandleInspection"
+                         bundle="messages.MethodHandleMessages"
+                         key="displayname.dataflow.analysis.methodhandle"
+                         groupPath="Java" groupKey="group.dataflow.analysis"
+                         shortName="DfaMethodHandles"
+                         level="WARNING" enabledByDefault="true" language="JAVA"/>
         <codeInsight.inlayProvider language="JAVA" implementationClass="com.github.sirywell.methodhandleplugin.MethodTypeInlayProvider"/>
     </extensions>
 
     <applicationListeners>
     </applicationListeners>
+    <resource-bundle/>
 </idea-plugin>
