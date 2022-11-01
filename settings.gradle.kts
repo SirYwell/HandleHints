@@ -1,1 +1,1 @@
-rootProject.name = "methodhandle-plugin"
+rootProject.name = "HandleHints"

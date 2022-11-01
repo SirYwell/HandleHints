@@ -1,6 +1,6 @@
 <!-- Keep a Changelog guide -> https://keepachangelog.com -->
 
-# methodhandle-plugin Changelog
+# HandleHints Changelog
 
 ## [Unreleased]
 ### Added
