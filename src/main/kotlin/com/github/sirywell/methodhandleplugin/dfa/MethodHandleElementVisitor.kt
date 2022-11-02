@@ -130,7 +130,6 @@ class MethodHandleElementVisitor(private val problemsHolder: ProblemsHolder) : J
                 if (receiverIsMethodType(expression)) {
                     return when (expression.methodName) {
                         "methodType" -> MethodTypeHelper.methodType(arguments.toPsiTypes() ?: return notConstant())
-                        "invoke", "invokeExact", "invokeWithArguments" -> noMethodHandle()
                         else -> TODO("unsupported method MethodType${expression.methodName}")
                     }
                 } else if (receiverIsMethodHandles(expression)) {
@@ -149,6 +148,7 @@ class MethodHandleElementVisitor(private val problemsHolder: ProblemsHolder) : J
                             MethodHandleTransformer.bindTo(target.mhType(), objectType)
                         }
                         "withVarargs" -> TODO()
+                        "invoke", "invokeExact", "invokeWithArguments" -> noMethodHandle()
                         else -> TODO("unsupported method MethodHandle#${expression.methodName}")
                     }
                 }
