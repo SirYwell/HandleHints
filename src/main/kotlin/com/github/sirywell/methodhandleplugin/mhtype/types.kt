@@ -3,6 +3,7 @@ package com.github.sirywell.methodhandleplugin.mhtype
 import com.github.sirywell.methodhandleplugin.MHS
 import com.github.sirywell.methodhandleplugin.MethodHandleSignature
 import com.github.sirywell.methodhandleplugin.MethodHandleSignature.Companion.create
+import com.github.sirywell.methodhandleplugin.MethodHandleSignature.Relation
 import com.intellij.psi.PsiType
 
 /*
@@ -25,18 +26,32 @@ sealed class MhSingleType(val signature: MethodHandleSignature) : MhType {
 class MhExactType(signature: MethodHandleSignature) : MhSingleType(signature) {
 
     override fun join(other: MhType): MhType {
-        return when (other) {
-            is MhExactType -> {
-                return when (this.signature.relation(other.signature)) {
-                    MethodHandleSignature.Relation.SAME -> this
-                    else -> Top
+        if (other is Bot) return this
+        if (other is Top) return Top
+        if (other !is MhSingleType) throw IllegalArgumentException("Type ${other.javaClass} not supported")
+        return when (this.signature.relation(other.signature)) {
+            Relation.SAME -> {
+                return when (other) {
+                    is MhExactType -> this
+                    is MhSubType -> other
+                    is MhSuperType -> other
                 }
             }
-            is MhSubType -> TODO()
-            is MhSuperType -> TODO()
-            is MhIncompatibleType -> MhIncompatibleType(other.signatures + this.signature)
-            Top -> Top
-            Bot -> this
+            Relation.SUBTYPE_OF -> { // other < this
+                return when (other) {
+                    is MhExactType -> MhSubType(other.signature) // e.g. more special type required for invoke
+                    is MhSubType -> TODO()
+                    is MhSuperType -> Bot
+                }
+            }
+            Relation.SUPERTYPE_OF -> { // this < other
+                return when (other) {
+                    is MhExactType -> MhSubType(this.signature)
+                    is MhSubType -> Bot
+                    is MhSuperType -> TODO()
+                }
+            }
+            else -> Top
         }
     }
 
@@ -54,6 +69,8 @@ class MhSubType(signature: MethodHandleSignature) : MhSingleType(signature) {
     override fun withSignature(signature: MethodHandleSignature): MhType {
         return MhSubType(signature)
     }
+
+    override fun toString() = "~" + super.toString()
 }
 
 class MhSuperType(signature: MethodHandleSignature) : MhSingleType(signature) {
@@ -63,21 +80,6 @@ class MhSuperType(signature: MethodHandleSignature) : MhSingleType(signature) {
 
     override fun withSignature(signature: MethodHandleSignature): MhType {
         return MhSuperType(signature)
-    }
-}
-
-class MhIncompatibleType(val signatures: Set<MethodHandleSignature>) : MhType {
-    override fun join(other: MhType): MhType {
-        return when (other) {
-            is MhIncompatibleType -> MhIncompatibleType(this.signatures + other.signatures)
-            is MhSingleType -> MhIncompatibleType(this.signatures + other.signature)
-            Top -> Top // does that make sense?
-            Bot -> this
-        }
-    }
-
-    override fun withSignature(signature: MethodHandleSignature): MhType {
-        TODO("Not yet implemented")
     }
 }
 

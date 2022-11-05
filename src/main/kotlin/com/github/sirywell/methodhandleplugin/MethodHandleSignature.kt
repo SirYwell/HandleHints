@@ -40,7 +40,7 @@ data class MethodHandleSignature private constructor(
         return "(${parameters.joinToString(",") { it.presentableText }})${returnType.presentableText}"
     }
 
-    private fun PsiType.isSubtypeOf(other: PsiType) = this.isAssignableFrom(other)
+    private fun PsiType.isSubtypeOf(other: PsiType) = other.isAssignableFrom(this)
 
     private fun PsiType.relation(other: PsiType): Relation {
         if (this == other) {
