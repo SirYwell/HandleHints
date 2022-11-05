@@ -29,7 +29,7 @@ class MhExactType(signature: MethodHandleSignature) : MhSingleType(signature) {
             is MhExactType -> {
                 return when (this.signature.relation(other.signature)) {
                     MethodHandleSignature.Relation.SAME -> this
-                    else -> TODO()
+                    else -> Top
                 }
             }
             is MhSubType -> TODO()

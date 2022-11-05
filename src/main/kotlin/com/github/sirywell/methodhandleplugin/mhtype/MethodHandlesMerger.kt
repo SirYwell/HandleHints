@@ -98,7 +98,7 @@ object MethodHandlesMerger {
         if (anyBot(target)) return Bot
         if (target !is MhSingleType) return Top
         val signature = target.signature
-        if (pos >= signature.parameters.size) return Top
+        if (pos > signature.parameters.size) return Top
         val list = signature.parameters.toMutableList()
         list.addAll(pos, valueTypes)
         return target.withSignature(signature.withParameters(list))
