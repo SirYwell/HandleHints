@@ -111,7 +111,6 @@ object MethodHandlesMerger {
     fun dropReturn(target: MhType): MhType {
         return when (target) {
             is MhSingleType -> target.withSignature(target.signature.withReturnType(VOID))
-            is MhIncompatibleType -> MhIncompatibleType(target.signatures.map { it.withReturnType(VOID) }.toSet())
             else -> target // Bot or Top
         }
     }
