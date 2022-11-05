@@ -50,8 +50,9 @@ class SsaConstruction<T>(private val controlFlow: ControlFlow) {
 
         for (edge in ControlFlowUtil.getEdges(controlFlow, 0)) {
             if (edge.myTo >= controlFlow.size) {
-                val instruction = controlFlow.instructions[edge.myFrom]
-                assert(instruction is BranchingInstruction && instruction.role == BranchingInstruction.Role.END)
+                // when editing code, we seemingly can have a somewhat inconsistent state
+                // val instruction = controlFlow.instructions[edge.myFrom]
+                // assert(instruction is BranchingInstruction && instruction.role == Role.END) { "$instruction"}
                 continue
             }
             val fromBlock = instructionToBlock[edge.myFrom]

@@ -28,7 +28,7 @@ data class MethodHandleSignature private constructor(
             return parametersRelation
         }
         if (parametersRelation == Relation.SAME) {
-            return parametersRelation
+            return if (this.parameters.isEmpty()) returnRelation else parametersRelation
         }
         if (returnRelation == Relation.UNRELATED || parametersRelation == Relation.UNRELATED) {
             return Relation.UNRELATED

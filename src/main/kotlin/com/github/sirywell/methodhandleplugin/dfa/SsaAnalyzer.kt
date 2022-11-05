@@ -4,6 +4,7 @@ import com.github.sirywell.methodhandleplugin.*
 import com.github.sirywell.methodhandleplugin.dfa.SsaConstruction.*
 import com.github.sirywell.methodhandleplugin.mhtype.*
 import com.intellij.codeInspection.dataFlow.CommonDataflow
+import com.intellij.codeInspection.dataFlow.CommonDataflow.DataflowResult
 import com.intellij.psi.*
 import com.intellij.psi.controlFlow.ControlFlow
 import com.intellij.psi.controlFlow.ReadVariableInstruction
@@ -11,12 +12,15 @@ import com.intellij.psi.controlFlow.WriteVariableInstruction
 
 class SsaAnalyzer(private val controlFlow: ControlFlow) {
     private val ssaConstruction = SsaConstruction<MhType>(controlFlow)
+    @Suppress("UnstableApiUsage")
+    private var commonDataflowCache: DataflowResult? = null
 
     fun doTraversal() {
         ssaConstruction.traverse(::onRead, ::onWrite)
     }
 
     private fun onRead(instruction: ReadVariableInstruction, index: Int, block: Block) {
+        if (isUnrelated(instruction.variable)) return
         val value = ssaConstruction.readVariable(instruction.variable, block) ?: return
         if (value is Holder) {
             TypeData[controlFlow.getElement(index)] = value.value
@@ -29,6 +33,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow) {
     }
 
     private fun onWrite(instruction: WriteVariableInstruction, index: Int, block: Block) {
+        if (isUnrelated(instruction.variable)) return
         val expression = when (val element = controlFlow.getElement(index)) {
             is PsiAssignmentExpression -> element.rExpression!!
             is PsiDeclarationStatement -> instruction.variable.initializer!!
@@ -39,6 +44,13 @@ class SsaAnalyzer(private val controlFlow: ControlFlow) {
         if (mhType != null) {
             TypeData[controlFlow.getElement(index)] = mhType
         }
+    }
+
+    /**
+     * Returns true if the variable type has no MhType]
+     */
+    private fun isUnrelated(variable: PsiVariable): Boolean {
+        return variable.type != methodTypeType(variable) && variable.type != methodHandleType(variable)
     }
 
     private fun resolveMhType(expression: PsiExpression, block: Block): MhType? {
@@ -252,7 +264,10 @@ class SsaAnalyzer(private val controlFlow: ControlFlow) {
 
     @Suppress("UnstableApiUsage")
     private inline fun <reified T> PsiExpression.getConstantOfType(): T? {
-        return CommonDataflow.getDataflowResult(this)
+        if (commonDataflowCache == null) {
+            commonDataflowCache = CommonDataflow.getDataflowResult(this)
+        }
+        return commonDataflowCache
             ?.getDfType(this)
             ?.getConstantOfType(T::class.java)
     }
@@ -294,6 +309,10 @@ class SsaAnalyzer(private val controlFlow: ControlFlow) {
 
     private fun methodHandleType(element: PsiElement): PsiClassType {
         return PsiType.getTypeByName("java.lang.invoke.MethodHandle", element.project, element.resolveScope)
+    }
+
+    private fun methodTypeType(element: PsiElement): PsiClassType {
+        return PsiType.getTypeByName("java.lang.invoke.MethodType", element.project, element.resolveScope)
     }
 
 
