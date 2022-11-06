@@ -10,7 +10,7 @@
     <extensions defaultExtensionNs="com.intellij">
         <localInspection implementationClass="com.github.sirywell.methodhandleplugin.dfa.MethodHandleInspection"
                          bundle="messages.MethodHandleMessages"
-                         key="displayname.dataflow.analysis.methodhandle"
+                         key="displayname.dataflow.analysis.methodhandle.invokation"
                          groupPath="Java" groupKey="group.dataflow.analysis"
                          shortName="DfaMethodHandles"
                          level="WARNING" enabledByDefault="true" language="JAVA"/>
