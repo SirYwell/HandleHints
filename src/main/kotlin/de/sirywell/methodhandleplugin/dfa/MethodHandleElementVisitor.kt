@@ -1,10 +1,10 @@
-package com.github.sirywell.methodhandleplugin.dfa
+package de.sirywell.methodhandleplugin.dfa
 
-import com.github.sirywell.methodhandleplugin.MethodHandleBundle.message
-import com.github.sirywell.methodhandleplugin.TypeData
-import com.github.sirywell.methodhandleplugin.methodName
-import com.github.sirywell.methodhandleplugin.mhtype.MhSingleType
-import com.github.sirywell.methodhandleplugin.receiverIsMethodHandle
+import de.sirywell.methodhandleplugin.MethodHandleBundle.message
+import de.sirywell.methodhandleplugin.TypeData
+import de.sirywell.methodhandleplugin.methodName
+import de.sirywell.methodhandleplugin.mhtype.MhSingleType
+import de.sirywell.methodhandleplugin.receiverIsMethodHandle
 import com.intellij.codeInsight.hints.ParameterHintsPassFactory
 import com.intellij.codeInspection.ProblemHighlightType
 import com.intellij.codeInspection.ProblemsHolder

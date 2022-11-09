@@ -1,4 +1,4 @@
-package com.github.sirywell.methodhandleplugin
+package de.sirywell.methodhandleplugin
 
 import com.intellij.ide.highlighter.XmlFileType
 import com.intellij.psi.xml.XmlFile

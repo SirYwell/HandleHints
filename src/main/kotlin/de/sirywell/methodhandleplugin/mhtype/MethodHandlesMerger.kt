@@ -1,7 +1,7 @@
-package com.github.sirywell.methodhandleplugin.mhtype
+package de.sirywell.methodhandleplugin.mhtype
 
-import com.github.sirywell.methodhandleplugin.MHS
-import com.github.sirywell.methodhandleplugin.subList
+import de.sirywell.methodhandleplugin.MHS
+import de.sirywell.methodhandleplugin.subList
 import com.intellij.psi.PsiType
 import com.intellij.psi.PsiType.BOOLEAN
 import com.intellij.psi.PsiType.VOID

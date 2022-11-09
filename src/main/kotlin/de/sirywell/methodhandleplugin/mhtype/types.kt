@@ -1,9 +1,9 @@
-package com.github.sirywell.methodhandleplugin.mhtype
+package de.sirywell.methodhandleplugin.mhtype
 
-import com.github.sirywell.methodhandleplugin.MHS
-import com.github.sirywell.methodhandleplugin.MethodHandleSignature
-import com.github.sirywell.methodhandleplugin.MethodHandleSignature.Companion.create
-import com.github.sirywell.methodhandleplugin.MethodHandleSignature.Relation
+import de.sirywell.methodhandleplugin.MHS
+import de.sirywell.methodhandleplugin.MethodHandleSignature
+import de.sirywell.methodhandleplugin.MethodHandleSignature.Companion.create
+import de.sirywell.methodhandleplugin.MethodHandleSignature.Relation
 import com.intellij.psi.PsiType
 
 /*

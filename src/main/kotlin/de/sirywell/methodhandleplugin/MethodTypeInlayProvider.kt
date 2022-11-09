@@ -1,4 +1,4 @@
-package com.github.sirywell.methodhandleplugin
+package de.sirywell.methodhandleplugin
 
 import com.intellij.codeInsight.hints.*
 import com.intellij.openapi.components.service

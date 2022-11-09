@@ -1,6 +1,6 @@
 @file:Suppress("UnstableApiUsage")
 
-package com.github.sirywell.methodhandleplugin.dfa
+package de.sirywell.methodhandleplugin.dfa
 
 import com.google.common.graph.ElementOrder
 import com.google.common.graph.GraphBuilder

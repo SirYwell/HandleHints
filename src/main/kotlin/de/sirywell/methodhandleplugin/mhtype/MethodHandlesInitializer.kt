@@ -1,6 +1,6 @@
-package com.github.sirywell.methodhandleplugin.mhtype
+package de.sirywell.methodhandleplugin.mhtype
 
-import com.github.sirywell.methodhandleplugin.MethodHandleSignature.Companion.create
+import de.sirywell.methodhandleplugin.MethodHandleSignature.Companion.create
 import com.intellij.psi.PsiArrayType
 import com.intellij.psi.PsiType
 

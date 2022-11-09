@@ -1,14 +1,14 @@
-package com.github.sirywell.methodhandleplugin.dfa
+package de.sirywell.methodhandleplugin.dfa
 
-import com.github.sirywell.methodhandleplugin.*
-import com.github.sirywell.methodhandleplugin.dfa.SsaConstruction.*
-import com.github.sirywell.methodhandleplugin.mhtype.*
 import com.intellij.codeInspection.dataFlow.CommonDataflow
 import com.intellij.codeInspection.dataFlow.CommonDataflow.DataflowResult
 import com.intellij.psi.*
 import com.intellij.psi.controlFlow.ControlFlow
 import com.intellij.psi.controlFlow.ReadVariableInstruction
 import com.intellij.psi.controlFlow.WriteVariableInstruction
+import de.sirywell.methodhandleplugin.*
+import de.sirywell.methodhandleplugin.dfa.SsaConstruction.*
+import de.sirywell.methodhandleplugin.mhtype.*
 
 class SsaAnalyzer(private val controlFlow: ControlFlow) {
     private val ssaConstruction = SsaConstruction<MhType>(controlFlow)

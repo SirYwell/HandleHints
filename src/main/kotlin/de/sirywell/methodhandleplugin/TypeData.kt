@@ -1,6 +1,6 @@
-package com.github.sirywell.methodhandleplugin
+package de.sirywell.methodhandleplugin
 
-import com.github.sirywell.methodhandleplugin.mhtype.MhType
+import de.sirywell.methodhandleplugin.mhtype.MhType
 import com.intellij.psi.PsiElement
 import com.jetbrains.rd.util.concurrentMapOf
 

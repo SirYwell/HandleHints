@@ -1,4 +1,4 @@
-package com.github.sirywell.methodhandleplugin
+package de.sirywell.methodhandleplugin
 
 import com.intellij.codeInsight.hints.FactoryInlayHintsCollector
 import com.intellij.codeInsight.hints.InlayHintsSink
