@@ -145,10 +145,10 @@ class SsaConstruction<T>(private val controlFlow: ControlFlow) {
     sealed interface Value<T>
     data class Phi<T>(
         val block: Block,
-        val list: MutableMap<Block, Value<T>> = mutableMapOf()
+        val blockToValue: MutableMap<Block, Value<T>> = mutableMapOf()
     ) : Value<T> {
         fun appendOperand(value: Value<T>, block: Block) {
-            list[block] = value
+            blockToValue[block] = value
         }
     }
 

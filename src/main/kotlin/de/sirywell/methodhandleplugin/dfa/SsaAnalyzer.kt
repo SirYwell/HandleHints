@@ -25,11 +25,22 @@ class SsaAnalyzer(private val controlFlow: ControlFlow) {
         if (value is Holder) {
             TypeData[controlFlow.getElement(index)] = value.value
         } else if (value is Phi) {
-            val type = value.list.values.mapNotNull { it as? Holder } // TODO recursive Phis :(
-                .map { it.value }
+            val type = value.blockToValue.values
+                .flatMap { if (it is Holder) listOf(it.value) else resolvePhi(it as Phi) }
                 .reduce { acc, mhType -> acc.join(mhType) }
             TypeData[controlFlow.getElement(index)] = type
         }
+    }
+
+    private fun resolvePhi(phi: Phi<MhType>, mut: MutableList<MhType> = mutableListOf()): List<MhType> {
+        phi.blockToValue.values.forEach {
+            if (it is Holder) {
+                mut.add(it.value)
+            } else {
+                resolvePhi(it as Phi<MhType>, mut)
+            }
+        }
+        return mut.toList()
     }
 
     private fun onWrite(instruction: WriteVariableInstruction, index: Int, block: Block) {
