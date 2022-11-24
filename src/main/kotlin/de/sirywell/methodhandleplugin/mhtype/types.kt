@@ -34,21 +34,18 @@ class MhExactType(signature: MethodHandleSignature) : MhSingleType(signature) {
                 return when (other) {
                     is MhExactType -> this
                     is MhSubType -> other
-                    is MhSuperType -> other
                 }
             }
             Relation.SUBTYPE_OF -> { // other < this
                 return when (other) {
                     is MhExactType -> MhSubType(other.signature) // e.g. more special type required for invoke
-                    is MhSubType -> TODO()
-                    is MhSuperType -> Bot
+                    is MhSubType -> other
                 }
             }
             Relation.SUPERTYPE_OF -> { // this < other
                 return when (other) {
                     is MhExactType -> MhSubType(this.signature)
                     is MhSubType -> Bot
-                    is MhSuperType -> TODO()
                 }
             }
             else -> Top
@@ -63,7 +60,25 @@ class MhExactType(signature: MethodHandleSignature) : MhSingleType(signature) {
 // TODO figure out if we actually want to go that route
 class MhSubType(signature: MethodHandleSignature) : MhSingleType(signature) {
     override fun join(other: MhType): MhType {
-        TODO("Not yet implemented")
+        if (other is Bot) return this
+        if (other is Top) return Top
+        if (other !is MhSingleType) throw IllegalArgumentException("Type ${other.javaClass} not supported")
+        return when (this.signature.relation(other.signature)) {
+            Relation.SAME -> this
+            Relation.SUBTYPE_OF -> { // other < this
+                return when (other) {
+                    is MhExactType -> withSignature(other.signature)
+                    is MhSubType -> other
+                }
+            }
+            Relation.SUPERTYPE_OF -> { // this < other
+                return when (other) {
+                    is MhExactType -> this
+                    is MhSubType -> Bot
+                }
+            }
+            else -> Top
+        }
     }
 
     override fun withSignature(signature: MethodHandleSignature): MhType {
@@ -71,16 +86,6 @@ class MhSubType(signature: MethodHandleSignature) : MhSingleType(signature) {
     }
 
     override fun toString() = "~" + super.toString()
-}
-
-class MhSuperType(signature: MethodHandleSignature) : MhSingleType(signature) {
-    override fun join(other: MhType): MhType {
-        TODO("Not yet implemented")
-    }
-
-    override fun withSignature(signature: MethodHandleSignature): MhType {
-        return MhSuperType(signature)
-    }
 }
 
 object Top : MhType {

@@ -264,20 +264,10 @@ object MethodHandlesMerger {
      * Constructs a specific MhType variant depending on the types of [mhTypes]
      */
     private fun constructCompatibleType(signature: MHS, vararg mhTypes: MhSingleType): MhType {
-        val hasConflictingTypes = mhTypes.filterNot { it is MhExactType }.windowed(2) { (a, b) ->
-            a is MhSubType && b is MhSuperType || a is MhSuperType && b is MhSubType
-        }.any { it }
-        if (hasConflictingTypes) {
-            return Top
-        }
         if (mhTypes.all { it is MhExactType }) {
             return MhExactType(signature)
         }
-        if (mhTypes.any { it is MhSubType }) {
-            return MhSubType(signature)
-        }
-        // one must be MhSuperType
-        return MhSuperType(signature)
+        return MhSubType(signature)
     }
 
     private fun anyBot(vararg types: MhType) = types.any { it is Bot }
