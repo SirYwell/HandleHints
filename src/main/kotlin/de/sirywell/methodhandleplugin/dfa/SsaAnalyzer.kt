@@ -10,7 +10,7 @@ import de.sirywell.methodhandleplugin.*
 import de.sirywell.methodhandleplugin.dfa.SsaConstruction.*
 import de.sirywell.methodhandleplugin.mhtype.*
 
-class SsaAnalyzer(private val controlFlow: ControlFlow) {
+class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: TypeData) {
     private val ssaConstruction = SsaConstruction<MhType>(controlFlow)
     @Suppress("UnstableApiUsage")
     private var commonDataflowCache: DataflowResult? = null
@@ -23,12 +23,12 @@ class SsaAnalyzer(private val controlFlow: ControlFlow) {
         if (isUnrelated(instruction.variable)) return
         val value = ssaConstruction.readVariable(instruction.variable, block) ?: return
         if (value is Holder) {
-            TypeData[controlFlow.getElement(index)] = value.value
+            typeData[controlFlow.getElement(index)] = value.value
         } else if (value is Phi) {
             val type = value.blockToValue.values
                 .flatMap { if (it is Holder) listOf(it.value) else resolvePhi(it as Phi) }
                 .reduce { acc, mhType -> acc.join(mhType) }
-            TypeData[controlFlow.getElement(index)] = type
+            typeData[controlFlow.getElement(index)] = type
         }
     }
 
@@ -53,7 +53,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow) {
         val mhType = resolveMhType(expression, block)
         ssaConstruction.writeVariable(instruction.variable, block, Holder(mhType ?: Top))
         if (mhType != null) {
-            TypeData[controlFlow.getElement(index)] = mhType
+            typeData[controlFlow.getElement(index)] = mhType
         }
     }
 

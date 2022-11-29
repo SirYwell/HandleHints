@@ -8,7 +8,7 @@
     <depends>com.intellij.modules.java</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <localInspection implementationClass="de.sirywell.methodhandleplugin.dfa.MethodHandleInspection"
+        <localInspection implementationClass="de.sirywell.methodhandleplugin.dfa.MethodHandleInvokeInspection"
                          bundle="messages.MethodHandleMessages"
                          key="displayname.dataflow.analysis.methodhandle.invokation"
                          groupPath="Java" groupKey="group.dataflow.analysis"

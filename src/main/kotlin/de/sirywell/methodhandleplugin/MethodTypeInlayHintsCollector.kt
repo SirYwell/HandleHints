@@ -25,7 +25,8 @@ class MethodTypeInlayHintsCollector(editor: Editor) : FactoryInlayHintsCollector
             }
             else -> element.endOffset
         }
-        val signature = TypeData[element] ?: return true
+        val typeData = TypeData.forFile(element.containingFile)
+        val signature = typeData[element] ?: return true
         sink.addInlineElement(
             pos,
             true,
