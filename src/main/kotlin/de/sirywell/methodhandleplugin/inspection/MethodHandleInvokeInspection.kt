@@ -1,4 +1,4 @@
-package de.sirywell.methodhandleplugin.dfa
+package de.sirywell.methodhandleplugin.inspection
 
 import com.intellij.codeInspection.LocalInspectionTool
 import com.intellij.codeInspection.ProblemHighlightType
