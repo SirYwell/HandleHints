@@ -20,9 +20,6 @@ class SsaConstruction<T>(private val controlFlow: ControlFlow) {
     private val blocks = buildBlocks()
 
     private fun buildBlocks(): ImmutableGraph<Block> {
-        val builder = GraphBuilder.directed()
-            .nodeOrder<Block>(ElementOrder.insertion())
-            .immutable<Block>()
         val leaderSet = mutableSetOf(0)
         val leaderVisitor = LeaderVisitor(leaderSet)
         controlFlow.instructions.forEachIndexed { index, instruction -> instruction.accept(leaderVisitor, index, -1) }
@@ -46,6 +43,24 @@ class SsaConstruction<T>(private val controlFlow: ControlFlow) {
         for (block in blocks) {
             sealBlock(block)
             instructionToBlock.addAll(Collections.nCopies(block.instructions.size, block))
+        }
+
+        return buildGraph(blocks, instructionToBlock)
+    }
+
+    private fun buildGraph(
+        blocks: MutableList<Block>,
+        instructionToBlock: MutableList<Block>
+    ): ImmutableGraph<Block> {
+        val builder = GraphBuilder.directed()
+            .nodeOrder<Block>(ElementOrder.insertion())
+            .immutable<Block>()
+
+        // special case: a single block does not have any edges,
+        // but it should be still in the graph
+        if (blocks.size == 1) {
+            builder.addNode(blocks.first())
+            return builder.build()
         }
 
         for (edge in ControlFlowUtil.getEdges(controlFlow, 0)) {
