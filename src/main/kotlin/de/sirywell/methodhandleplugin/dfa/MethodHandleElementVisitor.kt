@@ -13,16 +13,27 @@ class MethodHandleElementVisitor : JavaRecursiveElementWalkingVisitor() {
         if (method == null || method.body == null) {
             return
         }
-        val controlFlowFactory = ControlFlowFactory.getInstance(method.project)
+        visitBody(method.body!!)
+    }
+
+    override fun visitClassInitializer(initializer: PsiClassInitializer?) {
+        if (initializer == null) {
+            return
+        }
+        visitBody(initializer.body)
+    }
+
+    private fun visitBody(body: PsiCodeBlock) {
+        val controlFlowFactory = ControlFlowFactory.getInstance(body.project)
         val controlFlow: ControlFlow
         try {
-            controlFlow = controlFlowFactory.getControlFlow(method.body!!, AllVariablesControlFlowPolicy.getInstance())
+            controlFlow = controlFlowFactory.getControlFlow(body, AllVariablesControlFlowPolicy.getInstance())
         } catch (_: AnalysisCanceledException) {
             return // stop
         }
         SsaAnalyzer(controlFlow, typeData).doTraversal()
         SwingUtilities.invokeLater {
-            PsiEditorUtilBase.findEditorByPsiElement(method)?.let {
+            PsiEditorUtilBase.findEditorByPsiElement(body.parent)?.let {
                 @Suppress("UnstableApiUsage")
                 ParameterHintsPassFactory.forceHintsUpdateOnNextPass(it)
             }
