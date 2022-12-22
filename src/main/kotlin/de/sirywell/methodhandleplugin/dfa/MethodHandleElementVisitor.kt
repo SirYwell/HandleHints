@@ -10,20 +10,16 @@ import javax.swing.SwingUtilities
 class MethodHandleElementVisitor : JavaRecursiveElementWalkingVisitor() {
     private val typeData = TypeData()
     override fun visitMethod(method: PsiMethod?) {
-        if (method == null || method.body == null) {
-            return
-        }
-        visitBody(method.body!!)
+        if (method == null || method.body == null) return
+        scanElement(method.body!!)
     }
 
     override fun visitClassInitializer(initializer: PsiClassInitializer?) {
-        if (initializer == null) {
-            return
-        }
-        visitBody(initializer.body)
+        if (initializer == null) return
+        scanElement(initializer.body)
     }
 
-    private fun visitBody(body: PsiCodeBlock) {
+    private fun scanElement(body: PsiElement) {
         val controlFlowFactory = ControlFlowFactory.getInstance(body.project)
         val controlFlow: ControlFlow
         try {
