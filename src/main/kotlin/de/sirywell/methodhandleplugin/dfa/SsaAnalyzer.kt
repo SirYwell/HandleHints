@@ -2,6 +2,7 @@ package de.sirywell.methodhandleplugin.dfa
 
 import com.intellij.codeInspection.dataFlow.CommonDataflow
 import com.intellij.codeInspection.dataFlow.CommonDataflow.DataflowResult
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.psi.*
 import com.intellij.psi.controlFlow.ControlFlow
 import com.intellij.psi.controlFlow.ReadVariableInstruction
@@ -11,6 +12,9 @@ import de.sirywell.methodhandleplugin.dfa.SsaConstruction.*
 import de.sirywell.methodhandleplugin.mhtype.*
 
 class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: TypeData) {
+    companion object {
+        private val LOG = Logger.getInstance(SsaAnalyzer::class.java)
+    }
     private val ssaConstruction = SsaConstruction<MhType>(controlFlow)
     @Suppress("UnstableApiUsage")
     private var commonDataflowCache: DataflowResult? = null
@@ -58,7 +62,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
     }
 
     /**
-     * Returns true if the variable type has no MhType]
+     * Returns true if the variable type has no [MhType]
      */
     private fun isUnrelated(variable: PsiVariable): Boolean {
         return variable.type != methodTypeType(variable) && variable.type != methodHandleType(variable)
@@ -70,7 +74,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
             if (receiverIsMethodType(expression)) {
                 return when (expression.methodName) {
                     "methodType" -> MethodTypeHelper.methodType(arguments.toPsiTypes() ?: return notConstant())
-                    else -> TODO("unsupported method MethodType${expression.methodName}")
+                    else -> warnUnsupported(expression, "MethodType")
                 }
             } else if (receiverIsMethodHandles(expression)) {
                 return methodHandles(expression, arguments, block)
@@ -90,18 +94,16 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
 
                     "withVarargs" -> TODO()
                     "invoke", "invokeExact", "invokeWithArguments" -> noMethodHandle()
-                    else -> TODO("unsupported method MethodHandle#${expression.methodName}")
+                    else -> warnUnsupported(expression, "MethodHandle")
                 }
             }
         } else if (expression is PsiReferenceExpression) {
             val value = ssaConstruction.readVariable(expression.resolve() as PsiVariable, block)
             if (value is Holder) {
                 return value.value
-            } else {
-                TODO()
             }
         }
-        return Top // TODO
+        return noMatch()
     }
 
     private fun noMethodHandle(): MhType? = null
@@ -261,7 +263,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
             }
 
             "zero" -> singleParameter(arguments, MethodHandlesInitializer::zero)
-            else -> TODO("unsupported method MethodHandles#${expression.methodName}")
+            else -> warnUnsupported(expression, "MethodHandles")
         }
     }
 
@@ -326,8 +328,12 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
         return PsiType.getTypeByName("java.lang.invoke.MethodType", element.project, element.resolveScope)
     }
 
-
     private fun objectType(element: PsiElement): PsiType {
         return PsiType.getJavaLangObject(element.manager, element.resolveScope)
+    }
+
+    private fun warnUnsupported(expression: PsiMethodCallExpression, className: String): Bot {
+        LOG.warnOnce("Unsupported method $className#${expression.methodName}")
+        return Bot
     }
 }
