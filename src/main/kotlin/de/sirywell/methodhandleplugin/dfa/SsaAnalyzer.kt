@@ -55,7 +55,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
             else -> TODO("Not supported: ${element.javaClass}")
         }
         val mhType = resolveMhType(expression, block)
-        ssaConstruction.writeVariable(instruction.variable, block, Holder(mhType ?: Top))
+        ssaConstruction.writeVariable(instruction.variable, block, Holder(mhType ?: Bot))
         if (mhType != null) {
             typeData[controlFlow.getElement(index)] = mhType
         }
@@ -89,7 +89,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
                         if (arguments.size != 1) return noMatch()
                         val target = expression.methodExpression.qualifierExpression ?: return noMatch()
                         val objectType = arguments[0].type ?: return notConstant()
-                        MethodHandleTransformer.bindTo(target.mhType(block), objectType)
+                        MethodHandleTransformer.bindTo(target.mhTypeOrNoMatch(block), objectType)
                     }
 
                     "withVarargs" -> TODO()
@@ -121,13 +121,17 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
             "catchException" -> {
                 if (arguments.size != 3) return noMatch()
                 val exType = arguments[1].getConstantOfType<PsiType>() ?: return notConstant()
-                MethodHandlesMerger.catchException(arguments[0].mhType(block), exType, arguments[2].mhType(block))
+                val target = arguments[0].mhType(block) ?: return noMatch()
+                val handler = arguments[2].mhType(block) ?: return noMatch()
+                MethodHandlesMerger.catchException(target, exType, handler)
             }
 
             "collectArguments" -> {
                 if (arguments.size != 3) return noMatch()
                 val pos = arguments[1].getConstantOfType<Int>() ?: return notConstant()
-                return MethodHandlesMerger.collectArguments(arguments[0].mhType(block), pos, arguments[2].mhType(block))
+                val target = arguments[0].mhType(block) ?: return noMatch()
+                val filter = arguments[2].mhType(block) ?: return noMatch()
+                MethodHandlesMerger.collectArguments(target, pos, filter)
             }
 
             "constant" -> {
@@ -154,7 +158,8 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
                 if (arguments.size < 3) return noMatch()
                 val i = arguments[1].getConstantOfType<Int>() ?: return notConstant()
                 val types = arguments.subList(2).toPsiTypes() ?: return notConstant()
-                MethodHandlesMerger.dropArguments(arguments[0].mhType(block), i, types)
+                val target = arguments[0].mhType(block) ?: return noMatch()
+                MethodHandlesMerger.dropArguments(target, i, types)
             }
 
             "dropArgumentsToMatch" -> notConstant() // likely too difficult to get something precise here
@@ -176,9 +181,9 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
 
             "filterArguments" -> {
                 if (arguments.size < 2) return noMatch()
-                val target = arguments[0].mhType(block)
+                val target = arguments[0].mhType(block) ?: return noMatch()
                 val pos = arguments[1].getConstantOfType<Int>() ?: return notConstant()
-                val filter = arguments.drop(2).map { it.mhType(block) }
+                val filter = arguments.drop(2).map { it.mhType(block) ?: return noMatch() }
                 MethodHandlesMerger.filterArguments(target, pos, filter)
             }
 
@@ -192,15 +197,15 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
                 val pos: Int
                 when (arguments.size) {
                     3 -> {
-                        target = arguments[0].mhType(block)
+                        target = arguments[0].mhType(block) ?: return noMatch()
                         pos = arguments[1].getConstantOfType<Int>() ?: return notConstant()
-                        combiner = arguments[2].mhType(block)
+                        combiner = arguments[2].mhType(block) ?: return noMatch()
                     }
 
                     2 -> {
-                        target = arguments[0].mhType(block)
+                        target = arguments[0].mhType(block) ?: return noMatch()
                         pos = 0
-                        combiner = arguments[1].mhType(block)
+                        combiner = arguments[1].mhType(block) ?: return noMatch()
                     }
 
                     else -> return noMatch()
@@ -215,12 +220,13 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
             "identity" -> singleParameter(arguments, MethodHandlesInitializer::identity)
             "insertArguments" -> {
                 if (arguments.size < 2) return noMatch()
-                val target = arguments[0].mhType(block)
+                val target = arguments[0].mhType(block) ?: return noMatch()
                 val pos = arguments[1].getConstantOfType<Int>() ?: return notConstant()
                 MethodHandlesMerger.insertArguments(
                     target,
                     pos,
-                    arguments.subList(2).map { it.type ?: return notConstant() })
+                    arguments.subList(2).map { it.type ?: return notConstant() }
+                )
             }
 
             "invoker" -> justDelegate(arguments, block, exact = 1) {
@@ -234,7 +240,11 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
                 else {
                     val reorder = arguments.subList(2)
                         .map { it.getConstantOfType<Int>() ?: return notConstant() }
-                    MethodHandlesMerger.permuteArguments(arguments[0].mhType(block), arguments[1].mhType(block), reorder)
+                    MethodHandlesMerger.permuteArguments(
+                        arguments[0].mhTypeOrNoMatch(block),
+                        arguments[1].mhTypeOrNoMatch(block),
+                        reorder
+                    )
                 }
             }
 
@@ -242,7 +252,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
                 if (arguments.size != 2) return noMatch()
                 val leadingArgCount = arguments[1].getConstantOfType<Int>() ?: return notConstant()
                 MethodHandlesInitializer.spreadInvoker(
-                    arguments[0].mhType(block),
+                    arguments[0].mhTypeOrNoMatch(block),
                     leadingArgCount,
                     objectType(expression)
                 )
@@ -304,7 +314,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
     ): MhType {
         if (arguments.size < min) return noMatch()
         if (arguments.size > max) return noMatch()
-        return factory(arguments.map { it.mhType(block) })
+        return factory(arguments.map { it.mhType(block) ?: noMatch() })
     }
 
     private fun justDelegate(
@@ -316,8 +326,12 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
         return justDelegate(arguments, block, min = exact, max = exact, factory)
     }
 
-    private fun PsiExpression.mhType(block: Block): MhType {
-        return resolveMhType(this, block)!! // TODO
+    private fun PsiExpression.mhType(block: Block): MhType? {
+        return resolveMhType(this, block)
+    }
+
+    private fun PsiExpression.mhTypeOrNoMatch(block: Block): MhType {
+        return this.mhType(block) ?: noMatch()
     }
 
     private fun methodHandleType(element: PsiElement): PsiClassType {
