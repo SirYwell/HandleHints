@@ -18,6 +18,15 @@ class MethodHandleElementVisitor : JavaRecursiveElementWalkingVisitor() {
         scanElement(initializer.body)
     }
 
+    override fun visitField(field: PsiField?) {
+        if (field == null) return
+        if (field.initializer == null) return
+        val factory = JavaPsiFacade.getElementFactory(field.project)
+        val fakeMethod = factory.createMethodFromText("void $$$$() { ${field.type.canonicalText} ${field.name} = ${field.initializer!!.text}; }", field)
+        scanElement(fakeMethod.body!!)
+        typeData[field] = typeData[fakeMethod.body!!.statements.first()] ?: return
+    }
+
     private fun scanElement(body: PsiElement) {
         val controlFlowFactory = ControlFlowFactory.getInstance(body.project)
         val controlFlow: ControlFlow
