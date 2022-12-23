@@ -80,9 +80,13 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
     private fun resolveMhType(expression: PsiExpression, block: Block): MhType? {
         if (expression is PsiMethodCallExpression) {
             val arguments = expression.argumentList.expressions.asList()
+            val methodExpression = expression.methodExpression
+            val qualifier = methodExpression.qualifierExpression
             if (receiverIsMethodType(expression)) {
                 return when (expression.methodName) {
                     "methodType" -> MethodTypeHelper.methodType(arguments.toPsiTypes() ?: return notConstant())
+                    "unwrap" -> MethodTypeHelper.unwrap(qualifier?.mhType(block) ?: noMatch())
+                    "wrap" -> MethodTypeHelper.wrap(expression, qualifier?.mhType(block) ?: noMatch())
                     "describeConstable",
                     "descriptorString",
                     "hasPrimitives",
@@ -108,7 +112,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
                     "asVarargsCollector" -> TODO()
                     "bindTo" -> {
                         if (arguments.size != 1) return noMatch()
-                        val target = expression.methodExpression.qualifierExpression ?: return noMatch()
+                        val target = qualifier ?: return noMatch()
                         val objectType = arguments[0].type ?: return notConstant()
                         MethodHandleTransformer.bindTo(target.mhTypeOrNoMatch(block), objectType)
                     }
