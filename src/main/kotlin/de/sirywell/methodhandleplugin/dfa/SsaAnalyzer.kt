@@ -14,8 +14,21 @@ import de.sirywell.methodhandleplugin.mhtype.*
 class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: TypeData) {
     companion object {
         private val LOG = Logger.getInstance(SsaAnalyzer::class.java)
+        private val objectMethods = setOf(
+            "clone",
+            "equals",
+            "finalize",
+            "getClass",
+            "hashCode",
+            "notify",
+            "notifyAll",
+            "toString",
+            "wait"
+        )
     }
+
     private val ssaConstruction = SsaConstruction<MhType>(controlFlow)
+
     @Suppress("UnstableApiUsage")
     private var commonDataflowCache: DataflowResult? = null
 
@@ -74,6 +87,18 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
             if (receiverIsMethodType(expression)) {
                 return when (expression.methodName) {
                     "methodType" -> MethodTypeHelper.methodType(arguments.toPsiTypes() ?: return notConstant())
+                    "describeConstable",
+                    "descriptorString",
+                    "hasPrimitives",
+                    "hasWrappers",
+                    "lastParameterType",
+                    "parameterArray",
+                    "parameterCount",
+                    "parameterList",
+                    "parameterType",
+                    "toMethodDescriptorString", -> noMethodHandle()
+
+                    in objectMethods -> noMethodHandle()
                     else -> warnUnsupported(expression, "MethodType")
                 }
             } else if (receiverIsMethodHandles(expression)) {
@@ -93,7 +118,12 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
                     }
 
                     "withVarargs" -> TODO()
-                    "invoke", "invokeExact", "invokeWithArguments" -> noMethodHandle()
+                    "describeConstable",
+                    "invoke",
+                    "invokeExact",
+                    "invokeWithArguments" -> noMethodHandle()
+
+                    in objectMethods -> noMethodHandle()
                     else -> warnUnsupported(expression, "MethodHandle")
                 }
             }
@@ -112,7 +142,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
         expression: PsiMethodCallExpression,
         arguments: List<PsiExpression>,
         block: Block
-    ): MhType {
+    ): MhType? {
         return when (expression.methodName) {
             "arrayConstructor" -> singleParameter(arguments, MethodHandlesInitializer::arrayConstructor)
             "arrayElementGetter" -> singleParameter(arguments, MethodHandlesInitializer::arrayElementGetter)
@@ -273,6 +303,16 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
             }
 
             "zero" -> singleParameter(arguments, MethodHandlesInitializer::zero)
+            "byteArrayViewVarHandle",
+            "byteBufferViewVarHandle",
+            "classData",
+            "classDataAt",
+            "lookup",
+            "privateLookupIn",
+            "publicLookup",
+            "reflectAs" -> noMethodHandle()
+
+            in objectMethods -> noMethodHandle()
             else -> warnUnsupported(expression, "MethodHandles")
         }
     }
