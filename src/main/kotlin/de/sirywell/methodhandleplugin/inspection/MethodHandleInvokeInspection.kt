@@ -43,7 +43,7 @@ class MethodHandleInvokeInspection: LocalInspectionTool() {
             ) {
                 problemsHolder.registerProblem(
                     expression.methodExpression as PsiExpression,
-                    MethodHandleBundle.message("problem.arguments.wrong.types",
+                    MethodHandleBundle.message("problem.invocation.arguments.wrong.types",
                         parameters.map { it.presentableText },
                         expression.argumentList.expressionTypes.map { it.presentableText }
                     ),
@@ -58,7 +58,7 @@ class MethodHandleInvokeInspection: LocalInspectionTool() {
                 if (returnType != PsiType.getJavaLangObject(expression.manager, expression.resolveScope)) {
                     problemsHolder.registerProblem(
                         expression.methodExpression as PsiExpression,
-                        MethodHandleBundle.message("problem.returnType.not.object", returnType.presentableText),
+                        MethodHandleBundle.message("problem.invocation.returnType.not.object", returnType.presentableText),
                         ProblemHighlightType.GENERIC_ERROR_OR_WARNING
                     )
                 }
@@ -68,7 +68,7 @@ class MethodHandleInvokeInspection: LocalInspectionTool() {
                     problemsHolder.registerProblem(
                         parent.castType!!,
                         MethodHandleBundle.message(
-                            "problem.returnType.wrong.cast",
+                            "problem.invocation.returnType.wrong.cast",
                             returnType.presentableText,
                             type.presentableText
                         ),
@@ -86,7 +86,7 @@ class MethodHandleInvokeInspection: LocalInspectionTool() {
                 problemsHolder.registerProblem(
                     expression.methodExpression as PsiExpression,
                     MethodHandleBundle.message(
-                        "problem.arguments.count",
+                        "problem.invocation.arguments.count",
                         parameters.size,
                         expression.argumentList.expressionCount
                     ),
