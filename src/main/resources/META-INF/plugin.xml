@@ -10,9 +10,15 @@
     <extensions defaultExtensionNs="com.intellij">
         <localInspection implementationClass="de.sirywell.methodhandleplugin.inspection.MethodHandleInvokeInspection"
                          bundle="messages.MethodHandleMessages"
-                         key="displayname.dataflow.analysis.methodhandle.invokation"
+                         key="displayname.dataflow.analysis.methodhandle.invocation"
                          groupPath="Java" groupKey="group.dataflow.analysis"
-                         shortName="DfaMethodHandles"
+                         shortName="MhInvocation"
+                         level="WARNING" enabledByDefault="true" language="JAVA"/>
+        <localInspection implementationClass="de.sirywell.methodhandleplugin.inspection.MethodHandleCreationInspection"
+                         bundle="messages.MethodHandleMessages"
+                         key="displayname.dataflow.analysis.methodhandle.creation"
+                         groupPath="Java" groupKey="group.dataflow.analysis"
+                         shortName="MhCreation"
                          level="WARNING" enabledByDefault="true" language="JAVA"/>
         <codeInsight.inlayProvider language="JAVA" implementationClass="de.sirywell.methodhandleplugin.MethodTypeInlayProvider"/>
     </extensions>

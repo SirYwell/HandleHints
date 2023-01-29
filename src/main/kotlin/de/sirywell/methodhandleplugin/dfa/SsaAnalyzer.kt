@@ -1,7 +1,5 @@
 package de.sirywell.methodhandleplugin.dfa
 
-import com.intellij.codeInspection.dataFlow.CommonDataflow
-import com.intellij.codeInspection.dataFlow.CommonDataflow.DataflowResult
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.psi.*
 import com.intellij.psi.controlFlow.ControlFlow
@@ -28,9 +26,6 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
     }
 
     private val ssaConstruction = SsaConstruction<MhType>(controlFlow)
-
-    @Suppress("UnstableApiUsage")
-    private var commonDataflowCache: DataflowResult? = null
 
     fun doTraversal() {
         ssaConstruction.traverse(::onRead, ::onWrite)
@@ -68,6 +63,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
             else -> TODO("Not supported: ${element.javaClass}")
         }
         val mhType = resolveMhType(expression, block)
+        mhType?.let { typeData[expression] = it }
         ssaConstruction.writeVariable(instruction.variable, block, Holder(mhType ?: Bot))
         if (mhType != null) {
             typeData[controlFlow.getElement(index)] = mhType
@@ -325,16 +321,6 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
         return Bot
     }
 
-    @Suppress("UnstableApiUsage")
-    private inline fun <reified T> PsiExpression.getConstantOfType(): T? {
-        if (commonDataflowCache == null) {
-            commonDataflowCache = CommonDataflow.getDataflowResult(this)
-        }
-        return commonDataflowCache
-            ?.getDfType(this)
-            ?.getConstantOfType(T::class.java)
-    }
-
     private fun List<PsiExpression>.toPsiTypes(): List<PsiType>? {
         return this.map { it.getConstantOfType<PsiType>() ?: return null }
     }
@@ -367,7 +353,9 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
     }
 
     private fun PsiExpression.mhType(block: Block): MhType? {
-        return resolveMhType(this, block)
+        val mhType = resolveMhType(this, block)
+        typeData[this] = mhType ?: return null
+        return mhType
     }
 
     private fun PsiExpression.mhTypeOrNoMatch(block: Block): MhType {

@@ -1,9 +1,7 @@
 package de.sirywell.methodhandleplugin
 
-import com.intellij.psi.PsiDeclarationStatement
-import com.intellij.psi.PsiJavaFile
-import com.intellij.psi.PsiMethodCallExpression
-import com.intellij.psi.PsiVariable
+import com.intellij.codeInspection.dataFlow.CommonDataflow
+import com.intellij.psi.*
 
 val PsiMethodCallExpression.methodName
     get() = this.methodExpression.referenceName
@@ -26,4 +24,11 @@ fun PsiDeclarationStatement.getVariable(): PsiVariable? {
     if (this.declaredElements.isEmpty()) return null
     val element = this.declaredElements[0]
     return element as? PsiVariable
+}
+
+@Suppress("UnstableApiUsage")
+inline fun <reified T> PsiExpression.getConstantOfType(): T? {
+    return CommonDataflow.getDataflowResult(this)
+        ?.getDfType(this)
+        ?.getConstantOfType(T::class.java)
 }
