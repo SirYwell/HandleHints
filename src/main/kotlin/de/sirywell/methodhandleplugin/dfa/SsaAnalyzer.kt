@@ -1,7 +1,5 @@
 package de.sirywell.methodhandleplugin.dfa
 
-import com.intellij.codeInspection.dataFlow.CommonDataflow
-import com.intellij.codeInspection.dataFlow.CommonDataflow.DataflowResult
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.psi.*
 import com.intellij.psi.controlFlow.ControlFlow
@@ -28,9 +26,6 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
     }
 
     private val ssaConstruction = SsaConstruction<MhType>(controlFlow)
-
-    @Suppress("UnstableApiUsage")
-    private var commonDataflowCache: DataflowResult? = null
 
     fun doTraversal() {
         ssaConstruction.traverse(::onRead, ::onWrite)
