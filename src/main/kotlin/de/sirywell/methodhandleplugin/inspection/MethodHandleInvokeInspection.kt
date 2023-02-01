@@ -1,9 +1,15 @@
 package de.sirywell.methodhandleplugin.inspection
 
-import com.intellij.codeInspection.LocalInspectionTool
-import com.intellij.codeInspection.ProblemHighlightType
-import com.intellij.codeInspection.ProblemsHolder
+import com.intellij.codeInsight.daemon.impl.quickfix.AddTypeCastFix
+import com.intellij.codeInsight.intention.FileModifier.SafeFieldForPreview
+import com.intellij.codeInspection.*
+import com.intellij.lang.LanguageRefactoringSupport
+import com.intellij.lang.java.JavaLanguage
+import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.project.Project
 import com.intellij.psi.*
+import com.intellij.psi.util.childrenOfType
+import com.intellij.refactoring.introduceVariable.JavaIntroduceVariableHandlerBase
 import de.sirywell.methodhandleplugin.MethodHandleBundle
 import de.sirywell.methodhandleplugin.TypeData
 import de.sirywell.methodhandleplugin.methodName
@@ -54,12 +60,21 @@ class MethodHandleInvokeInspection: LocalInspectionTool() {
 
         private fun checkReturnType(returnType: PsiType, expression: PsiMethodCallExpression) {
             val parent = expression.parent
-            if (parent !is PsiTypeCastExpression) {
+            if (parent is PsiExpressionStatement && returnType != PsiType.VOID) {
+                problemsHolder.registerProblem(
+                    expression,
+                    MethodHandleBundle.message("problem.invocation.returnType.not.void", returnType.presentableText),
+                    ProblemHighlightType.GENERIC_ERROR_OR_WARNING,
+                    ReturnTypeInStatementFix(returnType)
+                )
+            } else if (parent !is PsiTypeCastExpression) {
                 if (returnType != PsiType.getJavaLangObject(expression.manager, expression.resolveScope)) {
                     problemsHolder.registerProblem(
                         expression.methodExpression as PsiExpression,
                         MethodHandleBundle.message("problem.invocation.returnType.not.object", returnType.presentableText),
-                        ProblemHighlightType.GENERIC_ERROR_OR_WARNING
+                        ProblemHighlightType.GENERIC_ERROR_OR_WARNING,
+                        AddTypeCastFix(returnType, expression),
+                        ReplaceMethodCallFix("invoke")
                     )
                 }
             } else {
@@ -94,5 +109,24 @@ class MethodHandleInvokeInspection: LocalInspectionTool() {
                 )
             }
         }
+    }
+
+    class ReturnTypeInStatementFix(@SafeFieldForPreview private val returnType: PsiType) : LocalQuickFix {
+        override fun getFamilyName() = MethodHandleBundle.message("problem.invocation.returnType.fix.introduce.variable")
+
+        override fun applyFix(project: Project, descriptor: ProblemDescriptor) {
+            var expr = descriptor.psiElement as PsiExpression
+            val parent = expr.parent
+            if (returnType != PsiType.getJavaLangObject(expr.manager, expr.resolveScope)) {
+                AddTypeCastFix.addTypeCast(expr.project, expr, returnType)
+                // sadly, addTypeCast does not return the replacement,
+                // so we need to find it ourselves
+                expr = parent.childrenOfType<PsiTypeCastExpression>().first()
+            }
+            val supportProvider = LanguageRefactoringSupport.INSTANCE.forLanguage(JavaLanguage.INSTANCE)
+            val handler = supportProvider.introduceVariableHandler as JavaIntroduceVariableHandlerBase
+            handler(project, FileEditorManager.getInstance(project).selectedTextEditor, expr)
+        }
+
     }
 }
