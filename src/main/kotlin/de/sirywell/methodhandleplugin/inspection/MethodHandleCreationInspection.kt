@@ -35,7 +35,7 @@ class MethodHandleCreationInspection: LocalInspectionTool() {
                 problemsHolder.registerProblem(
                     expression.methodExpression as PsiExpression,
                     MethodHandleBundle.message("problem.invocation.arguments.wrong.types",
-                        parameters.map { it.presentableText },
+                        type.signature.parameters.map { it.presentableText },
                         expression.argumentList.expressionTypes.map { it.presentableText }
                     ),
                     ProblemHighlightType.GENERIC_ERROR_OR_WARNING
