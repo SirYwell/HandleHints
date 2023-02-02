@@ -128,5 +128,8 @@ class MethodHandleInvokeInspection: LocalInspectionTool() {
             handler(project, FileEditorManager.getInstance(project).selectedTextEditor, expr)
         }
 
+        // Disable preview for now, as it throws exceptions in its current state
+        override fun getFileModifierForPreview(target: PsiFile) = null
+
     }
 }

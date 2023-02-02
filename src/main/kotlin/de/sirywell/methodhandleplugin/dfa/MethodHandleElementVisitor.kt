@@ -9,13 +9,12 @@ import javax.swing.SwingUtilities
 
 class MethodHandleElementVisitor : JavaRecursiveElementWalkingVisitor() {
     private val typeData = TypeData()
-    override fun visitMethod(method: PsiMethod?) {
-        if (method == null || method.body == null) return
+    override fun visitMethod(method: PsiMethod) {
+        if (method.body == null) return
         scanElement(method.body!!)
     }
 
-    override fun visitClassInitializer(initializer: PsiClassInitializer?) {
-        if (initializer == null) return
+    override fun visitClassInitializer(initializer: PsiClassInitializer) {
         scanElement(initializer.body)
     }
 
