@@ -84,7 +84,14 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
             val qualifier = methodExpression.qualifierExpression
             if (receiverIsMethodType(expression)) {
                 return when (expression.methodName) {
-                    "methodType" -> MethodTypeHelper.methodType(arguments.toPsiTypes() ?: return notConstant())
+                    "methodType" -> {
+                        if (arguments.isEmpty()) return noMatch()
+                        if (arguments.size == 2 && arguments[1].type == methodTypeType(expression)) {
+                            MethodTypeHelper.methodType(arguments[0], arguments[1].mhType(block) ?: return notConstant())
+                        } else {
+                            MethodTypeHelper.methodType(arguments)
+                        }
+                    }
                     "unwrap" -> MethodTypeHelper.unwrap(qualifier?.mhType(block) ?: return noMatch())
                     "wrap" -> MethodTypeHelper.wrap(expression, qualifier?.mhType(block) ?: return noMatch())
                     "dropParameterTypes" -> {
@@ -93,6 +100,45 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
                         val (start, end) = arguments
                         MethodTypeHelper.dropParameterTypes(mhType, start, end)
                     }
+
+                    "insertParameterTypes" -> {
+                        val mhType = qualifier?.mhType(block) ?: return noMatch()
+                        if (arguments.isEmpty()) return noMatch()
+                        MethodTypeHelper.insertParameterTypes(mhType, arguments[0], arguments.drop(1))
+                    }
+
+                    "changeParameterType" -> {
+                        val mhType = qualifier?.mhType(block) ?: return noMatch()
+                        if (arguments.size != 2) return noMatch()
+                        val (num, type) = arguments
+                        MethodTypeHelper.changeParameterType(mhType, num, type)
+                    }
+
+                    "changeReturnType" -> {
+                        val mhType = qualifier?.mhType(block) ?: return noMatch()
+                        if (arguments.size != 1) return noMatch()
+                        val type = arguments[0]
+                        MethodTypeHelper.changeReturnType(mhType, type)
+                    }
+
+                    "appendParameterTypes" ->
+                        MethodTypeHelper.appendParameterTypes(qualifier?.mhType(block) ?: return noMatch(), arguments)
+
+                    "erase" ->
+                        MethodTypeHelper.erase(qualifier?.mhType(block) ?: return noMatch(), objectType(expression))
+
+                    "generic" ->
+                        MethodTypeHelper.generic(qualifier?.mhType(block) ?: return noMatch(), objectType(expression))
+
+                    "genericMethodType" -> {
+                        val size = arguments.size
+                        if (size != 1 && arguments.size != 2) return noMatch()
+                        val finalArray = if (size == 1) false else arguments[1].getConstantOfType<Boolean>() ?: return notConstant()
+                        MethodTypeHelper.genericMethodType(arguments[0], finalArray, objectType(expression))
+                    }
+
+                    "fromMethodDescriptorString" -> notConstant() // not supported
+
                     "describeConstable",
                     "descriptorString",
                     "hasPrimitives",
@@ -102,7 +148,8 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
                     "parameterCount",
                     "parameterList",
                     "parameterType",
-                    "toMethodDescriptorString", -> noMethodHandle()
+                    "toMethodDescriptorString",
+                    -> noMethodHandle()
 
                     in objectMethods -> noMethodHandle()
                     else -> warnUnsupported(expression, "MethodType")
@@ -173,7 +220,6 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
             "constant" -> {
                 if (arguments.size != 2) return noMatch()
                 val type = arguments[0].getConstantOfType<PsiType>() ?: return notConstant()
-                // TODO warn if value is incompatible with type?
                 MethodHandlesInitializer.constant(type)
             }
 
