@@ -15,8 +15,29 @@ import de.sirywell.methodhandleplugin.TypeData
 import de.sirywell.methodhandleplugin.methodName
 import de.sirywell.methodhandleplugin.mhtype.MhSingleType
 import de.sirywell.methodhandleplugin.receiverIsMethodHandle
+import java.lang.invoke.MethodHandle
+import java.lang.invoke.MethodHandles
+import java.lang.invoke.MethodType
 
 class MethodHandleInvokeInspection: LocalInspectionTool() {
+
+    companion object {
+        private val REPLACE_METHOD_CALL_CTOR: MethodHandle by lazy {
+            val lookup = MethodHandles.lookup()
+            val ctorType = MethodType.methodType(Void.TYPE, String::class.java)
+            try {
+                val clazz = Class.forName("com.intellij.codeInspection.ReplaceMethodCallFix")
+                lookup.findConstructor(clazz, ctorType)
+            } catch (ex: Exception) {
+                val clazz = Class.forName("com.intellij.codeInspection.fix.ReplaceMethodCallFix")
+                lookup.findConstructor(clazz, ctorType)
+            }
+        }
+
+        private fun createReplaceMethodCallFix(methodName: String): LocalQuickFix {
+            return REPLACE_METHOD_CALL_CTOR.invoke(methodName) as LocalQuickFix
+        }
+    }
 
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
         return Visitor(holder)
@@ -74,7 +95,7 @@ class MethodHandleInvokeInspection: LocalInspectionTool() {
                         MethodHandleBundle.message("problem.invocation.returnType.not.object", returnType.presentableText),
                         ProblemHighlightType.GENERIC_ERROR_OR_WARNING,
                         AddTypeCastFix(returnType, expression),
-                        ReplaceMethodCallFix("invoke")
+                        createReplaceMethodCallFix("invoke")
                     )
                 }
             } else {
