@@ -6,6 +6,7 @@ import com.intellij.psi.PsiPrimitiveType
 import com.intellij.psi.PsiType
 import de.sirywell.methodhandleplugin.MHS
 import de.sirywell.methodhandleplugin.MethodHandleSignature.Companion.create
+import de.sirywell.methodhandleplugin.getConstantOfType
 
 object MethodTypeHelper {
 
@@ -15,13 +16,25 @@ object MethodTypeHelper {
 
     fun changeReturnType(mhType: MhType, num: PsiExpression, nptype: PsiExpression): MhType = TODO()
 
-    fun dropParameterTypes(mhType: MhType, start: PsiExpression, end: PsiExpression): MhType = TODO()
-
+    fun dropParameterTypes(mhType: MhType, start: PsiExpression, end: PsiExpression): MhType {
+        if (mhType !is MhSingleType) return mhType
+        val startIndex = start.getConstantOfType<Int>() ?: return Bot
+        val endIndex = end.getConstantOfType<Int>() ?: return Bot
+        val parameters = mhType.signature.parameters
+        if (invalidRange(parameters.size, startIndex, endIndex)) return Top // TODO inspection
+        val mutable = parameters.toMutableList()
+        mutable.subList(startIndex, endIndex).clear()
+        return mhType.withSignature(mhType.signature.withParameters(mutable.toList()))
+    }
     fun erase(mhType: MhType): MhType = TODO()
 
     fun generic(mhType: MhType, objectArgCount: PsiExpression, finalArray: PsiExpression? = null): MhType = TODO()
 
     fun insertParameterTypes(num: PsiExpression, ptypesToInsert: List<PsiExpression>): MhType = TODO()
+
+    private fun invalidRange(parametersSize: Int, start: Int, end: Int): Boolean {
+        return start < 0 || start > parametersSize || end < 0 || end > parametersSize || start > end
+    }
 
     fun methodType(args: List<PsiType> = listOf()): MhType {
         if (args.isEmpty()) return Bot

@@ -85,8 +85,14 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
             if (receiverIsMethodType(expression)) {
                 return when (expression.methodName) {
                     "methodType" -> MethodTypeHelper.methodType(arguments.toPsiTypes() ?: return notConstant())
-                    "unwrap" -> MethodTypeHelper.unwrap(qualifier?.mhType(block) ?: noMatch())
-                    "wrap" -> MethodTypeHelper.wrap(expression, qualifier?.mhType(block) ?: noMatch())
+                    "unwrap" -> MethodTypeHelper.unwrap(qualifier?.mhType(block) ?: return noMatch())
+                    "wrap" -> MethodTypeHelper.wrap(expression, qualifier?.mhType(block) ?: return noMatch())
+                    "dropParameterTypes" -> {
+                        val mhType = qualifier?.mhType(block) ?: return noMatch()
+                        if (arguments.size != 2) return noMatch()
+                        val (start, end) = arguments
+                        MethodTypeHelper.dropParameterTypes(mhType, start, end)
+                    }
                     "describeConstable",
                     "descriptorString",
                     "hasPrimitives",
