@@ -1,6 +1,7 @@
 package de.sirywell.methodhandleplugin.dfa
 
 import com.intellij.codeInsight.hints.ParameterHintsPassFactory
+import com.intellij.lang.jvm.JvmModifier
 import com.intellij.psi.*
 import com.intellij.psi.controlFlow.*
 import com.intellij.psi.util.PsiEditorUtilBase
@@ -19,12 +20,13 @@ class MethodHandleElementVisitor : JavaRecursiveElementWalkingVisitor() {
     }
 
     override fun visitField(field: PsiField?) {
-        if (field == null) return
-        if (field.initializer == null) return
+        if (field == null || !field.hasModifier(JvmModifier.FINAL)) return
+        val initializer = field.initializer ?: return
         val factory = JavaPsiFacade.getElementFactory(field.project)
-        val fakeMethod = factory.createMethodFromText("void $$$$() { ${field.type.canonicalText} ${field.name} = ${field.initializer!!.text}; }", field)
-        scanElement(fakeMethod.body!!)
-        typeData[field] = typeData[fakeMethod.body!!.statements.first()] ?: return
+        val fakeMethod = factory.createMethodFromText("void $$$$() { ${field.type.canonicalText} ${field.name} = ${initializer.text}; }", field)
+        val body = fakeMethod.body!!
+        scanElement(body)
+        typeData[field] = typeData[body.statements.first()] ?: return
     }
 
     private fun scanElement(body: PsiElement) {

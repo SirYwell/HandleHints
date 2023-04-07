@@ -190,7 +190,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
                 return lookup(expression, arguments, block)
             }
         } else if (expression is PsiReferenceExpression) {
-            val variable = expression.resolve() as PsiVariable
+            val variable = expression.resolve() as? PsiVariable ?: return noMatch()
             val value = ssaConstruction.readVariable(variable, block)
             if (value is Holder) {
                 return value.value
