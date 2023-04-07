@@ -14,6 +14,10 @@ import java.util.*
 // https://compilers.cs.uni-saarland.de/papers/bbhlmz13cc.pdf
 // (but for now, without trivial phi removal)
 class SsaConstruction<T>(private val controlFlow: ControlFlow) {
+
+    companion object {
+        private val ENTRY_BLOCK = Block(listOf())
+    }
     private val currentDefs = mutableMapOf<PsiVariable, MutableMap<Block, Value<T>>>()
     private val sealedBlocks = mutableSetOf<Block>()
     private val incompletePhis = mutableMapOf<Block, MutableMap<PsiVariable, Phi<T>>>()
@@ -62,6 +66,9 @@ class SsaConstruction<T>(private val controlFlow: ControlFlow) {
             builder.addNode(blocks.first())
             return builder.build()
         }
+
+        // ensure there is a block with inDegree == 0
+        builder.putEdge(ENTRY_BLOCK, instructionToBlock[0])
 
         for (edge in ControlFlowUtil.getEdges(controlFlow, 0)) {
             if (edge.myTo >= controlFlow.size) {
