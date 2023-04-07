@@ -19,9 +19,11 @@ class MethodHandleElementVisitor : JavaRecursiveElementWalkingVisitor() {
         scanElement(initializer.body)
     }
 
-    override fun visitField(field: PsiField?) {
-        if (field == null || !field.hasModifier(JvmModifier.FINAL)) return
+    override fun visitField(field: PsiField) {
+        if (!field.hasModifier(JvmModifier.FINAL)) return
         val initializer = field.initializer ?: return
+        scanElement(field)
+        if (true) return
         val factory = JavaPsiFacade.getElementFactory(field.project)
         val fakeMethod = factory.createMethodFromText("void $$$$() { ${field.type.canonicalText} ${field.name} = ${initializer.text}; }", field)
         val body = fakeMethod.body!!
@@ -30,19 +32,26 @@ class MethodHandleElementVisitor : JavaRecursiveElementWalkingVisitor() {
     }
 
     private fun scanElement(body: PsiElement) {
-        val controlFlowFactory = ControlFlowFactory.getInstance(body.project)
-        val controlFlow: ControlFlow
-        try {
-            controlFlow = controlFlowFactory.getControlFlow(body, AllVariablesControlFlowPolicy.getInstance())
-        } catch (_: AnalysisCanceledException) {
-            return // stop
-        }
+        val controlFlow = buildControlFlow(body) ?: return
+        applyAnalysis(controlFlow, body)
+    }
+
+    private fun applyAnalysis(controlFlow: ControlFlow, body: PsiElement) {
         SsaAnalyzer(controlFlow, typeData).doTraversal()
         SwingUtilities.invokeLater {
             PsiEditorUtilBase.findEditorByPsiElement(body.parent)?.let {
                 @Suppress("UnstableApiUsage")
                 ParameterHintsPassFactory.forceHintsUpdateOnNextPass(it)
             }
+        }
+    }
+
+    private fun buildControlFlow(body: PsiElement): ControlFlow? {
+        val controlFlowFactory = ControlFlowFactory.getInstance(body.project)
+        return try {
+            controlFlowFactory.getControlFlow(body, AllVariablesControlFlowPolicy.getInstance())
+        } catch (_: AnalysisCanceledException) {
+            null// stop
         }
     }
 

@@ -62,6 +62,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
         val expression = when (val element = controlFlow.getElement(index)) {
             is PsiAssignmentExpression -> element.rExpression!!
             is PsiDeclarationStatement -> instruction.variable.initializer!!
+            is PsiField -> element.initializer!!
             else -> TODO("Not supported: ${element.javaClass}")
         }
         val mhType = typeData[expression] ?: resolveMhType(expression, block)
