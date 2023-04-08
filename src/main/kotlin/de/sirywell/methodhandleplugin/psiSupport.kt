@@ -20,6 +20,8 @@ fun receiverIsMethodHandles(element: PsiMethodCallExpression) =
 
 fun receiverIsMethodType(element: PsiMethodCallExpression) = receiverIsInvokeClass(element, "MethodType")
 
+fun receiverIsLookup(element: PsiMethodCallExpression) = receiverIsInvokeClass(element, "MethodHandles.Lookup")
+
 fun PsiDeclarationStatement.getVariable(): PsiVariable? {
     if (this.declaredElements.isEmpty()) return null
     val element = this.declaredElements[0]
