@@ -87,11 +87,15 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
                     "methodType" -> {
                         if (arguments.isEmpty()) return noMatch()
                         if (arguments.size == 2 && arguments[1].type == methodTypeType(expression)) {
-                            MethodTypeHelper.methodType(arguments[0], arguments[1].mhType(block) ?: return notConstant())
+                            MethodTypeHelper.methodType(
+                                arguments[0],
+                                arguments[1].mhType(block) ?: return notConstant()
+                            )
                         } else {
                             MethodTypeHelper.methodType(arguments)
                         }
                     }
+
                     "unwrap" -> MethodTypeHelper.unwrap(qualifier?.mhType(block) ?: return noMatch())
                     "wrap" -> MethodTypeHelper.wrap(expression, qualifier?.mhType(block) ?: return noMatch())
                     "dropParameterTypes" -> {
@@ -133,7 +137,8 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
                     "genericMethodType" -> {
                         val size = arguments.size
                         if (size != 1 && arguments.size != 2) return noMatch()
-                        val finalArray = if (size == 1) false else arguments[1].getConstantOfType<Boolean>() ?: return notConstant()
+                        val finalArray =
+                            if (size == 1) false else arguments[1].getConstantOfType<Boolean>() ?: return notConstant()
                         MethodTypeHelper.genericMethodType(arguments[0], finalArray, objectType(expression))
                     }
 
@@ -179,6 +184,8 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
                     in objectMethods -> noMethodHandle()
                     else -> warnUnsupported(expression, "MethodHandle")
                 }
+            } else if (receiverIsLookup(expression)) {
+                return lookup(expression, arguments, block)
             }
         } else if (expression is PsiReferenceExpression) {
             val value = ssaConstruction.readVariable(expression.resolve() as PsiVariable, block)
@@ -187,6 +194,79 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
             }
         }
         return noMatch()
+    }
+
+    private fun lookup(
+        expression: PsiMethodCallExpression,
+        arguments: List<PsiExpression>,
+        block: Block
+    ): MhType? {
+        return when (expression.methodName) {
+            "findConstructor" -> {
+                if (arguments.size != 2) return noMatch()
+                val mhType = arguments[1].mhType(block) ?: return notConstant()
+                LookupHelper.findConstructor(arguments[0], mhType)
+            }
+
+            "findGetter" -> findAccessor(arguments, LookupHelper::findGetter)
+            "findSetter" -> findAccessor(arguments, LookupHelper::findSetter)
+            "findSpecial" -> {
+                if (arguments.size != 4) return noMatch()
+                val (refc, _, type, specialCaller) = arguments
+                val t = type.mhType(block) ?: return notConstant()
+                LookupHelper.findSpecial(refc, t, specialCaller)
+            }
+
+            "findStatic" -> {
+                if (arguments.size != 3) return noMatch()
+                val (_, _, type) = arguments
+                val t = type.mhType(block) ?: return notConstant()
+                LookupHelper.findStatic(t)
+            }
+
+            "findStaticGetter" -> findAccessor(arguments, LookupHelper::findStaticGetter)
+            "findStaticSetter" -> findAccessor(arguments, LookupHelper::findStaticSetter)
+            "findVirtual" -> {
+                if (arguments.size != 3) return noMatch()
+                val (refc, _, type) = arguments
+                val t = type.mhType(block) ?: return notConstant()
+                LookupHelper.findVirtual(refc, t)
+            }
+
+            "accessClass",
+            "defineClass",
+            "defineHiddenClass",
+            "defineHiddenClassWithClassData",
+            "dropLookupMode",
+            "ensureInitialized",
+            "findClass",
+            "findStaticVarHandle",
+            "findVarHandle",
+            "hasFullPrivilegeAccess",
+            "hasPrivateAccess",
+            "in",
+            "lookupClass",
+            "previousLookupClass",
+            "revealDirect",
+            "unreflect",
+            "unreflectConstructor",
+            "unreflectGetter",
+            "unreflectSetter",
+            "unreflectSpecial",
+            "unreflectVarHandle"
+            -> noMethodHandle()
+            in objectMethods -> noMethodHandle()
+            else -> warnUnsupported(expression, "MethodHandles.Lookup")
+        }
+    }
+
+    private fun findAccessor(
+        arguments: List<PsiExpression>,
+        resolver: (PsiExpression, PsiExpression) -> MhType
+    ): MhType {
+        if (arguments.size != 3) return noMatch()
+        val (refc, _, type) = arguments
+        return resolver(refc, type)
     }
 
     private fun noMethodHandle(): MhType? = null
