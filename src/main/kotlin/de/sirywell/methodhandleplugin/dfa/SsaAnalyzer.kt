@@ -62,7 +62,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
             is PsiDeclarationStatement -> instruction.variable.initializer!!
             else -> TODO("Not supported: ${element.javaClass}")
         }
-        val mhType = resolveMhType(expression, block)
+        val mhType = typeData[expression] ?: resolveMhType(expression, block)
         mhType?.let { typeData[expression] = it }
         ssaConstruction.writeVariable(instruction.variable, block, Holder(mhType ?: Bot))
         if (mhType != null) {
