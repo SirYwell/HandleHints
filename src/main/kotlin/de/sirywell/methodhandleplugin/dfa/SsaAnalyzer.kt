@@ -33,7 +33,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
 
     private fun onRead(instruction: ReadVariableInstruction, index: Int, block: Block) {
         if (isUnrelated(instruction.variable)) return
-        val value = ssaConstruction.readVariable(instruction.variable, block) ?: return
+        val value = ssaConstruction.readVariable(instruction.variable, block)
         if (value is Holder) {
             typeData[controlFlow.getElement(index)] = value.value
         } else if (value is Phi) {
@@ -41,6 +41,8 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
                 .flatMap { if (it is Holder) listOf(it.value) else resolvePhi(it as Phi) }
                 .reduce { acc, mhType -> acc.join(mhType) }
             typeData[controlFlow.getElement(index)] = type
+        } else {
+            typeData[controlFlow.getElement(index)] = typeData[instruction.variable] ?: return
         }
     }
 
@@ -60,6 +62,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
         val expression = when (val element = controlFlow.getElement(index)) {
             is PsiAssignmentExpression -> element.rExpression!!
             is PsiDeclarationStatement -> instruction.variable.initializer!!
+            is PsiField -> element.initializer!!
             else -> TODO("Not supported: ${element.javaClass}")
         }
         val mhType = typeData[expression] ?: resolveMhType(expression, block)
@@ -188,9 +191,12 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
                 return lookup(expression, arguments, block)
             }
         } else if (expression is PsiReferenceExpression) {
-            val value = ssaConstruction.readVariable(expression.resolve() as PsiVariable, block)
+            val variable = expression.resolve() as? PsiVariable ?: return noMatch()
+            val value = ssaConstruction.readVariable(variable, block)
             if (value is Holder) {
                 return value.value
+            } else if (variable is PsiField) {
+                return typeData[variable] ?: noMatch()
             }
         }
         return noMatch()
