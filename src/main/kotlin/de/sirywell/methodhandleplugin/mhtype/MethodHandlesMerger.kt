@@ -172,7 +172,7 @@ object MethodHandlesMerger {
         }
         val listStart = subListStart(targetSignature.parameters, sub) ?: return Top
         val newParameters = targetSignature.parameters.toMutableList()
-        if (combinerIsVoid) {
+        if (!combinerIsVoid) {
             newParameters.removeAt(listStart)
         }
         return constructCompatibleType(targetSignature.withParameters(newParameters), target, combiner)
