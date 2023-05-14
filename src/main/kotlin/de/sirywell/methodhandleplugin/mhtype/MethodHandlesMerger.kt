@@ -5,6 +5,7 @@ import de.sirywell.methodhandleplugin.subList
 import com.intellij.psi.PsiType
 import com.intellij.psi.PsiType.BOOLEAN
 import com.intellij.psi.PsiType.VOID
+import de.sirywell.methodhandleplugin.effectivelyIdenticalTo
 
 /**
  * Contains methods to merge multiple [MhType]s into a new one,
@@ -20,57 +21,69 @@ object MethodHandlesMerger {
         if (anyBot(target, filter)) return Bot
         if (target !is MhSingleType) return target
         if (filter !is MhSingleType) return Top
-        val parameters = target.signature.parameters.toMutableList()
+        val parameters = target.parameters.toMutableList()
         if (pos >= parameters.size) return Top
-        if (filter.signature.returnType != VOID) {
+        if (filter.returnType != VOID) {
             // the return type of the filter must match the replaced type
-            if (parameters[pos] != filter.signature.returnType) {
+            if (parameters[pos] != filter.returnType) {
                 return Top
             }
             // the return value of filter will be passed to target at pos
             parameters.removeAt(pos)
         }
-        val filterParameters = filter.signature.parameters
+        val filterParameters = filter.parameters
         parameters.addAll(pos, filterParameters)
         return constructCompatibleType(target.signature.withParameters(parameters), target, filter)
     }
 
     // fun collectCoordinates() no VarHandle support, preview
 
-    fun countedLoop(iterations: MhType, init: MhType, body: MhType): MhType {
-        if (anyBot(iterations, init, body)) return Bot
+    fun countedLoop(iterations: MhType, init: MhType?, body: MhType): MhType {
+        if (init is Bot) return Bot
+        if (anyBot(iterations, body)) return Bot
         if (iterations !is MhSingleType) return Top
-        if (init !is MhSingleType) return Top
+        if (init != null && init !is MhSingleType) return Top
         if (body !is MhSingleType) return Top
-        if (iterations.signature.returnType != PsiType.INT) return Top
-        if (iterations.signature.parameters != init.signature.parameters) return Top
-        if (init.signature.returnType != body.signature.returnType) return Top
-        if (body.signature.returnType == VOID) {
+        if (iterations.returnType != PsiType.INT) return Top
+        val externalParameters: List<PsiType>
+        val internalParameters = body.parameters
+        val returnType = body.returnType
+        if (init != null && (init as MhSingleType).returnType != returnType) return Top
+        if (returnType == VOID) {
             // (I A...)
-            val parameters = body.signature.parameters
-            val size = parameters.size
-            // (I)
-            if (size >= 1 && parameters[0] != PsiType.INT) return Top
-            // for (I A...), A... must match signature of init
-            if (size >= 2 && parameters.subList(1, parameters.size) != init.signature.parameters) return Top
+            val size = internalParameters.size
+            if (internalParameters.isEmpty() || internalParameters[0] != PsiType.INT) return Top
+            externalParameters = if (size != 1) {
+                internalParameters.subList(1)
+            } else {
+                iterations.parameters
+            }
         } else {
             // (V I A...)
-            val parameters = body.signature.parameters
-            val size = parameters.size
-            // (V I)
-            if (size >= 2 && (parameters[0] != init.signature.returnType || parameters[1] != PsiType.INT)) return Top
-            // for (V I A...), A... must match signature of init
-            if (size >= 3 && parameters.subList(2, parameters.size) != init.signature.parameters) return Top
+            val size = internalParameters.size
+            if (size < 2 || (internalParameters[0] != returnType || internalParameters[1] != PsiType.INT)) return Top
+            externalParameters = if (size != 2) {
+                internalParameters.subList(2)
+            } else {
+                iterations.parameters
+            }
         }
+        if (init != null && !(init as MhSingleType).parameters.effectivelyIdenticalTo(externalParameters)) return Top
+        if (!iterations.parameters.effectivelyIdenticalTo(externalParameters)) return Top
         // this might not be very precise
-        return constructCompatibleType(init.signature, body, init, iterations)
+        return if (init is MhSingleType) {
+            constructCompatibleType(init.signature, body, init, iterations)
+        } else {
+            constructCompatibleType(iterations.signature.withReturnType(body.returnType), body, iterations)
+        }
     }
 
-    fun countedLoop(start: MhType, end: MhType, init: MhType, body: MhType): MhType {
-        if (anyBot(start, end, init, body)) return Bot
+    fun countedLoop(start: MhType, end: MhType, init: MhType?, body: MhType): MhType {
+        if (init is Bot) return Bot
+        if (anyBot(start, end, body)) return Bot
         if (start !is MhSingleType) return Top
         if (end !is MhSingleType) return Top
-        if (start.signature != end.signature) return Top
+        if (start.returnType != end.returnType || start.parameters.effectivelyIdenticalTo(end.parameters)) return Top
         // types otherwise must be equal to countedLoop(iterations, init, body)
         return countedLoop(start, init, body)
     }
@@ -80,16 +93,16 @@ object MethodHandlesMerger {
         if (init !is MhSingleType) return Top
         if (body !is MhSingleType) return Top
         if (pred !is MhSingleType) return Top
-        if (pred.signature.returnType != BOOLEAN) return Top
-        val internalParams = body.signature.parameters
-        if (internalParams != pred.signature.parameters) return Top
-        if (init.signature.returnType != body.signature.returnType) return Top
-        if (body.signature.returnType == VOID) {
+        if (pred.returnType != BOOLEAN) return Top
+        val internalParams = body.parameters
+        if (internalParams != pred.parameters) return Top
+        if (init.returnType != body.returnType) return Top
+        if (body.returnType == VOID) {
             if (init.signature != body.signature) return Top
         } else {
             if (internalParams.isEmpty()) return Top
-            if (internalParams[0] != body.signature.returnType) return Top
-            if (init.signature.parameters != internalParams.subList(1, internalParams.size)) return Top
+            if (internalParams[0] != body.returnType) return Top
+            if (init.parameters != internalParams.subList(1, internalParams.size)) return Top
         }
         return constructCompatibleType(init.signature, init, body, pred)
     }
@@ -119,7 +132,7 @@ object MethodHandlesMerger {
         if (anyBot(target, newType)) return Bot
         if (target !is MhSingleType) return Top
         if (newType !is MhSingleType) return Top
-        if (target.signature.parameters.size != newType.signature.parameters.size) return Top
+        if (target.parameters.size != newType.parameters.size) return Top
         return newType
     }
 
@@ -131,15 +144,15 @@ object MethodHandlesMerger {
         if (pos + filters.size > targetSignature.parameters.size) return Top
         val filtersCast = filters.map { it as MhSingleType }
         // filters must be unary operators T1 -> T2
-        if (filtersCast.any { it.signature.parameters.size != 1 }) return Top
+        if (filtersCast.any { it.parameters.size != 1 }) return Top
         // return type of filters[i] must be type of targetParameters[i + pos]
         if (targetSignature.parameters.subList(pos)
             .zip(filtersCast)
-            .any { (psiType, mhType) -> psiType != mhType.signature.returnType })
+            .any { (psiType, mhType) -> psiType != mhType.returnType })
             return Top
         // replace parameter types in range of [pos, pos + filters.size)
         val result = targetSignature.parameters.mapIndexed { index, psiType ->
-            if (index >= pos && index - pos < filters.size) filtersCast[index - pos].signature.parameters[0]
+            if (index >= pos && index - pos < filters.size) filtersCast[index - pos].parameters[0]
             else psiType
         }
         return constructCompatibleType(targetSignature.withParameters(result), target, *filtersCast.toTypedArray())
@@ -150,9 +163,9 @@ object MethodHandlesMerger {
     fun filterReturnValue(target: MhType, filter: MhType): MhType {
         if (anyBot(target, filter)) return Bot
         if (target !is MhSingleType) return Top
-        if (filter !is MhSingleType || filter.signature.parameters.size != 1) return Top
-        if (target.signature.returnType != filter.signature.parameters[0]) return Top
-        return constructCompatibleType(target.signature.withReturnType(filter.signature.returnType), target, filter)
+        if (filter !is MhSingleType || filter.parameters.size != 1) return Top
+        if (target.returnType != filter.parameters[0]) return Top
+        return constructCompatibleType(target.signature.withReturnType(filter.returnType), target, filter)
     }
 
     // filterValue() no VarHandle support, preview
@@ -217,10 +230,10 @@ object MethodHandlesMerger {
         if (anyBot(target, newType)) return Bot
         if (target !is MhSingleType) return Top
         if (newType !is MhSingleType) return Top
-        if (target.signature.returnType != newType.signature.returnType) return Top
-        val outParams = target.signature.parameters
+        if (target.returnType != newType.returnType) return Top
+        val outParams = target.parameters
         val nOut = outParams.size
-        val inParams = newType.signature.parameters
+        val inParams = newType.parameters
         val nIn = inParams.size
         if (nOut != reorder.size) return Top
         if (reorder.any { it >= nIn || it < 0 }) return Top
