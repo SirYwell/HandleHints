@@ -18,6 +18,11 @@ sealed interface MhType {
 }
 
 sealed class MhSingleType(val signature: MethodHandleSignature) : MhType {
+    val parameters: List<PsiType>
+        get() = signature.parameters
+    val returnType: PsiType
+        get() = signature.returnType
+
     override fun toString(): String {
         return signature.toString()
     }

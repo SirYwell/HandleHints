@@ -81,6 +81,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
     }
 
     private fun resolveMhType(expression: PsiExpression, block: Block): MhType? {
+        if (expression is PsiLiteralExpression && expression.value == null) return null
         if (expression is PsiMethodCallExpression) {
             val arguments = expression.argumentList.expressions.asList()
             val methodExpression = expression.methodExpression
@@ -309,11 +310,18 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
                 MethodHandlesInitializer.constant(type)
             }
 
-            "countedLoop" -> justDelegate(arguments, block, min = 3, max = 4) {
+            "countedLoop" -> justDelegateAllowNull(arguments, block, min = 3, max = 4) {
+                val mhType0 = it[0]
+                val mhType1 = it[1]
+                val mhType2 = it[2]
+                if (mhType0 == null) return@justDelegateAllowNull noMatch()
                 if (arguments.size == 3) {
-                    MethodHandlesMerger.countedLoop(it[0], it[1], it[2])
+                    if (mhType2 == null) return@justDelegateAllowNull noMatch()
+                    MethodHandlesMerger.countedLoop(mhType0, mhType1, mhType2)
                 } else {
-                    MethodHandlesMerger.countedLoop(it[0], it[1], it[2], it[3])
+                    if (mhType1 == null) return@justDelegateAllowNull noMatch()
+                    val mhType3 = it[3] ?: return@justDelegateAllowNull noMatch()
+                    MethodHandlesMerger.countedLoop(mhType0, mhType1, mhType2, mhType3)
                 }
             }
 
@@ -483,6 +491,17 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
         if (arguments.size < min) return noMatch()
         if (arguments.size > max) return noMatch()
         return factory(arguments.map { it.mhType(block) ?: noMatch() })
+    }
+    private fun justDelegateAllowNull(
+        arguments: List<PsiExpression>,
+        block: Block,
+        min: Int = 0,
+        max: Int = Int.MAX_VALUE,
+        factory: (List<MhType?>) -> MhType
+    ): MhType {
+        if (arguments.size < min) return noMatch()
+        if (arguments.size > max) return noMatch()
+        return factory(arguments.map { it.mhType(block) })
     }
 
     private fun justDelegate(
