@@ -20,6 +20,12 @@
                          groupPath="Java" groupKey="group.dataflow.analysis"
                          shortName="MhCreation"
                          level="WARNING" enabledByDefault="true" language="JAVA"/>
+        <localInspection implementationClass="de.sirywell.methodhandleplugin.inspection.MethodHandleMergeInspection"
+                         bundle="messages.MethodHandleMessages"
+                         key="displayname.dataflow.analysis.methodhandle.merge"
+                         groupPath="Java" groupKey="group.dataflow.analysis"
+                         shortName="MhMerge"
+                         level="WARNING" enabledByDefault="true" language="JAVA"/>
         <codeInsight.inlayProvider language="JAVA" implementationClass="de.sirywell.methodhandleplugin.MethodTypeInlayProvider"/>
     </extensions>
 

@@ -1,10 +1,12 @@
 package de.sirywell.methodhandleplugin.mhtype
 
+import com.intellij.psi.PsiExpression
 import de.sirywell.methodhandleplugin.MHS
 import de.sirywell.methodhandleplugin.MethodHandleSignature
 import de.sirywell.methodhandleplugin.MethodHandleSignature.Companion.create
 import de.sirywell.methodhandleplugin.MethodHandleSignature.Relation
 import com.intellij.psi.PsiType
+import org.jetbrains.annotations.Nls
 
 /*
          Top
@@ -15,6 +17,7 @@ import com.intellij.psi.PsiType
 sealed interface MhType {
     fun join(other: MhType): MhType
     fun withSignature(signature: MethodHandleSignature): MhType
+    fun at(expression: PsiExpression): MhType
 }
 
 sealed class MhSingleType(val signature: MethodHandleSignature) : MhType {
@@ -26,6 +29,8 @@ sealed class MhSingleType(val signature: MethodHandleSignature) : MhType {
     override fun toString(): String {
         return signature.toString()
     }
+
+    override fun at(expression: PsiExpression) = this
 }
 
 class MhExactType(signature: MethodHandleSignature) : MhSingleType(signature) {
@@ -93,14 +98,32 @@ class MhSubType(signature: MethodHandleSignature) : MhSingleType(signature) {
     override fun toString() = "~" + super.toString()
 }
 
-object Top : MhType {
+sealed interface TopType : MhType {
     override fun join(other: MhType) = this
     override fun withSignature(signature: MethodHandleSignature) = this
+}
+data class InspectionTop(val message: String): TopType {
+    override fun at(expression: PsiExpression) = BoundTop(message, expression)
+    override fun toString() = "Top(${message.take(5)})"
+}
+data class BoundTop(val message: String, val expression: PsiExpression): TopType {
+    override fun at(expression: PsiExpression) = this
+
+    override fun toString() = "Top(${message.take(5)})"
+}
+object Top: TopType {
+    override fun at(expression: PsiExpression) = this
+
     override fun toString() = "Top"
+    fun inspect(message: @Nls String): MhType {
+        return InspectionTop(message)
+    }
 }
 object Bot : MhType {
     override fun join(other: MhType) = other
     override fun withSignature(signature: MethodHandleSignature) = this
+    override fun at(expression: PsiExpression) = this
+
     override fun toString() = "Bottom"
 }
 fun MHS.withParameters(parameters: List<PsiType>) = create(this.returnType, parameters.toList())

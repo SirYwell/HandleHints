@@ -81,6 +81,9 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
     }
 
     private fun resolveMhType(expression: PsiExpression, block: Block): MhType? {
+        return resolveMhTypePlain(expression, block)?.at(expression)
+    }
+    private fun resolveMhTypePlain(expression: PsiExpression, block: Block): MhType? {
         if (expression is PsiLiteralExpression && expression.value == null) return null
         if (expression is PsiMethodCallExpression) {
             val arguments = expression.argumentList.expressions.asList()
