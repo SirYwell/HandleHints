@@ -5,6 +5,7 @@ import de.sirywell.methodhandleplugin.subList
 import com.intellij.psi.PsiType
 import com.intellij.psi.PsiType.BOOLEAN
 import com.intellij.psi.PsiType.VOID
+import de.sirywell.methodhandleplugin.MethodHandleBundle.message
 import de.sirywell.methodhandleplugin.effectivelyIdenticalTo
 
 /**
@@ -15,7 +16,27 @@ object MethodHandlesMerger {
 
     // TODO effectively identical sequences for loops???
 
-    fun catchException(target: MhType, exType: PsiType, handler: MhType) = target
+    fun catchException(target: MhType, exType: PsiType, handler: MhType): MhType {
+        if (target !is MhSingleType) return target
+        if (handler !is MhSingleType) return handler
+        if (handler.parameters.isEmpty() || !handler.parameters[0].isAssignableFrom(exType)) {
+            return Top.inspect(message("problem.merging.catchException.missingException", exType.presentableText))
+        }
+        if (target.returnType != handler.returnType) return incompatibleReturnTypes(target, handler)
+        if (!handler.parameters.subList(1).effectivelyIdenticalTo(target.parameters)) return Top
+        return target
+    }
+
+    private fun incompatibleReturnTypes(
+        first: MhSingleType,
+        second: MhSingleType
+    ) = Top.inspect(
+        message(
+            "problem.merging.general.incompatibleReturnType",
+            first.returnType.presentableText,
+            second.returnType.presentableText
+        )
+    )
 
     fun collectArguments(target: MhType, pos: Int, filter: MhType): MhType {
         if (anyBot(target, filter)) return Bot
