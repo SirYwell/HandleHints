@@ -27,17 +27,6 @@ object MethodHandlesMerger {
         return target
     }
 
-    private fun incompatibleReturnTypes(
-        first: MhSingleType,
-        second: MhSingleType
-    ) = Top.inspect(
-        message(
-            "problem.merging.general.incompatibleReturnType",
-            first.returnType.presentableText,
-            second.returnType.presentableText
-        )
-    )
-
     fun collectArguments(target: MhType, pos: Int, filter: MhType): MhType {
         if (anyBot(target, filter)) return Bot
         if (target !is MhSingleType) return target
@@ -69,7 +58,8 @@ object MethodHandlesMerger {
         val externalParameters: List<PsiType>
         val internalParameters = body.parameters
         val returnType = body.returnType
-        if (init != null && (init as MhSingleType).returnType != returnType) return Top
+        if (init != null && (init as MhSingleType).returnType != returnType)
+            return incompatibleReturnTypes(init, body)
         if (returnType == VOID) {
             // (I A...)
             val size = internalParameters.size
@@ -104,7 +94,8 @@ object MethodHandlesMerger {
         if (anyBot(start, end, body)) return Bot
         if (start !is MhSingleType) return Top
         if (end !is MhSingleType) return Top
-        if (start.returnType != end.returnType || start.parameters.effectivelyIdenticalTo(end.parameters)) return Top
+        if (start.returnType != end.returnType) return incompatibleReturnTypes(start, end)
+        if (start.parameters.effectivelyIdenticalTo(end.parameters)) return Top
         // types otherwise must be equal to countedLoop(iterations, init, body)
         return countedLoop(start, init, body)
     }
@@ -117,7 +108,7 @@ object MethodHandlesMerger {
         if (pred.returnType != BOOLEAN) return Top
         val internalParams = body.parameters
         if (internalParams != pred.parameters) return Top
-        if (init.returnType != body.returnType) return Top
+        if (init.returnType != body.returnType) return incompatibleReturnTypes(init, body)
         if (body.returnType == VOID) {
             if (init.signature != body.signature) return Top
         } else {
@@ -251,7 +242,7 @@ object MethodHandlesMerger {
         if (anyBot(target, newType)) return Bot
         if (target !is MhSingleType) return Top
         if (newType !is MhSingleType) return Top
-        if (target.returnType != newType.returnType) return Top
+        if (target.returnType != newType.returnType) return incompatibleReturnTypes(target, newType)
         val outParams = target.parameters
         val nOut = outParams.size
         val inParams = newType.parameters
@@ -305,6 +296,18 @@ object MethodHandlesMerger {
     }
 
     private fun anyBot(vararg types: MhType) = types.any { it is Bot }
+
+    private fun incompatibleReturnTypes(
+        first: MhSingleType,
+        second: MhSingleType
+    ) = Top.inspect(
+        message(
+            "problem.merging.general.incompatibleReturnType",
+            first.returnType.presentableText,
+            second.returnType.presentableText
+        )
+    )
+
 
 
 }
