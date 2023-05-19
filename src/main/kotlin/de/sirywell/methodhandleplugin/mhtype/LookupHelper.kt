@@ -12,52 +12,62 @@ object LookupHelper {
 
     fun findConstructor(refc: PsiExpression, type: MhType): MhType {
         if (type !is MhSingleType) return type
-        // TODO inspection in type return type
+        if (type.returnType != PsiType.VOID) return unexpectedReturnType(type.returnType, PsiType.VOID)
         val referenceClass = refc.getConstantOfType<PsiType>() ?: return Bot
-        // TODO inspection on non-reference type
+        if (referenceClass == PsiType.VOID) return typeMustNotBe(refc, PsiType.VOID)
         return type.withSignature(type.signature.withReturnType(referenceClass))
     }
 
     fun findGetter(refc: PsiExpression, type: PsiExpression): MhType {
         val referenceClass = refc.getConstantOfType<PsiType>() ?: return Bot
-        // TODO inspection on non-reference type
+        if (referenceClass is PsiPrimitiveType) return referenceTypeExpected(refc, referenceClass)
         val returnType = type.getConstantOfType<PsiType>() ?: return Bot
-        // TODO non-void inspection
+        if (returnType == PsiType.VOID) return typeMustNotBe(type, PsiType.VOID)
         return MhExactType(MHS.create(returnType, listOf(referenceClass)))
     }
 
     fun findSetter(refc: PsiExpression, type: PsiExpression): MhType {
         val referenceClass = refc.getConstantOfType<PsiType>() ?: return Bot
-        // TODO inspection on non-reference type
+        if (referenceClass is PsiPrimitiveType) return referenceTypeExpected(refc, referenceClass)
         val paramType = type.getConstantOfType<PsiType>() ?: return Bot
-        // TODO non-void inspection
-        return MhExactType(MHS.create(PsiPrimitiveType.VOID, listOf(referenceClass, paramType)))
+        if (paramType == PsiType.VOID) return typeMustNotBe(type, PsiType.VOID)
+        return MhExactType(MHS.create(PsiType.VOID, listOf(referenceClass, paramType)))
     }
 
     fun findSpecial(refc: PsiExpression, type: MhType, specialCaller: PsiExpression): MhType {
+        val referenceClass = refc.getConstantOfType<PsiType>() ?: return Bot
+        if (referenceClass is PsiPrimitiveType) return referenceTypeExpected(refc, referenceClass)
         if (type !is MhSingleType) return type
         // TODO inspection:  caller class must be a subclass below the method
         val paramType = specialCaller.getConstantOfType<PsiType>() ?: return Bot
         return prependParameter(type, paramType)
     }
 
-    fun findStatic(mhType: MhType) = mhType
+    fun findStatic(refc: PsiExpression, mhType: MhType): MhType {
+        val referenceClass = refc.getConstantOfType<PsiType>() ?: return Bot
+        if (referenceClass is PsiPrimitiveType) return referenceTypeExpected(refc, referenceClass)
+        return mhType
+    }
 
     fun findStaticGetter(refc: PsiExpression, type: PsiExpression): MhType {
-        // TODO inspection on non-reference type
+        val referenceClass = refc.getConstantOfType<PsiType>() ?: return Bot
+        if (referenceClass is PsiPrimitiveType) return referenceTypeExpected(refc, referenceClass)
         val returnType = type.getConstantOfType<PsiType>() ?: return Bot
-        // TODO non-void inspection
+        if (returnType == PsiType.VOID) return typeMustNotBe(type, PsiType.VOID)
         return MhExactType(MHS.create(returnType, listOf()))
     }
 
     fun findStaticSetter(refc: PsiExpression, type: PsiExpression): MhType {
-        // TODO inspection on non-reference type
+        val referenceClass = refc.getConstantOfType<PsiType>() ?: return Bot
+        if (referenceClass is PsiPrimitiveType) return referenceTypeExpected(refc, referenceClass)
         val paramType = type.getConstantOfType<PsiType>() ?: return Bot
-        // TODO non-void inspection
+        if (paramType == PsiType.VOID) return typeMustNotBe(type, PsiType.VOID)
         return MhExactType(MHS.create(PsiPrimitiveType.VOID, listOf(paramType)))
     }
 
     fun findVirtual(refc: PsiExpression, mhType: MhType): MhType {
+        val referenceClass = refc.getConstantOfType<PsiType>() ?: return Bot
+        if (referenceClass is PsiPrimitiveType) return referenceTypeExpected(refc, referenceClass)
         if (mhType !is MhSingleType) return mhType
         val paramType = refc.getConstantOfType<PsiType>() ?: return Bot
         // TODO not exactly correct, receiver could be restricted to lookup class
