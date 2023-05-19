@@ -1,5 +1,6 @@
 package de.sirywell.methodhandleplugin.mhtype
 
+import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiExpression
 import de.sirywell.methodhandleplugin.MHS
 import de.sirywell.methodhandleplugin.MethodHandleSignature
@@ -102,11 +103,11 @@ sealed interface TopType : MhType {
     override fun join(other: MhType) = this
     override fun withSignature(signature: MethodHandleSignature) = this
 }
-data class InspectionTop(val message: String): TopType {
-    override fun at(expression: PsiExpression) = BoundTop(message, expression)
+data class UnboundTop(val message: String, val target: PsiElement?): TopType {
+    override fun at(expression: PsiExpression) = BoundTop(message, expression, target)
     override fun toString() = "Top(${message.take(5)})"
 }
-data class BoundTop(val message: String, val expression: PsiExpression): TopType {
+data class BoundTop(val message: String, val expression: PsiExpression, val target: PsiElement?): TopType {
     override fun at(expression: PsiExpression) = this
 
     override fun toString() = "Top(${message.take(5)})"
@@ -115,8 +116,8 @@ object Top: TopType {
     override fun at(expression: PsiExpression) = this
 
     override fun toString() = "Top"
-    fun inspect(message: @Nls String): MhType {
-        return InspectionTop(message)
+    fun inspect(message: @Nls String, target: PsiElement? = null): MhType {
+        return UnboundTop(message, target)
     }
 }
 object Bot : MhType {

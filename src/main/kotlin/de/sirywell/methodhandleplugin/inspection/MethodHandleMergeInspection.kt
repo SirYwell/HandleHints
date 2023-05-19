@@ -5,7 +5,7 @@ import com.intellij.codeInspection.ProblemHighlightType
 import com.intellij.codeInspection.ProblemsHolder
 import com.intellij.psi.JavaElementVisitor
 import com.intellij.psi.PsiElementVisitor
-import com.intellij.psi.PsiMethodCallExpression
+import com.intellij.psi.PsiExpression
 import de.sirywell.methodhandleplugin.TypeData
 import de.sirywell.methodhandleplugin.mhtype.BoundTop
 
@@ -16,12 +16,12 @@ class MethodHandleMergeInspection : LocalInspectionTool() {
     }
 
     class Visitor(private val problemsHolder: ProblemsHolder) : JavaElementVisitor() {
-        override fun visitMethodCallExpression(expression: PsiMethodCallExpression) {
+        override fun visitExpression(expression: PsiExpression) {
             val typeData = TypeData.forFile(expression.containingFile)
             val type = typeData[expression] ?: return
             if (type is BoundTop && type.expression == expression) {
                 problemsHolder.registerProblem(
-                    expression,
+                    type.target ?: expression,
                     type.message,
                     ProblemHighlightType.GENERIC_ERROR_OR_WARNING
                 )
