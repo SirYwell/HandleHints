@@ -229,9 +229,9 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, private val typeData: Ty
 
             "findStatic" -> {
                 if (arguments.size != 3) return noMatch()
-                val (_, _, type) = arguments
+                val (refc, _, type) = arguments
                 val t = type.mhType(block) ?: return notConstant()
-                LookupHelper.findStatic(t)
+                LookupHelper.findStatic(refc, t)
             }
 
             "findStaticGetter" -> findAccessor(arguments, LookupHelper::findStaticGetter)

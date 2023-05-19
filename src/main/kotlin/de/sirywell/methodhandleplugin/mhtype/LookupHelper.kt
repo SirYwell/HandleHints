@@ -43,7 +43,11 @@ object LookupHelper {
         return prependParameter(type, paramType)
     }
 
-    fun findStatic(mhType: MhType) = mhType
+    fun findStatic(refc: PsiExpression, mhType: MhType): MhType {
+        val referenceClass = refc.getConstantOfType<PsiType>() ?: return Bot
+        if (referenceClass is PsiPrimitiveType) return referenceTypeExpected(refc, referenceClass)
+        return mhType
+    }
 
     fun findStaticGetter(refc: PsiExpression, type: PsiExpression): MhType {
         val referenceClass = refc.getConstantOfType<PsiType>() ?: return Bot
