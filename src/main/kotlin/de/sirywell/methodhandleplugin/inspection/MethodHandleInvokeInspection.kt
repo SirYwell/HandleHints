@@ -19,7 +19,7 @@ import java.lang.invoke.MethodHandle
 import java.lang.invoke.MethodHandles
 import java.lang.invoke.MethodType
 
-class MethodHandleInvokeInspection: LocalInspectionTool() {
+class MethodHandleInvokeInspection : LocalInspectionTool() {
 
     companion object {
         private val REPLACE_METHOD_CALL_CTOR: MethodHandle by lazy {
@@ -43,7 +43,7 @@ class MethodHandleInvokeInspection: LocalInspectionTool() {
         return Visitor(holder)
     }
 
-    inner class Visitor(private val problemsHolder: ProblemsHolder): JavaElementVisitor() {
+    inner class Visitor(private val problemsHolder: ProblemsHolder) : JavaElementVisitor() {
         override fun visitMethodCallExpression(expression: PsiMethodCallExpression) {
             if (!receiverIsMethodHandle(expression)) return
             val target = expression.methodExpression.qualifierExpression ?: return
@@ -81,18 +81,33 @@ class MethodHandleInvokeInspection: LocalInspectionTool() {
 
         private fun checkReturnType(returnType: PsiType, expression: PsiMethodCallExpression) {
             val parent = expression.parent
-            if (parent is PsiExpressionStatement && returnType != PsiType.VOID) {
+            if (parent is PsiExpressionStatement) {
+                if (returnType != PsiType.VOID) {
+                    problemsHolder.registerProblem(
+                        expression,
+                        MethodHandleBundle.message(
+                            "problem.invocation.returnType.not.void",
+                            returnType.presentableText
+                        ),
+                        ProblemHighlightType.GENERIC_ERROR_OR_WARNING,
+                        ReturnTypeInStatementFix(returnType)
+                    )
+                }
+            } else if (returnType == PsiType.VOID && parent !is PsiExpressionStatement) {
                 problemsHolder.registerProblem(
                     expression,
-                    MethodHandleBundle.message("problem.invocation.returnType.not.void", returnType.presentableText),
-                    ProblemHighlightType.GENERIC_ERROR_OR_WARNING,
-                    ReturnTypeInStatementFix(returnType)
+                    MethodHandleBundle.message(
+                        "problem.invocation.returnType.mustBeVoid"
+                    )
                 )
             } else if (parent !is PsiTypeCastExpression) {
                 if (returnType != PsiType.getJavaLangObject(expression.manager, expression.resolveScope)) {
                     problemsHolder.registerProblem(
                         expression.methodExpression as PsiExpression,
-                        MethodHandleBundle.message("problem.invocation.returnType.not.object", returnType.presentableText),
+                        MethodHandleBundle.message(
+                            "problem.invocation.returnType.not.object",
+                            returnType.presentableText
+                        ),
                         ProblemHighlightType.GENERIC_ERROR_OR_WARNING,
                         AddTypeCastFix(returnType, expression),
                         createReplaceMethodCallFix("invoke")
@@ -133,7 +148,8 @@ class MethodHandleInvokeInspection: LocalInspectionTool() {
     }
 
     class ReturnTypeInStatementFix(@SafeFieldForPreview private val returnType: PsiType) : LocalQuickFix {
-        override fun getFamilyName() = MethodHandleBundle.message("problem.invocation.returnType.fix.introduce.variable")
+        override fun getFamilyName() =
+            MethodHandleBundle.message("problem.invocation.returnType.fix.introduce.variable")
 
         override fun applyFix(project: Project, descriptor: ProblemDescriptor) {
             var expr = descriptor.psiElement as PsiExpression
