@@ -1,6 +1,7 @@
 import org.jetbrains.changelog.Changelog
 import org.jetbrains.changelog.markdownToHTML
 import java.nio.file.Files
+import java.nio.file.Path
 import kotlin.io.path.*
 
 fun properties(key: String) = project.findProperty(key).toString()
@@ -79,7 +80,7 @@ tasks {
             val start = "<!-- Plugin description -->"
             val end = "<!-- Plugin description end -->"
 
-            with (it.lines()) {
+            with(it.lines()) {
                 if (!containsAll(listOf(start, end))) {
                     throw GradleException("Plugin description section not found in README.md:\n$start ... $end")
                 }
@@ -131,8 +132,14 @@ tasks {
         if (!file.exists()) {
             println("Downloading IntelliJ sources for Mock SDKs...")
             file.createNewFile()
+        }
+        val targetDir = file.readText()
+        val absolutePath: String
+        if (targetDir.isNotBlank() && Files.exists(Path.of(targetDir))) {
+            absolutePath = Path.of(targetDir).absolutePathString()
+        } else {
             val path = Files.createTempDirectory("intellij-community")
-            val absolutePath = path.absolutePathString()
+            absolutePath = path.absolutePathString()
             val res = exec {
                 executable = "git"
                 args = listOf("clone", "https://github.com/JetBrains/intellij-community.git", "--depth", "1",
@@ -142,7 +149,14 @@ tasks {
             res.assertNormalExitValue()
             // TODO probably clean up unneeded files?
             file.writeText(absolutePath)
+            res.assertNormalExitValue()
         }
         systemProperty("idea.home.path", file.readText())
+    }
+
+    clean {
+        val testSdkDir = Path.of(".testSdk")
+        // TODO probably clean up unneeded files?
+        Files.deleteIfExists(testSdkDir)
     }
 }
