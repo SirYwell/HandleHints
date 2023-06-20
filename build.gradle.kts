@@ -127,36 +127,39 @@ tasks {
     }
 
     test {
-        // TODO figure out a better way for this?
-        val file = file(".testSdk")
-        if (!file.exists()) {
-            println("Downloading IntelliJ sources for Mock SDKs...")
-            file.createNewFile()
-        }
-        val targetDir = file.readText()
-        val absolutePath: String
-        if (targetDir.isNotBlank() && Files.exists(Path.of(targetDir))) {
-            absolutePath = Path.of(targetDir).absolutePathString()
-        } else {
-            val path = Files.createTempDirectory("intellij-community")
-            absolutePath = path.absolutePathString()
-            val res = exec {
-                executable = "git"
-                args = listOf("clone", "https://github.com/JetBrains/intellij-community.git", "--depth", "1",
-                    absolutePath
-                )
+        doFirst {
+            // TODO figure out a better way for this?
+            val file = file(".testSdk")
+            if (!file.exists()) {
+                println("Downloading IntelliJ sources for Mock SDKs...")
+                file.createNewFile()
             }
-            res.assertNormalExitValue()
-            // TODO probably clean up unneeded files?
-            file.writeText(absolutePath)
-            res.assertNormalExitValue()
+            val targetDir = file.readText()
+            val absolutePath: String
+            if (targetDir.isNotBlank() && Files.exists(Path.of(targetDir))) {
+                absolutePath = Path.of(targetDir).absolutePathString()
+            } else {
+                val path = Files.createTempDirectory("intellij-community")
+                absolutePath = path.absolutePathString()
+                val res = exec {
+                    executable = "git"
+                    args = listOf("clone", "https://github.com/JetBrains/intellij-community.git", "--depth", "1",
+                        absolutePath
+                    )
+                }
+                res.assertNormalExitValue()
+                // TODO probably clean up unneeded files?
+                file.writeText(absolutePath)
+            }
+            systemProperty("idea.home.path", file.readText())
         }
-        systemProperty("idea.home.path", file.readText())
     }
 
     clean {
-        val testSdkDir = Path.of(".testSdk")
-        // TODO probably clean up unneeded files?
-        Files.deleteIfExists(testSdkDir)
+        doFirst {
+            val testSdkFile = file(".testSdk").toPath()
+            // TODO probably clean up unneeded files?
+            Files.deleteIfExists(testSdkFile)
+        }
     }
 }
