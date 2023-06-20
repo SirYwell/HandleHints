@@ -17,10 +17,7 @@ class MethodHandleInspectionsTest : LightJavaCodeInsightFixtureTestCase() {
         return "src/test/testData/"
     }
 
-    fun testVoidInIdentity() {
-        doTest()
-        fail("DOES THIS FAIL?")
-    }
+    fun testVoidInIdentity() = doTest()
 
 
 }
