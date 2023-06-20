@@ -1,5 +1,7 @@
 import org.jetbrains.changelog.Changelog
 import org.jetbrains.changelog.markdownToHTML
+import java.nio.file.Files
+import kotlin.io.path.*
 
 fun properties(key: String) = project.findProperty(key).toString()
 
@@ -121,5 +123,26 @@ tasks {
         // Specify pre-release label to publish the plugin in a custom Release Channel automatically. Read more:
         // https://plugins.jetbrains.com/docs/intellij/deployment.html#specifying-a-release-channel
         channels.set(listOf(properties("pluginVersion").split('-').getOrElse(1) { "default" }.split('.').first()))
+    }
+
+    test {
+        // TODO figure out a better way for this?
+        val file = file(".testSdk")
+        if (!file.exists()) {
+            println("Downloading IntelliJ sources for Mock SDKs...")
+            file.createNewFile()
+            val path = Files.createTempDirectory("intellij-community")
+            val absolutePath = path.absolutePathString()
+            val res = exec {
+                executable = "git"
+                args = listOf("clone", "https://github.com/JetBrains/intellij-community.git", "--depth", "1",
+                    absolutePath
+                )
+            }
+            res.assertNormalExitValue()
+            // TODO probably clean up unneeded files?
+            file.writeText(absolutePath)
+        }
+        systemProperty("idea.home.path", file.readText())
     }
 }
