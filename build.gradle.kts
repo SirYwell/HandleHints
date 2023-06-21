@@ -128,28 +128,18 @@ tasks {
 
     test {
         doFirst {
-            // TODO figure out a better way for this?
+            // TODO can we use some gradle caching for this?
             val file = file(".testSdk")
             if (!file.exists()) {
                 println("Downloading IntelliJ sources for Mock SDKs...")
                 file.createNewFile()
             }
             val targetDir = file.readText()
-            val absolutePath: String
-            if (targetDir.isNotBlank() && Files.exists(Path.of(targetDir))) {
-                absolutePath = Path.of(targetDir).absolutePathString()
-            } else {
-                val path = Files.createTempDirectory("intellij-community")
-                absolutePath = path.absolutePathString()
-                val res = exec {
-                    executable = "git"
-                    args = listOf("clone", "https://github.com/JetBrains/intellij-community.git", "--depth", "1",
-                        absolutePath
-                    )
-                }
-                res.assertNormalExitValue()
-                // TODO probably clean up unneeded files?
-                file.writeText(absolutePath)
+            if (targetDir.isBlank() || !Files.exists(Path.of(targetDir))) {
+                val path = Files.createTempDirectory("intellij-community").toAbsolutePath()
+                downloadFromIntelliJRepo("java/mockJDK-11/jre/lib/annotations.jar", path)
+                downloadFromIntelliJRepo("java/mockJDK-11/jre/lib/rt.jar", path)
+                file.writeText(path.toString())
             }
             systemProperty("idea.home.path", file.readText())
         }
@@ -162,4 +152,17 @@ tasks {
             Files.deleteIfExists(testSdkFile)
         }
     }
+}
+
+fun downloadFromIntelliJRepo(filePath: String, targetBase: Path) {
+    val outputFile = targetBase.resolve(filePath)
+    outputFile.parent.createDirectories()
+    val res = exec {
+        executable = "curl"
+        args = listOf(
+            "-o", outputFile.toString(),
+            "https://raw.githubusercontent.com/JetBrains/intellij-community/master/$filePath"
+        )
+    }
+    res.rethrowFailure()
 }
