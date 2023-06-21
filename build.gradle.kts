@@ -1,5 +1,8 @@
 import org.jetbrains.changelog.Changelog
 import org.jetbrains.changelog.markdownToHTML
+import java.nio.file.Files
+import java.nio.file.Path
+import kotlin.io.path.*
 
 fun properties(key: String) = project.findProperty(key).toString()
 
@@ -77,7 +80,7 @@ tasks {
             val start = "<!-- Plugin description -->"
             val end = "<!-- Plugin description end -->"
 
-            with (it.lines()) {
+            with(it.lines()) {
                 if (!containsAll(listOf(start, end))) {
                     throw GradleException("Plugin description section not found in README.md:\n$start ... $end")
                 }
@@ -122,4 +125,44 @@ tasks {
         // https://plugins.jetbrains.com/docs/intellij/deployment.html#specifying-a-release-channel
         channels.set(listOf(properties("pluginVersion").split('-').getOrElse(1) { "default" }.split('.').first()))
     }
+
+    test {
+        doFirst {
+            // TODO can we use some gradle caching for this?
+            val file = file(".testSdk")
+            if (!file.exists()) {
+                println("Downloading IntelliJ sources for Mock SDKs...")
+                file.createNewFile()
+            }
+            val targetDir = file.readText()
+            if (targetDir.isBlank() || !Files.exists(Path.of(targetDir))) {
+                val path = Files.createTempDirectory("intellij-community").toAbsolutePath()
+                downloadFromIntelliJRepo("java/mockJDK-11/jre/lib/annotations.jar", path)
+                downloadFromIntelliJRepo("java/mockJDK-11/jre/lib/rt.jar", path)
+                file.writeText(path.toString())
+            }
+            systemProperty("idea.home.path", file.readText())
+        }
+    }
+
+    clean {
+        doFirst {
+            val testSdkFile = file(".testSdk").toPath()
+            // TODO probably clean up unneeded files?
+            Files.deleteIfExists(testSdkFile)
+        }
+    }
+}
+
+fun downloadFromIntelliJRepo(filePath: String, targetBase: Path) {
+    val outputFile = targetBase.resolve(filePath)
+    outputFile.parent.createDirectories()
+    val res = exec {
+        executable = "curl"
+        args = listOf(
+            "-o", outputFile.toString(),
+            "https://raw.githubusercontent.com/JetBrains/intellij-community/master/$filePath"
+        )
+    }
+    res.rethrowFailure()
 }
