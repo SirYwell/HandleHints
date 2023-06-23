@@ -29,9 +29,7 @@ class MethodHandleCreationInspection: LocalInspectionTool() {
         private fun checkConstant(expression: PsiMethodCallExpression, type: MhExactType) {
             val parameters = expression.argumentList.expressionTypes
             if (parameters.size != 2) return
-            // TODO this method does not match the actual behavior
             if (!returnTypesAreCompatible(type, parameters[1])) {
-                // TODO fix message
                 problemsHolder.registerProblem(
                     expression.methodExpression as PsiExpression,
                     MethodHandleBundle.message("problem.creation.arguments.expected.type",
