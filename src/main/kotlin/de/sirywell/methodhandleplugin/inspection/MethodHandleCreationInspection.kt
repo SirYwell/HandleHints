@@ -30,18 +30,28 @@ class MethodHandleCreationInspection: LocalInspectionTool() {
             val parameters = expression.argumentList.expressionTypes
             if (parameters.size != 2) return
             // TODO this method does not match the actual behavior
-            if (!TypeConversionUtil.areTypesConvertible(type.signature.returnType, parameters[1])) {
+            if (!returnTypesAreCompatible(type, parameters[1])) {
                 // TODO fix message
                 problemsHolder.registerProblem(
                     expression.methodExpression as PsiExpression,
-                    MethodHandleBundle.message("problem.invocation.arguments.wrong.types",
-                        type.signature.parameters.map { it.presentableText },
-                        expression.argumentList.expressionTypes.map { it.presentableText }
+                    MethodHandleBundle.message("problem.creation.arguments.expected.type",
+                        type.signature.returnType.presentableText,
+                        parameters[1].presentableText
                     ),
                     ProblemHighlightType.GENERIC_ERROR_OR_WARNING
                 )
             }
             checkParamNotVoidAt(expression, 0)
+        }
+
+        private fun returnTypesAreCompatible(
+            type: MhExactType,
+            parameter: PsiType
+        ): Boolean {
+            if (type.signature.returnType is PsiPrimitiveType) {
+                return TypeConversionUtil.isAssignable(type.signature.returnType, parameter)
+            }
+            return TypeConversionUtil.areTypesConvertible(type.signature.returnType, parameter)
         }
 
         private fun checkParamNotVoidAt(expression: PsiMethodCallExpression, index: Int) {
