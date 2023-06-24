@@ -19,5 +19,6 @@ class MethodHandleInspectionsTest : LightJavaCodeInsightFixtureTestCase() {
 
     fun testVoidInIdentity() = doTest()
 
+    fun testWrongArgumentTypeInConstant() = doTest()
 
 }
