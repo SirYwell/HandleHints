@@ -46,10 +46,13 @@ class MethodHandleCreationInspection: LocalInspectionTool() {
             type: MhExactType,
             parameter: PsiType
         ): Boolean {
-            if (type.signature.returnType is PsiPrimitiveType) {
-                return TypeConversionUtil.isAssignable(type.signature.returnType, parameter)
+            val returnType = type.signature.returnType
+            // void.class in invalid in constant(...), so skip here and handle it later separately
+            if (returnType == PsiType.VOID) return true
+            if (returnType is PsiPrimitiveType) {
+                return TypeConversionUtil.isAssignable(returnType, parameter)
             }
-            return TypeConversionUtil.areTypesConvertible(type.signature.returnType, parameter)
+            return TypeConversionUtil.areTypesConvertible(returnType, parameter)
         }
 
         private fun checkParamNotVoidAt(expression: PsiMethodCallExpression, index: Int) {

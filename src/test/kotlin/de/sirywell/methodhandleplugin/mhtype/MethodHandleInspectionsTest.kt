@@ -21,4 +21,6 @@ class MethodHandleInspectionsTest : LightJavaCodeInsightFixtureTestCase() {
 
     fun testWrongArgumentTypeInConstant() = doTest()
 
+    fun testVoidInConstant() = doTest()
+
 }
