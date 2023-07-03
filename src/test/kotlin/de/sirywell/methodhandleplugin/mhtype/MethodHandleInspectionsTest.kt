@@ -5,10 +5,14 @@ import de.sirywell.methodhandleplugin.inspection.MethodHandleCreationInspection
 
 class MethodHandleInspectionsTest : LightJavaCodeInsightFixtureTestCase() {
 
-    private fun doTest() {
-        projectDescriptor.sdk
+    private fun doInspectionTest() {
         myFixture.enableInspections(MethodHandleCreationInspection())
         myFixture.testHighlighting(true, false, true, getTestName(false) + ".java")
+    }
+
+    private fun doTypeCheckingTest() {
+        myFixture.enableInspections(MethodHandleTypeHelperInspection())
+        myFixture.testHighlighting(false, true, false, getTestName(false) + ".java")
     }
 
     override fun getProjectDescriptor() = JAVA_LATEST_WITH_LATEST_JDK
@@ -17,10 +21,12 @@ class MethodHandleInspectionsTest : LightJavaCodeInsightFixtureTestCase() {
         return "src/test/testData/"
     }
 
-    fun testVoidInIdentity() = doTest()
+    fun testVoidInIdentity() = doInspectionTest()
 
-    fun testWrongArgumentTypeInConstant() = doTest()
+    fun testWrongArgumentTypeInConstant() = doInspectionTest()
 
-    fun testVoidInConstant() = doTest()
+    fun testVoidInConstant() = doInspectionTest()
+
+    fun testSimpleIdentity() = doTypeCheckingTest()
 
 }
