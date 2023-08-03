@@ -46,7 +46,15 @@ class MethodHandleInspectionsTest : LightJavaCodeInsightFixtureTestCase() {
 
     fun testMethodTypeCreateWithParameters() = doTypeCheckingTest()
 
+    fun testMethodTypeDropParameterTypes() = doTypeCheckingTest()
+
+    fun testMethodTypeErase() = doTypeCheckingTest()
+
+    fun testMethodTypeGeneric() = doTypeCheckingTest()
+
     fun testMethodTypeGenericMethodType() = doTypeCheckingTest()
+
+    fun testMethodTypeInsertParameterTypes() = doTypeCheckingTest()
 
     fun testMethodTypeWrap() = doTypeCheckingTest()
 
