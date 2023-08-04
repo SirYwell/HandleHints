@@ -11,7 +11,14 @@ class MethodHandleInspectionsTest : LightJavaCodeInsightFixtureTestCase() {
     }
 
     private fun doTypeCheckingTest() {
-        myFixture.enableInspections(MethodHandleTypeHelperInspection())
+        doTypeCheckingTest(false)
+    }
+
+    private fun doTypeCheckingTest(onlyAtCaret: Boolean) {
+        val methodHandleTypeHelperInspection =
+            if (onlyAtCaret) MethodHandleTypeHelperInspection { it == myFixture.elementAtCaret }
+            else MethodHandleTypeHelperInspection { true }
+        myFixture.enableInspections(methodHandleTypeHelperInspection)
         myFixture.testHighlighting(false, true, false, getTestName(false) + ".java")
     }
 
@@ -28,5 +35,29 @@ class MethodHandleInspectionsTest : LightJavaCodeInsightFixtureTestCase() {
     fun testVoidInConstant() = doInspectionTest()
 
     fun testSimpleIdentity() = doTypeCheckingTest()
+
+    fun testMethodTypeAppendParameterTypes() = doTypeCheckingTest()
+
+    fun testMethodTypeChangeParameterType() = doTypeCheckingTest()
+
+    fun testMethodTypeChangeReturnType() = doTypeCheckingTest()
+
+    fun testMethodTypeCreateBasic() = doTypeCheckingTest()
+
+    fun testMethodTypeCreateWithParameters() = doTypeCheckingTest()
+
+    fun testMethodTypeDropParameterTypes() = doTypeCheckingTest()
+
+    fun testMethodTypeErase() = doTypeCheckingTest()
+
+    fun testMethodTypeGeneric() = doTypeCheckingTest()
+
+    fun testMethodTypeGenericMethodType() = doTypeCheckingTest()
+
+    fun testMethodTypeInsertParameterTypes() = doTypeCheckingTest()
+
+    fun testMethodTypeWrap() = doTypeCheckingTest()
+
+    fun testMethodTypeUnwrap() = doTypeCheckingTest()
 
 }
