@@ -36,6 +36,14 @@ class MethodHandleInspectionsTest : LightJavaCodeInsightFixtureTestCase() {
 
     fun testSimpleIdentity() = doTypeCheckingTest()
 
+    fun testInitializeArrayConstructor() = doTypeCheckingTest()
+
+    fun testInitializeArrayElementGetter() = doTypeCheckingTest()
+
+    fun testInitializeArrayElementSetter() = doTypeCheckingTest()
+
+    fun testInitializeArrayLength() = doTypeCheckingTest()
+
     fun testMethodTypeAppendParameterTypes() = doTypeCheckingTest()
 
     fun testMethodTypeChangeParameterType() = doTypeCheckingTest()
