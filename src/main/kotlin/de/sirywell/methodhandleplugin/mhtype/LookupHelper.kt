@@ -3,6 +3,7 @@ package de.sirywell.methodhandleplugin.mhtype
 import com.intellij.psi.PsiExpression
 import com.intellij.psi.PsiPrimitiveType
 import com.intellij.psi.PsiType
+import com.intellij.psi.PsiTypes
 import de.sirywell.methodhandleplugin.MHS
 import de.sirywell.methodhandleplugin.getConstantOfType
 
@@ -12,9 +13,9 @@ object LookupHelper {
 
     fun findConstructor(refc: PsiExpression, type: MhType): MhType {
         if (type !is MhSingleType) return type
-        if (type.returnType != PsiType.VOID) return unexpectedReturnType(type.returnType, PsiType.VOID)
+        if (type.returnType != PsiTypes.voidType()) return unexpectedReturnType(type.returnType, PsiTypes.voidType())
         val referenceClass = refc.getConstantOfType<PsiType>() ?: return Bot
-        if (referenceClass == PsiType.VOID) return typeMustNotBe(refc, PsiType.VOID)
+        if (referenceClass == PsiTypes.voidType()) return typeMustNotBe(refc, PsiTypes.voidType())
         return type.withSignature(type.signature.withReturnType(referenceClass))
     }
 
@@ -22,7 +23,7 @@ object LookupHelper {
         val referenceClass = refc.getConstantOfType<PsiType>() ?: return Bot
         if (referenceClass is PsiPrimitiveType) return referenceTypeExpected(refc, referenceClass)
         val returnType = type.getConstantOfType<PsiType>() ?: return Bot
-        if (returnType == PsiType.VOID) return typeMustNotBe(type, PsiType.VOID)
+        if (returnType == PsiTypes.voidType()) return typeMustNotBe(type, PsiTypes.voidType())
         return MhExactType(MHS.create(returnType, listOf(referenceClass)))
     }
 
@@ -30,8 +31,8 @@ object LookupHelper {
         val referenceClass = refc.getConstantOfType<PsiType>() ?: return Bot
         if (referenceClass is PsiPrimitiveType) return referenceTypeExpected(refc, referenceClass)
         val paramType = type.getConstantOfType<PsiType>() ?: return Bot
-        if (paramType == PsiType.VOID) return typeMustNotBe(type, PsiType.VOID)
-        return MhExactType(MHS.create(PsiType.VOID, listOf(referenceClass, paramType)))
+        if (paramType == PsiTypes.voidType()) return typeMustNotBe(type, PsiTypes.voidType())
+        return MhExactType(MHS.create(PsiTypes.voidType(), listOf(referenceClass, paramType)))
     }
 
     fun findSpecial(refc: PsiExpression, type: MhType, specialCaller: PsiExpression): MhType {
@@ -53,7 +54,7 @@ object LookupHelper {
         val referenceClass = refc.getConstantOfType<PsiType>() ?: return Bot
         if (referenceClass is PsiPrimitiveType) return referenceTypeExpected(refc, referenceClass)
         val returnType = type.getConstantOfType<PsiType>() ?: return Bot
-        if (returnType == PsiType.VOID) return typeMustNotBe(type, PsiType.VOID)
+        if (returnType == PsiTypes.voidType()) return typeMustNotBe(type, PsiTypes.voidType())
         return MhExactType(MHS.create(returnType, listOf()))
     }
 
@@ -61,8 +62,8 @@ object LookupHelper {
         val referenceClass = refc.getConstantOfType<PsiType>() ?: return Bot
         if (referenceClass is PsiPrimitiveType) return referenceTypeExpected(refc, referenceClass)
         val paramType = type.getConstantOfType<PsiType>() ?: return Bot
-        if (paramType == PsiType.VOID) return typeMustNotBe(type, PsiType.VOID)
-        return MhExactType(MHS.create(PsiPrimitiveType.VOID, listOf(paramType)))
+        if (paramType == PsiTypes.voidType()) return typeMustNotBe(type, PsiTypes.voidType())
+        return MhExactType(MHS.create(PsiTypes.voidType(), listOf(paramType)))
     }
 
     fun findVirtual(refc: PsiExpression, mhType: MhType): MhType {

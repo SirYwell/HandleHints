@@ -3,6 +3,7 @@ package de.sirywell.methodhandleplugin.mhtype
 import de.sirywell.methodhandleplugin.MethodHandleSignature.Companion.create
 import com.intellij.psi.PsiArrayType
 import com.intellij.psi.PsiType
+import com.intellij.psi.PsiTypes
 
 /**
  * Contains methods from [java.lang.invoke.MethodHandles] that create
@@ -12,23 +13,23 @@ object MethodHandlesInitializer {
 
     fun arrayConstructor(arrayClass: PsiType): MhType {
         if (arrayClass !is PsiArrayType) return Top
-        return MhExactType(create(arrayClass, listOf(PsiType.INT)))
+        return MhExactType(create(arrayClass, listOf(PsiTypes.intType())))
     }
 
     fun arrayElementGetter(arrayClass: PsiType): MhType {
-        return MhExactType(create((arrayClass as PsiArrayType).componentType, listOf<PsiType>(arrayClass, PsiType.INT)))
+        return MhExactType(create((arrayClass as PsiArrayType).componentType, listOf<PsiType>(arrayClass, PsiTypes.intType())))
     }
 
     fun arrayElementSetter(arrayClass: PsiType): MhType {
         if (arrayClass !is PsiArrayType) return Top
-        return MhExactType(create(PsiType.VOID, listOf(arrayClass, PsiType.INT, arrayClass.componentType)))
+        return MhExactType(create(PsiTypes.voidType(), listOf(arrayClass, PsiTypes.intType(), arrayClass.componentType)))
     }
 
     // arrayElementVarHandle() no VarHandle support
 
     fun arrayLength(arrayClass: PsiType): MhType {
         if (arrayClass !is PsiArrayType) return Top
-        return MhExactType(create(PsiType.INT, listOf(arrayClass)))
+        return MhExactType(create(PsiTypes.intType(), listOf(arrayClass)))
     }
 
     // byteArray/BufferViewVarHandle() no VarHandle support

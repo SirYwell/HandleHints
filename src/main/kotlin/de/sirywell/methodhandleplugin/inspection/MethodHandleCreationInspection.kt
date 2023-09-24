@@ -48,7 +48,7 @@ class MethodHandleCreationInspection: LocalInspectionTool() {
         ): Boolean {
             val returnType = type.signature.returnType
             // void.class in invalid in constant(...), so skip here and handle it later separately
-            if (returnType == PsiType.VOID) return true
+            if (returnType == PsiTypes.voidType()) return true
             if (returnType is PsiPrimitiveType) {
                 return TypeConversionUtil.isAssignable(returnType, parameter)
             }
@@ -58,11 +58,11 @@ class MethodHandleCreationInspection: LocalInspectionTool() {
         private fun checkParamNotVoidAt(expression: PsiMethodCallExpression, index: Int) {
             val parameters = expression.argumentList.expressions
             if (parameters.size <= index) return
-            if (parameters[index].getConstantOfType<PsiType>() == PsiType.VOID) {
+            if (parameters[index].getConstantOfType<PsiType>() == PsiTypes.voidType()) {
                 problemsHolder.registerProblem(
                     parameters[index],
                     MethodHandleBundle.message("problem.creation.arguments.invalid.type",
-                        PsiType.VOID.presentableText
+                        PsiTypes.voidType().presentableText
                     ),
                     ProblemHighlightType.GENERIC_ERROR_OR_WARNING
                 )

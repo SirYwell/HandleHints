@@ -1,12 +1,11 @@
 package de.sirywell.methodhandleplugin.mhtype
 
-import de.sirywell.methodhandleplugin.MHS
-import de.sirywell.methodhandleplugin.subList
 import com.intellij.psi.PsiType
-import com.intellij.psi.PsiType.BOOLEAN
-import com.intellij.psi.PsiType.VOID
+import com.intellij.psi.PsiTypes
+import de.sirywell.methodhandleplugin.MHS
 import de.sirywell.methodhandleplugin.MethodHandleBundle.message
 import de.sirywell.methodhandleplugin.effectivelyIdenticalTo
+import de.sirywell.methodhandleplugin.subList
 
 /**
  * Contains methods to merge multiple [MhType]s into a new one,
@@ -33,7 +32,7 @@ object MethodHandlesMerger {
         if (filter !is MhSingleType) return Top
         val parameters = target.parameters.toMutableList()
         if (pos >= parameters.size) return Top
-        if (filter.returnType != VOID) {
+        if (filter.returnType != PsiTypes.voidType()) {
             // the return type of the filter must match the replaced type
             if (parameters[pos] != filter.returnType) {
                 return Top
@@ -54,16 +53,16 @@ object MethodHandlesMerger {
         if (iterations !is MhSingleType) return Top
         if (init != null && init !is MhSingleType) return Top
         if (body !is MhSingleType) return Top
-        if (iterations.returnType != PsiType.INT) return Top
+        if (iterations.returnType != PsiTypes.intType()) return Top
         val externalParameters: List<PsiType>
         val internalParameters = body.parameters
         val returnType = body.returnType
         if (init != null && (init as MhSingleType).returnType != returnType)
             return incompatibleReturnTypes(init, body)
-        if (returnType == VOID) {
+        if (returnType == PsiTypes.voidType()) {
             // (I A...)
             val size = internalParameters.size
-            if (internalParameters.isEmpty() || internalParameters[0] != PsiType.INT) return Top
+            if (internalParameters.isEmpty() || internalParameters[0] != PsiTypes.intType()) return Top
             externalParameters = if (size != 1) {
                 internalParameters.subList(1)
             } else {
@@ -72,7 +71,7 @@ object MethodHandlesMerger {
         } else {
             // (V I A...)
             val size = internalParameters.size
-            if (size < 2 || (internalParameters[0] != returnType || internalParameters[1] != PsiType.INT)) return Top
+            if (size < 2 || (internalParameters[0] != returnType || internalParameters[1] != PsiTypes.intType())) return Top
             externalParameters = if (size != 2) {
                 internalParameters.subList(2)
             } else {
@@ -105,11 +104,11 @@ object MethodHandlesMerger {
         if (init !is MhSingleType) return Top
         if (body !is MhSingleType) return Top
         if (pred !is MhSingleType) return Top
-        if (pred.returnType != BOOLEAN) return Top
+        if (pred.returnType != PsiTypes.booleanType()) return Top
         val internalParams = body.parameters
         if (internalParams != pred.parameters) return Top
         if (init.returnType != body.returnType) return incompatibleReturnTypes(init, body)
-        if (body.returnType == VOID) {
+        if (body.returnType == PsiTypes.voidType()) {
             if (init.signature != body.signature) return Top
         } else {
             if (internalParams.isEmpty()) return Top
@@ -135,7 +134,7 @@ object MethodHandlesMerger {
 
     fun dropReturn(target: MhType): MhType {
         return when (target) {
-            is MhSingleType -> target.withSignature(target.signature.withReturnType(VOID))
+            is MhSingleType -> target.withSignature(target.signature.withReturnType(PsiTypes.voidType()))
             else -> target // Bot or Top
         }
     }
@@ -189,7 +188,7 @@ object MethodHandlesMerger {
         val targetSignature = target.signature // (Z..., V, A[N]..., B...)T, where N = |combiner.parameters|
         val combinerSignature = combiner.signature // (A...)V
         if (pos >= targetSignature.parameters.size) return Top
-        val combinerIsVoid = combinerSignature.returnType == VOID
+        val combinerIsVoid = combinerSignature.returnType == PsiTypes.voidType()
         val sub: List<PsiType> = if (combinerIsVoid) {
             listOf(*combinerSignature.parameters.toTypedArray())
         } else {
@@ -218,7 +217,7 @@ object MethodHandlesMerger {
         val testSignature = test.signature // (A...)boolean
         val targetSignature = target.signature // (A... B...)T
         val fallbackSignature = fallback.signature // (A... B...)T
-        if (testSignature.returnType != BOOLEAN) return Top
+        if (testSignature.returnType != PsiTypes.booleanType()) return Top
         if (targetSignature != fallbackSignature) return Top
         if (testSignature.parameters.size > targetSignature.parameters.size) return Top
         if (testSignature.parameters != targetSignature.parameters.subList(0, testSignature.parameters.size)) return Top
@@ -273,7 +272,7 @@ object MethodHandlesMerger {
         val cleanupSignature = cleanup.signature
         val targetSignature = target.signature
         if (cleanupSignature.returnType != targetSignature.returnType) return Top
-        val isVoid = targetSignature.returnType == VOID
+        val isVoid = targetSignature.returnType == PsiTypes.voidType()
         val leading = if (isVoid) 1 else 2
         if (cleanupSignature.parameters.size < leading) return Top
         // TODO 0th param must be <= Throwable

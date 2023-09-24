@@ -10,7 +10,7 @@ import javax.swing.JComponent
 
 @Suppress("UnstableApiUsage")
 class MethodTypeInlayProvider : InlayHintsProvider<NoSettings> {
-    private val settingsKey: SettingsKey<NoSettings> = SettingsKey("methodhandle.hints");
+    private val settingsKey: SettingsKey<NoSettings> = SettingsKey("methodhandle.hints")
     override fun createConfigurable(settings: NoSettings): ImmediateConfigurable = object : ImmediateConfigurable {
         override fun createComponent(listener: ChangeListener): JComponent {
             return panel {
@@ -26,7 +26,7 @@ class MethodTypeInlayProvider : InlayHintsProvider<NoSettings> {
         get() = settingsKey
     override val name: String
         get() = "MethodTypInlayProvider"
-    override val previewText: String?
+    override val previewText: String
         get() = "(int, int)void"
 
     override fun createSettings(): NoSettings = NoSettings()
