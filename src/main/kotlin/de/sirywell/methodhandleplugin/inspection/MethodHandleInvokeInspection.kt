@@ -3,6 +3,7 @@ package de.sirywell.methodhandleplugin.inspection
 import com.intellij.codeInsight.daemon.impl.quickfix.AddTypeCastFix
 import com.intellij.codeInsight.intention.FileModifier.SafeFieldForPreview
 import com.intellij.codeInspection.*
+import com.intellij.codeInspection.fix.ReplaceMethodCallFix
 import com.intellij.lang.LanguageRefactoringSupport
 import com.intellij.lang.java.JavaLanguage
 import com.intellij.openapi.fileEditor.FileEditorManager
@@ -15,29 +16,8 @@ import de.sirywell.methodhandleplugin.TypeData
 import de.sirywell.methodhandleplugin.methodName
 import de.sirywell.methodhandleplugin.mhtype.MhSingleType
 import de.sirywell.methodhandleplugin.receiverIsMethodHandle
-import java.lang.invoke.MethodHandle
-import java.lang.invoke.MethodHandles
-import java.lang.invoke.MethodType
 
 class MethodHandleInvokeInspection : LocalInspectionTool() {
-
-    companion object {
-        private val REPLACE_METHOD_CALL_CTOR: MethodHandle by lazy {
-            val lookup = MethodHandles.lookup()
-            val ctorType = MethodType.methodType(Void.TYPE, String::class.java)
-            try {
-                val clazz = Class.forName("com.intellij.codeInspection.ReplaceMethodCallFix")
-                lookup.findConstructor(clazz, ctorType)
-            } catch (ex: Exception) {
-                val clazz = Class.forName("com.intellij.codeInspection.fix.ReplaceMethodCallFix")
-                lookup.findConstructor(clazz, ctorType)
-            }
-        }
-
-        private fun createReplaceMethodCallFix(methodName: String): LocalQuickFix {
-            return REPLACE_METHOD_CALL_CTOR.invoke(methodName) as LocalQuickFix
-        }
-    }
 
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
         return Visitor(holder)
@@ -82,7 +62,7 @@ class MethodHandleInvokeInspection : LocalInspectionTool() {
         private fun checkReturnType(returnType: PsiType, expression: PsiMethodCallExpression) {
             val parent = expression.parent
             if (parent is PsiExpressionStatement) {
-                if (returnType != PsiType.VOID) {
+                if (returnType != PsiTypes.voidType()) {
                     problemsHolder.registerProblem(
                         expression,
                         MethodHandleBundle.message(
@@ -93,7 +73,7 @@ class MethodHandleInvokeInspection : LocalInspectionTool() {
                         ReturnTypeInStatementFix(returnType)
                     )
                 }
-            } else if (returnType == PsiType.VOID && parent !is PsiExpressionStatement) {
+            } else if (returnType == PsiTypes.voidType() && parent !is PsiExpressionStatement) {
                 problemsHolder.registerProblem(
                     expression,
                     MethodHandleBundle.message(
@@ -110,7 +90,7 @@ class MethodHandleInvokeInspection : LocalInspectionTool() {
                         ),
                         ProblemHighlightType.GENERIC_ERROR_OR_WARNING,
                         AddTypeCastFix(returnType, expression),
-                        createReplaceMethodCallFix("invoke")
+                        ReplaceMethodCallFix("invoke")
                     )
                 }
             } else {

@@ -4,7 +4,7 @@ import com.intellij.codeInsight.hints.ParameterHintsPassFactory
 import com.intellij.lang.jvm.JvmModifier
 import com.intellij.psi.*
 import com.intellij.psi.controlFlow.*
-import com.intellij.psi.util.PsiEditorUtilBase
+import com.intellij.psi.util.PsiEditorUtil
 import de.sirywell.methodhandleplugin.TypeData
 import java.lang.invoke.MethodHandle
 import java.lang.invoke.MethodHandles
@@ -39,7 +39,7 @@ class MethodHandleElementVisitor : JavaRecursiveElementWalkingVisitor() {
     private fun applyAnalysis(controlFlow: ControlFlow, body: PsiElement) {
         SsaAnalyzer(controlFlow, typeData).doTraversal()
         SwingUtilities.invokeLater {
-            PsiEditorUtilBase.findEditorByPsiElement(body.parent)?.let {
+            PsiEditorUtil.getInstance().findEditorByPsiElement(body.parent)?.let {
                 @Suppress("UnstableApiUsage")
                 ParameterHintsPassFactory.forceHintsUpdateOnNextPass(it)
             }
