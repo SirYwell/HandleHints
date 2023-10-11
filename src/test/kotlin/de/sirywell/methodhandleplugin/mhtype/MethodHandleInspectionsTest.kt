@@ -23,7 +23,7 @@ class MethodHandleInspectionsTest : LightJavaCodeInsightFixtureTestCase() {
         myFixture.testHighlighting(false, true, false, getTestName(false) + ".java")
     }
 
-    override fun getProjectDescriptor() = JAVA_17
+    override fun getProjectDescriptor() = JAVA_LATEST_WITH_LATEST_JDK
 
     override fun getTestDataPath(): String {
         return "src/test/testData/"
