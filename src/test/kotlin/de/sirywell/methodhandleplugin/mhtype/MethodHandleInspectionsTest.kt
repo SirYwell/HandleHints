@@ -1,5 +1,6 @@
 package de.sirywell.methodhandleplugin.mhtype
 
+import com.intellij.openapi.roots.ui.configuration.validateJavaVersion
 import com.intellij.testFramework.fixtures.LightJavaCodeInsightFixtureTestCase
 import de.sirywell.methodhandleplugin.inspection.MethodHandleCreationInspection
 
@@ -22,7 +23,7 @@ class MethodHandleInspectionsTest : LightJavaCodeInsightFixtureTestCase() {
         myFixture.testHighlighting(false, true, false, getTestName(false) + ".java")
     }
 
-    override fun getProjectDescriptor() = JAVA_LATEST_WITH_LATEST_JDK
+    override fun getProjectDescriptor() = JAVA_17
 
     override fun getTestDataPath(): String {
         return "src/test/testData/"
@@ -43,6 +44,12 @@ class MethodHandleInspectionsTest : LightJavaCodeInsightFixtureTestCase() {
     fun testInitializeArrayElementSetter() = doTypeCheckingTest()
 
     fun testInitializeArrayLength() = doTypeCheckingTest()
+
+    fun testInitializeEmpty() = doTypeCheckingTest()
+
+    fun testInitializeThrowException() = doTypeCheckingTest()
+
+    fun testInitializeZero() = doInspectionTest()
 
     fun testMethodTypeAppendParameterTypes() = doTypeCheckingTest()
 
