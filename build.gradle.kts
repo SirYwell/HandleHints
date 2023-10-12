@@ -158,7 +158,11 @@ fun downloadFromIntelliJRepo(filePath: String, targetBase: Path) {
         executable = "curl"
         args = listOf(
             "-o", outputFile.toString(),
-            "https://raw.githubusercontent.com/JetBrains/intellij-community/master/$filePath"
+            // hardcode last commit containing mockJDK-11.
+            // This can probably be removed in future as IntelliJ should download it now automatically (uncertain which version)
+            // see https://github.com/JetBrains/intellij-community/commit/77d1d0ab2e8bd5c56a6b9ce2b56adb0d348461b8
+            // and https://github.com/JetBrains/intellij-community/commit/403065b8c35a68e3520f49bd48c4569aca0c8af1
+            "https://raw.githubusercontent.com/JetBrains/intellij-community/da4c4b3da79fc528db443defccb2349f8250b47c/$filePath"
         )
     }
     res.rethrowFailure()
