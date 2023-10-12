@@ -1,6 +1,5 @@
 package de.sirywell.methodhandleplugin.mhtype
 
-import com.intellij.openapi.roots.ui.configuration.validateJavaVersion
 import com.intellij.testFramework.fixtures.LightJavaCodeInsightFixtureTestCase
 import de.sirywell.methodhandleplugin.inspection.MethodHandleCreationInspection
 

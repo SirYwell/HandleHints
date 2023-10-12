@@ -3,7 +3,6 @@ package de.sirywell.methodhandleplugin.inspection
 import com.intellij.codeInsight.daemon.impl.quickfix.AddTypeCastFix
 import com.intellij.codeInsight.intention.FileModifier.SafeFieldForPreview
 import com.intellij.codeInspection.*
-import com.intellij.codeInspection.fix.ReplaceMethodCallFix
 import com.intellij.lang.LanguageRefactoringSupport
 import com.intellij.lang.java.JavaLanguage
 import com.intellij.openapi.fileEditor.FileEditorManager
@@ -11,6 +10,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.psi.*
 import com.intellij.psi.util.childrenOfType
 import com.intellij.refactoring.introduceVariable.JavaIntroduceVariableHandlerBase
+import de.sirywell.intellij.ReplaceMethodCallFix
 import de.sirywell.methodhandleplugin.MethodHandleBundle
 import de.sirywell.methodhandleplugin.TypeData
 import de.sirywell.methodhandleplugin.methodName
@@ -147,6 +147,5 @@ class MethodHandleInvokeInspection : LocalInspectionTool() {
 
         // Disable preview for now, as it throws exceptions in its current state
         override fun getFileModifierForPreview(target: PsiFile) = null
-
     }
 }
