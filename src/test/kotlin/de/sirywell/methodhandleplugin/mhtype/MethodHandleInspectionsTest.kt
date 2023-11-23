@@ -66,6 +66,8 @@ class MethodHandleInspectionsTest : LightJavaCodeInsightFixtureTestCase() {
 
     fun testLookupFindVirtual() = doTypeCheckingTest()
 
+    fun testMethodHandlesCatchException() = doTypeCheckingTest()
+
     fun testMethodTypeAppendParameterTypes() = doTypeCheckingTest()
 
     fun testMethodTypeChangeParameterType() = doTypeCheckingTest()
