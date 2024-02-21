@@ -3,6 +3,7 @@ package de.sirywell.methodhandleplugin.mhtype
 import com.intellij.codeInspection.LocalInspectionTool
 import com.intellij.codeInspection.ProblemHighlightType
 import com.intellij.codeInspection.ProblemsHolder
+import com.intellij.psi.JavaElementVisitor
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiElementVisitor
 import de.sirywell.methodhandleplugin.TypeData
@@ -15,7 +16,7 @@ import de.sirywell.methodhandleplugin.TypeData
 class MethodHandleTypeHelperInspection(private val elementFilter: (PsiElement) -> Boolean) : LocalInspectionTool() {
 
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
-        return object : PsiElementVisitor() {
+        return object : JavaElementVisitor() {
             override fun visitElement(element: PsiElement) {
                 if (!elementFilter(element)) return
                 val foundType = TypeData.forFile(element.containingFile)[element] ?: return

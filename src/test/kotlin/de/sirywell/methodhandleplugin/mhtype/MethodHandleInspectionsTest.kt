@@ -1,5 +1,6 @@
 package de.sirywell.methodhandleplugin.mhtype
 
+import com.intellij.refactoring.suggested.startOffset
 import com.intellij.testFramework.fixtures.LightJavaCodeInsightFixtureTestCase
 import de.sirywell.methodhandleplugin.inspection.MethodHandleCreationInspection
 
@@ -14,9 +15,9 @@ class MethodHandleInspectionsTest : LightJavaCodeInsightFixtureTestCase() {
         doTypeCheckingTest(false)
     }
 
-    private fun doTypeCheckingTest(onlyAtCaret: Boolean) {
+    private fun doTypeCheckingTest(onlyAfterCaret: Boolean) {
         val methodHandleTypeHelperInspection =
-            if (onlyAtCaret) MethodHandleTypeHelperInspection { it == myFixture.elementAtCaret }
+            if (onlyAfterCaret) MethodHandleTypeHelperInspection { it.startOffset > myFixture.caretOffset }
             else MethodHandleTypeHelperInspection { true }
         myFixture.enableInspections(methodHandleTypeHelperInspection)
         myFixture.testHighlighting(false, true, false, getTestName(false) + ".java")
@@ -34,22 +35,6 @@ class MethodHandleInspectionsTest : LightJavaCodeInsightFixtureTestCase() {
 
     fun testVoidInConstant() = doInspectionTest()
 
-    fun testSimpleIdentity() = doTypeCheckingTest()
-
-    fun testInitializeArrayConstructor() = doTypeCheckingTest()
-
-    fun testInitializeArrayElementGetter() = doTypeCheckingTest()
-
-    fun testInitializeArrayElementSetter() = doTypeCheckingTest()
-
-    fun testInitializeArrayLength() = doTypeCheckingTest()
-
-    fun testInitializeEmpty() = doTypeCheckingTest()
-
-    fun testInitializeThrowException() = doTypeCheckingTest()
-
-    fun testInitializeZero() = doInspectionTest()
-
     fun testLookupFindConstructor() = doTypeCheckingTest()
 
     fun testLookupFindGetter() = doTypeCheckingTest()
@@ -66,9 +51,27 @@ class MethodHandleInspectionsTest : LightJavaCodeInsightFixtureTestCase() {
 
     fun testLookupFindVirtual() = doTypeCheckingTest()
 
+    fun testMethodHandlesArrayConstructor() = doTypeCheckingTest()
+
+    fun testMethodHandlesArrayElementGetter() = doTypeCheckingTest()
+
+    fun testMethodHandlesArrayElementSetter() = doTypeCheckingTest()
+
+    fun testMethodHandlesArrayLength() = doTypeCheckingTest()
+
     fun testMethodHandlesCatchException() = doTypeCheckingTest()
 
+    fun testMethodHandlesCollectArguments() = doTypeCheckingTest(true)
+
     fun testMethodHandlesDropArguments() = doTypeCheckingTest()
+
+    fun testMethodHandlesEmpty() = doTypeCheckingTest()
+
+    fun testMethodHandlesIdentity() = doTypeCheckingTest()
+
+    fun testMethodHandlesThrowException() = doTypeCheckingTest()
+
+    fun testMethodHandlesZero() = doInspectionTest()
 
     fun testMethodTypeAppendParameterTypes() = doTypeCheckingTest()
 
