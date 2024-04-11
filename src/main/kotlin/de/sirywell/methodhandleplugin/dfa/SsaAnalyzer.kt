@@ -8,6 +8,8 @@ import com.intellij.psi.controlFlow.WriteVariableInstruction
 import de.sirywell.methodhandleplugin.*
 import de.sirywell.methodhandleplugin.dfa.SsaConstruction.*
 import de.sirywell.methodhandleplugin.mhtype.*
+import de.sirywell.methodhandleplugin.type.BotSignature
+import de.sirywell.methodhandleplugin.type.MethodHandleType
 
 class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) {
     companion object {
@@ -25,7 +27,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         )
     }
 
-    private val ssaConstruction = SsaConstruction<MhType>(controlFlow)
+    private val ssaConstruction = SsaConstruction<MethodHandleType>(controlFlow)
     private val methodHandlesMerger = MethodHandlesMerger(this)
 
     fun doTraversal() {
@@ -47,12 +49,12 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         }
     }
 
-    private fun resolvePhi(phi: Phi<MhType>, mut: MutableList<MhType> = mutableListOf()): List<MhType> {
+    private fun <T> resolvePhi(phi: Phi<T>, mut: MutableList<T> = mutableListOf()): List<T> {
         phi.blockToValue.values.forEach {
             if (it is Holder) {
                 mut.add(it.value)
             } else {
-                resolvePhi(it as Phi<MhType>, mut)
+                resolvePhi(it as Phi<T>, mut)
             }
         }
         return mut.toList()
@@ -68,7 +70,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         }
         val mhType = typeData[expression] ?: resolveMhType(expression, block)
         mhType?.let { typeData[expression] = it }
-        ssaConstruction.writeVariable(instruction.variable, block, Holder(mhType ?: Bot))
+        ssaConstruction.writeVariable(instruction.variable, block, Holder(mhType ?: notConstant()))
         if (mhType != null) {
             typeData[controlFlow.getElement(index)] = mhType
         }
@@ -85,7 +87,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         return resolveMhTypePlain(expression, block)
     }
 
-    private fun resolveMhTypePlain(expression: PsiExpression, block: Block): MhType? {
+    private fun resolveMhTypePlain(expression: PsiExpression, block: Block): MethodHandleType? {
         if (expression is PsiLiteralExpression && expression.value == null) return null
         if (expression is PsiMethodCallExpression) {
             val arguments = expression.argumentList.expressions.asList()
@@ -275,8 +277,8 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
 
     private fun findAccessor(
         arguments: List<PsiExpression>,
-        resolver: (PsiExpression, PsiExpression) -> MhType
-    ): MhType {
+        resolver: (PsiExpression, PsiExpression) -> MethodHandleType
+    ): MethodHandleType? {
         if (arguments.size != 3) return noMatch()
         val (refc, _, type) = arguments
         return resolver(refc, type)
@@ -288,7 +290,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         expression: PsiMethodCallExpression,
         arguments: List<PsiExpression>,
         block: Block
-    ): MhType? {
+    ): MethodHandleType? {
         return when (expression.methodName) {
             "arrayConstructor" -> singleParameter(arguments, MethodHandlesInitializer::arrayConstructor)
             "arrayElementGetter" -> singleParameter(arguments, MethodHandlesInitializer::arrayElementGetter)
@@ -457,19 +459,19 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         }
     }
 
-    private fun noMatch(): MhType {
-        return Bot
+    private fun noMatch(): MethodHandleType? {
+        return null
     }
 
-    private fun notConstant(): MhType {
-        return Bot
+    private fun notConstant(): MethodHandleType {
+        return MethodHandleType(BotSignature)
     }
 
     private fun List<PsiExpression>.toPsiTypes(): List<PsiType>? {
         return this.map { it.getConstantOfType<PsiType>() ?: return null }
     }
 
-    private inline fun <reified T> singleParameter(arguments: List<PsiExpression>, factory: (T) -> MhType): MhType {
+    private inline fun <reified T> singleParameter(arguments: List<PsiExpression>, factory: (T) -> MethodHandleType): MethodHandleType {
         if (arguments.size != 1) return noMatch()
         val type = arguments[0].getConstantOfType<T>() ?: return notConstant()
         return factory(type)
@@ -491,8 +493,8 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         block: Block,
         min: Int = 0,
         max: Int = Int.MAX_VALUE,
-        factory: (List<MhType?>) -> MhType
-    ): MhType {
+        factory: (List<MethodHandleType?>) -> MethodHandleType
+    ): MethodHandleType {
         if (arguments.size < min) return noMatch()
         if (arguments.size > max) return noMatch()
         return factory(arguments.map { it.mhType(block) })
@@ -508,7 +510,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
     }
 
     @JvmName("mhType_extension")
-    private fun PsiExpression.mhType(block: Block): MhType? {
+    private fun PsiExpression.mhType(block: Block): MethodHandleType? {
         val mhType = resolveMhType(this, block)
         typeData[this] = mhType ?: return null
         return mhType
@@ -516,7 +518,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
 
     fun mhType(expression: PsiExpression, block: Block) = expression.mhType(block)
 
-    private fun PsiExpression.mhTypeOrNoMatch(block: Block): MhType {
+    private fun PsiExpression.mhTypeOrNoMatch(block: Block): MethodHandleType {
         return this.mhType(block) ?: noMatch()
     }
 

@@ -3,6 +3,9 @@ package de.sirywell.methodhandleplugin
 import com.intellij.codeInspection.dataFlow.CommonDataflow
 import com.intellij.codeInspection.dataFlow.CommonDataflow.DataflowResult
 import com.intellij.psi.*
+import de.sirywell.methodhandleplugin.type.BotType
+import de.sirywell.methodhandleplugin.type.DirectType
+import de.sirywell.methodhandleplugin.type.Type
 import java.lang.invoke.MethodHandle
 import java.lang.invoke.MethodHandles
 import java.lang.invoke.MethodType.methodType
@@ -57,4 +60,8 @@ inline fun <reified T> PsiExpression.getConstantOfType(): T? {
     return (getDataflowResult(this) as DataflowResult?)
         ?.getDfType(this)
         ?.getConstantOfType(T::class.java)
+}
+
+fun PsiExpression.asType(): Type {
+    return getConstantOfType<PsiType>()?.let { return DirectType(it) } ?: BotType
 }

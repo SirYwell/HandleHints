@@ -6,7 +6,11 @@ import com.intellij.psi.PsiPrimitiveType
 import com.intellij.psi.PsiType
 import de.sirywell.methodhandleplugin.MHS
 import de.sirywell.methodhandleplugin.MethodHandleSignature.Companion.create
+import de.sirywell.methodhandleplugin.asType
 import de.sirywell.methodhandleplugin.getConstantOfType
+import de.sirywell.methodhandleplugin.type.CompleteSignature
+import de.sirywell.methodhandleplugin.type.MethodHandleType
+import de.sirywell.methodhandleplugin.type.Signature
 import java.util.Collections.nCopies
 
 object MethodTypeHelper {
@@ -92,10 +96,10 @@ object MethodTypeHelper {
         return start < 0 || start > parametersSize || end < 0 || end > parametersSize || start > end
     }
 
-    fun methodType(args: List<PsiExpression>): MhType {
-        val rtype = args[0].getConstantOfType<PsiType>() ?: return Bot
-        val params = args.drop(1).map { it.getConstantOfType<PsiType>() ?: return Bot }
-        return MhExactType(create(rtype, params.toList()))
+    fun methodType(args: List<PsiExpression>): MethodHandleType {
+        val rtype = args[0].asType()
+        val params = args.drop(1).map { it.asType() }
+        return MethodHandleType(CompleteSignature(rtype, params))
     }
 
     fun methodType(rtype: PsiExpression, mhType: MhType): MhType {

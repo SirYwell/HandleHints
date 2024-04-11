@@ -5,7 +5,9 @@ import com.intellij.psi.PsiPrimitiveType
 import com.intellij.psi.PsiType
 import com.intellij.psi.PsiTypes
 import de.sirywell.methodhandleplugin.MHS
+import de.sirywell.methodhandleplugin.asType
 import de.sirywell.methodhandleplugin.getConstantOfType
+import de.sirywell.methodhandleplugin.type.MethodHandleType
 
 object LookupHelper {
 
@@ -19,8 +21,8 @@ object LookupHelper {
         return type.withSignature(type.signature.withReturnType(referenceClass))
     }
 
-    fun findGetter(refc: PsiExpression, type: PsiExpression): MhType {
-        val referenceClass = refc.getConstantOfType<PsiType>() ?: return Bot
+    fun findGetter(refc: PsiExpression, type: PsiExpression): MethodHandleType {
+        val referenceClass = refc.asType()
         if (referenceClass is PsiPrimitiveType) return referenceTypeExpected(refc, referenceClass)
         val returnType = type.getConstantOfType<PsiType>() ?: return Bot
         if (returnType == PsiTypes.voidType()) return typeMustNotBe(type, PsiTypes.voidType())
