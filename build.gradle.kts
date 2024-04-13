@@ -1,8 +1,5 @@
 import org.jetbrains.changelog.Changelog
 import org.jetbrains.changelog.markdownToHTML
-import java.nio.file.Files
-import java.nio.file.Path
-import kotlin.io.path.*
 
 fun properties(key: String) = project.findProperty(key).toString()
 
