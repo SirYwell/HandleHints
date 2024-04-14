@@ -16,6 +16,8 @@ import de.sirywell.methodhandleplugin.TypeData
 import de.sirywell.methodhandleplugin.methodName
 import de.sirywell.methodhandleplugin.mhtype.MhSingleType
 import de.sirywell.methodhandleplugin.receiverIsMethodHandle
+import java.lang.invoke.MethodHandle
+import java.lang.invoke.MethodHandles
 
 class MethodHandleInvokeInspection : LocalInspectionTool() {
 
@@ -128,6 +130,18 @@ class MethodHandleInvokeInspection : LocalInspectionTool() {
     }
 
     class ReturnTypeInStatementFix(@SafeFieldForPreview private val returnType: PsiType) : LocalQuickFix {
+        // if 241 is not supported anymore, this likely can be removed
+        private val addTypeCast: MethodHandle = run {
+            // find method with unspecified return type
+            val method = AddTypeCastFix::class.java.getDeclaredMethod(
+                "addTypeCast",
+                Project::class.java,
+                PsiExpression::class.java,
+                PsiType::class.java
+            )
+            MethodHandles.lookup().unreflect(method)
+        }
+
         override fun getFamilyName() =
             MethodHandleBundle.message("problem.invocation.returnType.fix.introduce.variable")
 
@@ -135,7 +149,7 @@ class MethodHandleInvokeInspection : LocalInspectionTool() {
             var expr = descriptor.psiElement as PsiExpression
             val parent = expr.parent
             if (returnType != PsiType.getJavaLangObject(expr.manager, expr.resolveScope)) {
-                AddTypeCastFix.addTypeCast(expr.project, expr, returnType)
+                addTypeCast(expr.project, expr, returnType)
                 // sadly, addTypeCast does not return the replacement,
                 // so we need to find it ourselves
                 expr = parent.childrenOfType<PsiTypeCastExpression>().first()
