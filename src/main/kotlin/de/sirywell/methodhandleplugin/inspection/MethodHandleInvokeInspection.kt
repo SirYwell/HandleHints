@@ -89,7 +89,7 @@ class MethodHandleInvokeInspection : LocalInspectionTool() {
                             returnType.presentableText
                         ),
                         ProblemHighlightType.GENERIC_ERROR_OR_WARNING,
-                        AddTypeCastFix(returnType, expression),
+                        LocalQuickFix.from(AddTypeCastFix(returnType, expression))!!,
                         ReplaceMethodCallFix("invoke")
                     )
                 }

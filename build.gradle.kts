@@ -1,8 +1,5 @@
 import org.jetbrains.changelog.Changelog
 import org.jetbrains.changelog.markdownToHTML
-import java.nio.file.Files
-import java.nio.file.Path
-import kotlin.io.path.*
 
 fun properties(key: String) = project.findProperty(key).toString()
 
@@ -126,48 +123,4 @@ tasks {
         // https://plugins.jetbrains.com/docs/intellij/deployment.html#specifying-a-release-channel
         channels = listOf(properties("pluginVersion").split('-').getOrElse(1) { "default" }.split('.').first())
     }
-
-    test {
-        doFirst {
-            // TODO can we use some gradle caching for this?
-            val file = file(".testSdk")
-            if (!file.exists()) {
-                println("Downloading IntelliJ sources for Mock SDKs...")
-                file.createNewFile()
-            }
-            val targetDir = file.readText()
-            if (targetDir.isBlank() || !Files.exists(Path.of(targetDir))) {
-                val path = Files.createTempDirectory("intellij-community").toAbsolutePath()
-                downloadFromIntelliJRepo("java/mockJDK-11/jre/lib/annotations.jar", path)
-                downloadFromIntelliJRepo("java/mockJDK-11/jre/lib/rt.jar", path)
-                file.writeText(path.toString())
-            }
-            systemProperty("idea.home.path", file.readText())
-        }
-    }
-
-    clean {
-        doFirst {
-            val testSdkFile = file(".testSdk").toPath()
-            // TODO probably clean up unneeded files?
-            Files.deleteIfExists(testSdkFile)
-        }
-    }
-}
-
-fun downloadFromIntelliJRepo(filePath: String, targetBase: Path) {
-    val outputFile = targetBase.resolve(filePath)
-    outputFile.parent.createDirectories()
-    val res = exec {
-        executable = "curl"
-        args = listOf(
-            "-o", outputFile.toString(),
-            // hardcode last commit containing mockJDK-11.
-            // This can probably be removed in future as IntelliJ should download it now automatically (uncertain which version)
-            // see https://github.com/JetBrains/intellij-community/commit/77d1d0ab2e8bd5c56a6b9ce2b56adb0d348461b8
-            // and https://github.com/JetBrains/intellij-community/commit/403065b8c35a68e3520f49bd48c4569aca0c8af1
-            "https://raw.githubusercontent.com/JetBrains/intellij-community/da4c4b3da79fc528db443defccb2349f8250b47c/$filePath"
-        )
-    }
-    res.rethrowFailure()
 }
