@@ -65,6 +65,8 @@ class MethodHandleInspectionsTest : LightJavaCodeInsightFixtureTestCase() {
 
     fun testMethodHandlesDropArguments() = doTypeCheckingTest()
 
+    fun testMethodHandlesDropReturn() = doTypeCheckingTest()
+
     fun testMethodHandlesEmpty() = doTypeCheckingTest()
 
     fun testMethodHandlesIdentity() = doTypeCheckingTest()
