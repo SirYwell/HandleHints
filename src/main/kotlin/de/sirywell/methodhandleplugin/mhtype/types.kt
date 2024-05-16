@@ -1,7 +1,6 @@
 package de.sirywell.methodhandleplugin.mhtype
 
 import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiExpression
 import de.sirywell.methodhandleplugin.MHS
 import de.sirywell.methodhandleplugin.MethodHandleSignature
 import de.sirywell.methodhandleplugin.MethodHandleSignature.Companion.create
@@ -18,7 +17,6 @@ import org.jetbrains.annotations.Nls
 sealed interface MhType {
     fun join(other: MhType): MhType
     fun withSignature(signature: MethodHandleSignature): MhType
-    fun at(expression: PsiExpression): MhType
 }
 
 sealed class MhSingleType(val signature: MethodHandleSignature) : MhType {
@@ -30,8 +28,6 @@ sealed class MhSingleType(val signature: MethodHandleSignature) : MhType {
     override fun toString(): String {
         return signature.toString()
     }
-
-    override fun at(expression: PsiExpression) = this
 }
 
 class MhExactType(signature: MethodHandleSignature) : MhSingleType(signature) {
@@ -104,16 +100,10 @@ sealed interface TopType : MhType {
     override fun withSignature(signature: MethodHandleSignature) = this
 }
 data class UnboundTop(val message: String, val target: PsiElement?): TopType {
-    override fun at(expression: PsiExpression) = BoundTop(message, expression, target)
     override fun toString() = "Top(${message.take(5)})"
 }
-data class BoundTop(val message: String, val expression: PsiExpression, val target: PsiElement?): TopType {
-    override fun at(expression: PsiExpression) = this
 
-    override fun toString() = "Top(${message.take(5)})"
-}
 object Top: TopType {
-    override fun at(expression: PsiExpression) = this
 
     override fun toString() = "Top"
     fun inspect(message: @Nls String, target: PsiElement? = null): MhType {
@@ -123,7 +113,6 @@ object Top: TopType {
 object Bot : MhType {
     override fun join(other: MhType) = other
     override fun withSignature(signature: MethodHandleSignature) = this
-    override fun at(expression: PsiExpression) = this
 
     override fun toString() = "Bottom"
 }

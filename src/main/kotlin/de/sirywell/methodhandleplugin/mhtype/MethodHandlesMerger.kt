@@ -1,28 +1,52 @@
 package de.sirywell.methodhandleplugin.mhtype
 
+import com.intellij.codeInspection.ProblemHighlightType
+import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiExpression
 import com.intellij.psi.PsiType
 import com.intellij.psi.PsiTypes
 import de.sirywell.methodhandleplugin.MHS
 import de.sirywell.methodhandleplugin.MethodHandleBundle.message
+import de.sirywell.methodhandleplugin.dfa.SsaAnalyzer
+import de.sirywell.methodhandleplugin.dfa.SsaConstruction
 import de.sirywell.methodhandleplugin.effectivelyIdenticalTo
+import de.sirywell.methodhandleplugin.getConstantOfType
 import de.sirywell.methodhandleplugin.subList
+import org.jetbrains.annotations.Nls
 
 /**
  * Contains methods to merge multiple [MhType]s into a new one,
  * provided by [java.lang.invoke.MethodHandles]
  */
-object MethodHandlesMerger {
+class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
 
     // TODO effectively identical sequences for loops???
 
-    fun catchException(target: MhType, exType: PsiType, handler: MhType): MhType {
+    fun catchException(
+        targetExpr: PsiExpression,
+        exTypeExpr: PsiExpression,
+        handlerExpr: PsiExpression,
+        block: SsaConstruction.Block
+    ): MhType {
+        val exType = exTypeExpr.getConstantOfType<PsiType>() ?: return Bot
+        val target = ssaAnalyzer.mhType(targetExpr, block) ?: return Bot
+        val handler = ssaAnalyzer.mhType(handlerExpr, block) ?: return Bot
         if (target !is MhSingleType) return target
         if (handler !is MhSingleType) return handler
         if (handler.parameters.isEmpty() || !handler.parameters[0].isAssignableFrom(exType)) {
-            return Top.inspect(message("problem.merging.catchException.missingException", exType.presentableText))
+            return emitProblem(handlerExpr, message("problem.merging.catchException.missingException", exType.presentableText))
         }
-        if (target.returnType != handler.returnType) return incompatibleReturnTypes(target, handler)
-        if (!handler.parameters.subList(1).effectivelyIdenticalTo(target.parameters)) return Top
+        if (target.returnType != handler.returnType) return incompatibleReturnTypes(targetExpr, target, handler)
+        if (!handler.parameters.subList(1).effectivelyIdenticalTo(target.parameters)) {
+            return emitProblem(
+                targetExpr,
+                message(
+                    "problem.merging.general.effectivelyIdenticalParametersExpected",
+                    target.parameters.map { it.presentableText },
+                    handler.parameters.subList(1).map { it.presentableText }
+                )
+            )
+        }
         return target
     }
 
@@ -47,7 +71,15 @@ object MethodHandlesMerger {
 
     // fun collectCoordinates() no VarHandle support, preview
 
-    fun countedLoop(iterations: MhType, init: MhType?, body: MhType): MhType {
+    fun countedLoop(
+        iterationsExpr: PsiExpression,
+        initExpr: PsiExpression,
+        bodyExpr: PsiExpression,
+        block: SsaConstruction.Block
+    ): MhType {
+        val iterations = ssaAnalyzer.mhType(iterationsExpr, block) ?: return Bot
+        val init = ssaAnalyzer.mhType(initExpr, block)
+        val body = ssaAnalyzer.mhType(bodyExpr, block) ?: return Bot
         if (init is Bot) return Bot
         if (anyBot(iterations, body)) return Bot
         if (iterations !is MhSingleType) return Top
@@ -58,7 +90,7 @@ object MethodHandlesMerger {
         val internalParameters = body.parameters
         val returnType = body.returnType
         if (init != null && (init as MhSingleType).returnType != returnType)
-            return incompatibleReturnTypes(init, body)
+            return incompatibleReturnTypes(initExpr, init, body)
         if (returnType == PsiTypes.voidType()) {
             // (I A...)
             val size = internalParameters.size
@@ -88,18 +120,36 @@ object MethodHandlesMerger {
         }
     }
 
-    fun countedLoop(start: MhType, end: MhType, init: MhType?, body: MhType): MhType {
+    fun countedLoop(
+        startExpr: PsiExpression,
+        endExpr: PsiExpression,
+        initExpr: PsiExpression,
+        bodyExpr: PsiExpression,
+        block: SsaConstruction.Block
+    ): MhType {
+        val init = ssaAnalyzer.mhType(initExpr, block)
+        val start = ssaAnalyzer.mhType(startExpr, block) ?: return Bot
+        val end = ssaAnalyzer.mhType(endExpr, block) ?: return Bot
+        val body = ssaAnalyzer.mhType(bodyExpr, block) ?: return Bot
         if (init is Bot) return Bot
         if (anyBot(start, end, body)) return Bot
         if (start !is MhSingleType) return Top
         if (end !is MhSingleType) return Top
-        if (start.returnType != end.returnType) return incompatibleReturnTypes(start, end)
+        if (start.returnType != end.returnType) return incompatibleReturnTypes(startExpr, start, end)
         if (start.parameters.effectivelyIdenticalTo(end.parameters)) return Top
         // types otherwise must be equal to countedLoop(iterations, init, body)
-        return countedLoop(start, init, body)
+        return countedLoop(startExpr, initExpr, bodyExpr, block)
     }
 
-    fun doWhileLoop(init: MhType, body: MhType, pred: MhType): MhType {
+    fun doWhileLoop(
+        initExpr: PsiExpression,
+        bodyExpr: PsiExpression,
+        predExpr: PsiExpression,
+        block: SsaConstruction.Block
+    ): MhType {
+        val init = ssaAnalyzer.mhType(initExpr, block) ?: return Bot
+        val body = ssaAnalyzer.mhType(bodyExpr, block) ?: return Bot
+        val pred = ssaAnalyzer.mhType(predExpr, block) ?: return Bot
         if (anyBot(init, body, pred)) return Bot
         if (init !is MhSingleType) return Top
         if (body !is MhSingleType) return Top
@@ -107,7 +157,7 @@ object MethodHandlesMerger {
         if (pred.returnType != PsiTypes.booleanType()) return Top
         val internalParams = body.parameters
         if (internalParams != pred.parameters) return Top
-        if (init.returnType != body.returnType) return incompatibleReturnTypes(init, body)
+        if (init.returnType != body.returnType) return incompatibleReturnTypes(initExpr, init, body)
         if (body.returnType == PsiTypes.voidType()) {
             if (init.signature != body.signature) return Top
         } else {
@@ -158,8 +208,9 @@ object MethodHandlesMerger {
         if (filtersCast.any { it.parameters.size != 1 }) return Top
         // return type of filters[i] must be type of targetParameters[i + pos]
         if (targetSignature.parameters.subList(pos)
-            .zip(filtersCast)
-            .any { (psiType, mhType) -> psiType != mhType.returnType })
+                .zip(filtersCast)
+                .any { (psiType, mhType) -> psiType != mhType.returnType }
+        )
             return Top
         // replace parameter types in range of [pos, pos + filters.size)
         val result = targetSignature.parameters.mapIndexed { index, psiType ->
@@ -237,21 +288,44 @@ object MethodHandlesMerger {
 
     fun loop(clauses: List<List<MhType>>): MhType = TODO() // not sure if we can do anything about this
 
-    fun permuteArguments(target: MhType, newType: MhType, reorder: List<Int>): MhType {
+    fun permuteArguments(
+        targetExpr: PsiExpression,
+        newTypeExpr: PsiExpression,
+        reorder: List<PsiExpression>,
+        block: SsaConstruction.Block
+    ): MhType {
+        val target = ssaAnalyzer.mhType(targetExpr, block) ?: return Bot
+        val newType = ssaAnalyzer.mhType(newTypeExpr, block) ?: return Bot
         if (anyBot(target, newType)) return Bot
         if (target !is MhSingleType) return Top
         if (newType !is MhSingleType) return Top
-        if (target.returnType != newType.returnType) return incompatibleReturnTypes(target, newType)
+        if (target.returnType != newType.returnType) return incompatibleReturnTypes(targetExpr, target, newType)
         val outParams = target.parameters
         val nOut = outParams.size
         val inParams = newType.parameters
         val nIn = inParams.size
-        if (nOut != reorder.size) return Top
-        if (reorder.any { it >= nIn || it < 0 }) return Top
-        for ((n, i) in reorder.withIndex()) {
-            if (outParams[n] != inParams[i]) return Top
+        if (nOut != reorder.size) {
+            return emitProblem(newTypeExpr, message("problem.merging.permute.reorderLengthMismatch", reorder.size, nOut))
         }
-        return constructCompatibleType(newType.signature, target, newType)
+        val reorderInts = reorder.map { it.getConstantOfType<Int>() ?: return Bot }
+        var resultType: MhType? = null
+        for ((index, value) in reorderInts.withIndex()) {
+            if (value < 0 || value >= nIn) {
+                emitProblem(reorder[index], message("problem.merging.permute.invalidReorderIndex", 0, nIn, value))
+                resultType = Top
+            } else if (outParams[index] != inParams[value]) {
+                emitProblem(
+                    reorder[index],
+                    message(
+                        "problem.merging.permute.invalidReorderIndexType",
+                        outParams[index].presentableText,
+                        inParams[value].presentableText
+                    )
+                )
+                resultType = Top
+            }
+        }
+        return resultType ?: constructCompatibleType(newType.signature, target, newType)
     }
 
     // fun permuteCoordinates() no VarHandle support, preview
@@ -282,7 +356,12 @@ object MethodHandlesMerger {
         return constructCompatibleType(targetSignature, target, cleanup)
     }
 
-    fun whileLoop(init: MhType, pred: MhType, body: MhType) = doWhileLoop(init, pred, body) // same type behavior
+    fun whileLoop(
+        initExpr: PsiExpression,
+        bodyExpr: PsiExpression,
+        predExpr: PsiExpression,
+        block: SsaConstruction.Block
+    ) = doWhileLoop(initExpr, bodyExpr, predExpr, block) // same type behavior
 
     /**
      * Constructs a specific MhType variant depending on the types of [mhTypes]
@@ -297,18 +376,25 @@ object MethodHandlesMerger {
     private fun anyBot(vararg types: MhType) = types.any { it is Bot }
 
     private fun incompatibleReturnTypes(
+        element: PsiElement,
         first: MhSingleType,
         second: MhSingleType
-    ) = Top.inspect(
-        message(
-            "problem.merging.general.incompatibleReturnType",
-            first.returnType.presentableText,
-            second.returnType.presentableText
+    ): MhType {
+        return emitProblem(
+            element, message(
+                "problem.merging.general.incompatibleReturnType",
+                first.returnType.presentableText,
+                second.returnType.presentableText
+            )
         )
-    )
+    }
 
-
-
+    private fun emitProblem(element: PsiElement, message: @Nls String): Top {
+        ssaAnalyzer.typeData.reportProblem(element) {
+            it.registerProblem(element, message, ProblemHighlightType.GENERIC_ERROR_OR_WARNING)
+        }
+        return Top
+    }
 }
 
 private fun <E> List<E>.startsWith(list: List<E>): Boolean {
