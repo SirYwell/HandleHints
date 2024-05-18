@@ -11,7 +11,7 @@ object MethodHandleTransformer {
     // fun asSpreader()
 
     // TODO this is not exactly right...
-    fun asType(type: MhType, newType: MhType) = MethodHandlesMerger.explicitCastArguments(type, newType)
+    fun asType(type: MhType, newType: MhType): MhType = TODO()
 
     // fun asVarargsCollector()
 
