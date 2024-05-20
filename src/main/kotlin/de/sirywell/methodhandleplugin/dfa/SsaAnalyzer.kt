@@ -77,13 +77,13 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
     }
 
     /**
-     * Returns true if the variable type has no [MhType]
+     * Returns true if the variable type has no [MethodHandleType]
      */
     private fun isUnrelated(variable: PsiVariable): Boolean {
         return variable.type != methodTypeType(variable) && variable.type != methodHandleType(variable)
     }
 
-    private fun resolveMhType(expression: PsiExpression, block: Block): MhType? {
+    private fun resolveMhType(expression: PsiExpression, block: Block): MethodHandleType? {
         return resolveMhTypePlain(expression, block)
     }
 
@@ -284,7 +284,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         return resolver(refc, type)
     }
 
-    private fun noMethodHandle(): MhType? = null
+    private fun noMethodHandle(): MethodHandleType? = null
 
     private fun methodHandles(
         expression: PsiMethodCallExpression,
@@ -365,8 +365,8 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
             }
 
             "foldArguments" -> {
-                val target: MhType
-                val combiner: MhType
+                val target: MethodHandleType
+                val combiner: MethodHandleType
                 val pos: Int
                 when (arguments.size) {
                     3 -> {
@@ -482,8 +482,8 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         block: Block,
         min: Int = 0,
         max: Int = Int.MAX_VALUE,
-        factory: (List<MhType>) -> MhType
-    ): MhType {
+        factory: (List<MethodHandleType>) -> MethodHandleType
+    ): MethodHandleType? {
         if (arguments.size < min) return noMatch()
         if (arguments.size > max) return noMatch()
         return factory(arguments.map { it.mhType(block) ?: noMatch() })
@@ -494,7 +494,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         min: Int = 0,
         max: Int = Int.MAX_VALUE,
         factory: (List<MethodHandleType?>) -> MethodHandleType
-    ): MethodHandleType {
+    ): MethodHandleType? {
         if (arguments.size < min) return noMatch()
         if (arguments.size > max) return noMatch()
         return factory(arguments.map { it.mhType(block) })
@@ -504,8 +504,8 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         arguments: List<PsiExpression>,
         block: Block,
         exact: Int,
-        factory: (List<MhType>) -> MhType
-    ): MhType {
+        factory: (List<MethodHandleType>) -> MethodHandleType
+    ): MethodHandleType? {
         return justDelegate(arguments, block, min = exact, max = exact, factory)
     }
 
@@ -518,7 +518,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
 
     fun mhType(expression: PsiExpression, block: Block) = expression.mhType(block)
 
-    private fun PsiExpression.mhTypeOrNoMatch(block: Block): MethodHandleType {
+    private fun PsiExpression.mhTypeOrNoMatch(block: Block): MethodHandleType? {
         return this.mhType(block) ?: noMatch()
     }
 

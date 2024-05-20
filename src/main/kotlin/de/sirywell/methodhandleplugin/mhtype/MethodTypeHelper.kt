@@ -8,9 +8,7 @@ import de.sirywell.methodhandleplugin.MHS
 import de.sirywell.methodhandleplugin.MethodHandleSignature.Companion.create
 import de.sirywell.methodhandleplugin.asType
 import de.sirywell.methodhandleplugin.getConstantOfType
-import de.sirywell.methodhandleplugin.type.CompleteSignature
-import de.sirywell.methodhandleplugin.type.MethodHandleType
-import de.sirywell.methodhandleplugin.type.Signature
+import de.sirywell.methodhandleplugin.type.*
 import java.util.Collections.nCopies
 
 object MethodTypeHelper {
@@ -108,14 +106,14 @@ object MethodTypeHelper {
         return mhType.withSignature(mhType.signature.withReturnType(type))
     }
 
-    fun unwrap(mhType: MhType): MhType = mapTypes(mhType, this::unwrap)
+    fun unwrap(mhType: MethodHandleType): MethodHandleType = mapTypes(mhType, this::unwrap)
 
-    fun wrap(context: PsiElement, mhType: MhType): MhType = mapTypes(mhType) { wrap(context, it) }
+    fun wrap(context: PsiElement, mhType: MethodHandleType): MethodHandleType = mapTypes(mhType) { wrap(context, it) }
 
-    private fun mapTypes(mhType: MhType, map: (PsiType) -> PsiType): MhType {
-        if (mhType !is MhSingleType) return mhType
+    private fun mapTypes(mhType: MethodHandleType, map: (Type) -> Type): MethodHandleType {
+        if (mhType.signature !is CompleteSignature) return mhType
         val ret = map(mhType.signature.returnType)
-        val params = mhType.signature.parameters.map { map(it) }
+        val params = mhType.signature.parameterTypes.map { map(it) }
         return mhType.withSignature(MHS.create(ret, params))
     }
 
@@ -124,10 +122,15 @@ object MethodTypeHelper {
         return objectType
     }
 
-    private fun unwrap(type: PsiType): PsiType = PsiPrimitiveType.getOptionallyUnboxedType(type) ?: type
+    private fun unwrap(type: Type): Type {
+        if (type !is DirectType) {
+            return type
+        }
+        return DirectType(PsiPrimitiveType.getOptionallyUnboxedType(type.psiType) ?: type.psiType)
+    }
 
-    private fun wrap(context: PsiElement, type: PsiType): PsiType {
-        if (type !is PsiPrimitiveType) return type
-        return type.getBoxedType(context) ?: type
+    private fun wrap(context: PsiElement, type: Type): Type {
+        if (type !is DirectType || type.psiType !is PsiPrimitiveType) return type
+        return DirectType(type.psiType.getBoxedType(context) ?: type.psiType)
     }
 }

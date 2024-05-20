@@ -6,7 +6,6 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.util.CachedValuesManager
 import de.sirywell.methodhandleplugin.dfa.MhTypeProvider
-import de.sirywell.methodhandleplugin.mhtype.MhType
 import de.sirywell.methodhandleplugin.type.MethodHandleType
 
 class TypeData: ModificationTracker by ModificationTracker.NEVER_CHANGED {
