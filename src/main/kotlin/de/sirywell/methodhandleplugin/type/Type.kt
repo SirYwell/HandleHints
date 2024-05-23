@@ -44,13 +44,8 @@ data class DirectType(val psiType: PsiType) : Type {
         return when (other) {
             is BotType -> this
             is TopType -> other
-            is DirectType -> {
-                if (other.psiType == psiType) {
-                    return this
-                } else {
-                    return TopType
-                }
-            }
+            is DirectType -> if (other.psiType == psiType) this else TopType
+
         }
     }
 
