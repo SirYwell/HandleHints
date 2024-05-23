@@ -3,6 +3,7 @@ package de.sirywell.methodhandleplugin
 import com.intellij.codeInspection.dataFlow.CommonDataflow
 import com.intellij.codeInspection.dataFlow.CommonDataflow.DataflowResult
 import com.intellij.psi.*
+import com.intellij.psi.search.GlobalSearchScope
 import de.sirywell.methodhandleplugin.type.BotType
 import de.sirywell.methodhandleplugin.type.DirectType
 import de.sirywell.methodhandleplugin.type.Type
@@ -61,7 +62,15 @@ inline fun <reified T> PsiExpression.getConstantOfType(): T? {
         ?.getDfType(this)
         ?.getConstantOfType(T::class.java)
 }
+fun Collection<PsiExpression>.mapToTypes(): List<Type> {
+    return this.map { element -> element.asType() }
+}
 
 fun PsiExpression.asType(): Type {
-    return getConstantOfType<PsiType>()?.let { return DirectType(it) } ?: BotType
+    return getConstantOfType<PsiType>()?.let { DirectType(it) } ?: BotType
 }
+
+fun objectType(manager: PsiManager, scope: GlobalSearchScope): PsiType {
+    return PsiType.getJavaLangObject(manager, scope)
+}
+

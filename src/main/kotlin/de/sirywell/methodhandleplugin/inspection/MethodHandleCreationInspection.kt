@@ -6,7 +6,8 @@ import com.intellij.codeInspection.ProblemsHolder
 import com.intellij.psi.*
 import com.intellij.psi.util.TypeConversionUtil
 import de.sirywell.methodhandleplugin.*
-import de.sirywell.methodhandleplugin.mhtype.MhExactType
+import de.sirywell.methodhandleplugin.type.CompleteSignature
+import de.sirywell.methodhandleplugin.type.DirectType
 
 class MethodHandleCreationInspection: LocalInspectionTool() {
 
@@ -19,21 +20,21 @@ class MethodHandleCreationInspection: LocalInspectionTool() {
             if (!receiverIsMethodHandles(expression)) return
             val typeData = TypeData.forFile(expression.containingFile)
             val type = typeData[expression] ?: return
-            if (type !is MhExactType) return
+            if (type.signature !is CompleteSignature) return
             when (expression.methodName) {
-                "constant" -> checkConstant(expression, type)
+                "constant" -> checkConstant(expression, type.signature)
                 "identity" -> checkParamNotVoidAt(expression, 0)
             }
         }
 
-        private fun checkConstant(expression: PsiMethodCallExpression, type: MhExactType) {
+        private fun checkConstant(expression: PsiMethodCallExpression, signature: CompleteSignature) {
             val parameters = expression.argumentList.expressionTypes
             if (parameters.size != 2) return
-            if (!returnTypesAreCompatible(type, parameters[1])) {
+            if (!returnTypesAreCompatible(signature, parameters[1])) {
                 problemsHolder.registerProblem(
                     expression.methodExpression as PsiExpression,
                     MethodHandleBundle.message("problem.creation.arguments.expected.type",
-                        type.signature.returnType.presentableText,
+                        signature.returnType(),
                         parameters[1].presentableText
                     ),
                     ProblemHighlightType.GENERIC_ERROR_OR_WARNING
@@ -43,10 +44,10 @@ class MethodHandleCreationInspection: LocalInspectionTool() {
         }
 
         private fun returnTypesAreCompatible(
-            type: MhExactType,
+            signature: CompleteSignature,
             parameter: PsiType
         ): Boolean {
-            val returnType = type.signature.returnType
+            val returnType = (signature.returnType() as? DirectType)?.psiType ?: return true // assume compatible if unknown
             // void.class in invalid in constant(...), so skip here and handle it later separately
             if (returnType == PsiTypes.voidType()) return true
             if (returnType is PsiPrimitiveType) {
