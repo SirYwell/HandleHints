@@ -301,10 +301,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
 
             "collectArguments" -> {
                 if (arguments.size != 3) return noMatch()
-                val pos = arguments[1].getConstantOfType<Int>() ?: return notConstant()
-                val target = arguments[0].mhType(block) ?: return noMatch()
-                val filter = arguments[2].mhType(block) ?: return noMatch()
-                methodHandlesMerger.collectArguments(target, pos, filter)
+                methodHandlesMerger.collectArguments(arguments[0], arguments[1], arguments[2], block)
             }
 
             "constant" -> {

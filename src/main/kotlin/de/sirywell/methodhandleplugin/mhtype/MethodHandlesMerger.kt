@@ -34,7 +34,10 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
         if (target !is MhSingleType) return target
         if (handler !is MhSingleType) return handler
         if (handler.parameters.isEmpty() || !handler.parameters[0].isAssignableFrom(exType)) {
-            return emitProblem(handlerExpr, message("problem.merging.catchException.missingException", exType.presentableText))
+            return emitProblem(
+                handlerExpr,
+                message("problem.merging.catchException.missingException", exType.presentableText)
+            )
         }
         if (target.returnType != handler.returnType) return incompatibleReturnTypes(targetExpr, target, handler)
         if (!handler.parameters.subList(1).effectivelyIdenticalTo(target.parameters)) {
@@ -50,12 +53,22 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
         return target
     }
 
-    fun collectArguments(target: MhType, pos: Int, filter: MhType): MhType {
+    fun collectArguments(
+        targetExpr: PsiExpression,
+        posExpr: PsiExpression,
+        filterExpr: PsiExpression,
+        block: SsaConstruction.Block
+    ): MhType {
+        val target = ssaAnalyzer.mhType(targetExpr, block) ?: return Bot
+        val filter = ssaAnalyzer.mhType(filterExpr, block) ?: return Bot
         if (anyBot(target, filter)) return Bot
         if (target !is MhSingleType) return target
         if (filter !is MhSingleType) return Top
         val parameters = target.parameters.toMutableList()
-        if (pos >= parameters.size) return Top
+        val pos = posExpr.getConstantOfType<Int>() ?: return Bot
+        if (pos >= parameters.size || pos < 0) {
+            return emitProblem(posExpr, message("problem.merging.collectArgs.invalidIndex", pos, parameters.size))
+        }
         if (filter.returnType != PsiTypes.voidType()) {
             // the return type of the filter must match the replaced type
             if (parameters[pos] != filter.returnType) {
@@ -305,7 +318,10 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
         val inParams = newType.parameters
         val nIn = inParams.size
         if (nOut != reorder.size) {
-            return emitProblem(newTypeExpr, message("problem.merging.permute.reorderLengthMismatch", reorder.size, nOut))
+            return emitProblem(
+                newTypeExpr,
+                message("problem.merging.permute.reorderLengthMismatch", reorder.size, nOut)
+            )
         }
         val reorderInts = reorder.map { it.getConstantOfType<Int>() ?: return Bot }
         var resultType: MhType? = null
