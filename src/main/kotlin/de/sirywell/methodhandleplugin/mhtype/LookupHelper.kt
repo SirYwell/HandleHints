@@ -1,82 +1,134 @@
 package de.sirywell.methodhandleplugin.mhtype
 
-import com.intellij.psi.PsiExpression
-import com.intellij.psi.PsiPrimitiveType
-import com.intellij.psi.PsiType
-import com.intellij.psi.PsiTypes
-import de.sirywell.methodhandleplugin.MHS
-import de.sirywell.methodhandleplugin.getConstantOfType
+import com.intellij.codeInspection.ProblemHighlightType
+import com.intellij.psi.*
+import de.sirywell.methodhandleplugin.MethodHandleBundle
+import de.sirywell.methodhandleplugin.asType
+import de.sirywell.methodhandleplugin.dfa.SsaAnalyzer
+import de.sirywell.methodhandleplugin.dfa.SsaConstruction
+import de.sirywell.methodhandleplugin.type.*
+import de.sirywell.methodhandleplugin.type.TopType
+import org.jetbrains.annotations.Nls
 
-object LookupHelper {
+class LookupHelper(private val ssaAnalyzer: SsaAnalyzer) {
 
     // MethodHandle factory methods
 
-    fun findConstructor(refc: PsiExpression, type: MhType): MhType {
-        if (type !is MhSingleType) return type
-        if (type.returnType != PsiTypes.voidType()) return unexpectedReturnType(type.returnType, PsiTypes.voidType())
-        val referenceClass = refc.getConstantOfType<PsiType>() ?: return Bot
-        if (referenceClass == PsiTypes.voidType()) return typeMustNotBe(refc, PsiTypes.voidType())
-        return type.withSignature(type.signature.withReturnType(referenceClass))
+    fun findConstructor(refc: PsiExpression, typeExpr: PsiExpression, block: SsaConstruction.Block): MethodHandleType {
+        val type = ssaAnalyzer.mhType(typeExpr, block) ?: return MethodHandleType(BotSignature)
+        if (type.signature !is CompleteSignature) return type
+        if (!type.signature.returnType().canBe(PsiTypes.voidType())) {
+            emitProblem(
+                typeExpr,
+                MethodHandleBundle.message(
+                    "problem.merging.general.otherReturnTypeExpected",
+                    type.signature.returnType(),
+                    PsiTypes.voidType().presentableText
+                )
+            )
+        }
+        val referenceClass = refc.asReferenceType()
+        return MethodHandleType(type.signature.withReturnType(referenceClass))
     }
 
-    fun findGetter(refc: PsiExpression, type: PsiExpression): MhType {
-        val referenceClass = refc.getConstantOfType<PsiType>() ?: return Bot
-        if (referenceClass is PsiPrimitiveType) return referenceTypeExpected(refc, referenceClass)
-        val returnType = type.getConstantOfType<PsiType>() ?: return Bot
-        if (returnType == PsiTypes.voidType()) return typeMustNotBe(type, PsiTypes.voidType())
-        return MhExactType(MHS.create(returnType, listOf(referenceClass)))
+    fun findGetter(refc: PsiExpression, typeExpr: PsiExpression): MethodHandleType {
+        val referenceClass = refc.asReferenceType()
+        val returnType = typeExpr.asNonVoidType()
+        return MethodHandleType(CompleteSignature(returnType, listOf(referenceClass)))
     }
 
-    fun findSetter(refc: PsiExpression, type: PsiExpression): MhType {
-        val referenceClass = refc.getConstantOfType<PsiType>() ?: return Bot
-        if (referenceClass is PsiPrimitiveType) return referenceTypeExpected(refc, referenceClass)
-        val paramType = type.getConstantOfType<PsiType>() ?: return Bot
-        if (paramType == PsiTypes.voidType()) return typeMustNotBe(type, PsiTypes.voidType())
-        return MhExactType(MHS.create(PsiTypes.voidType(), listOf(referenceClass, paramType)))
+    fun findSetter(refc: PsiExpression, typeExpr: PsiExpression): MethodHandleType {
+        val referenceClass = refc.asReferenceType()
+        val paramType = typeExpr.asNonVoidType()
+        return MethodHandleType(CompleteSignature(DirectType(PsiTypes.voidType()), listOf(referenceClass, paramType)))
     }
 
-    fun findSpecial(refc: PsiExpression, type: MhType, specialCaller: PsiExpression): MhType {
-        val referenceClass = refc.getConstantOfType<PsiType>() ?: return Bot
-        if (referenceClass is PsiPrimitiveType) return referenceTypeExpected(refc, referenceClass)
-        if (type !is MhSingleType) return type
+    fun findSpecial(refc: PsiExpression, type: MethodHandleType, specialCaller: PsiExpression): MethodHandleType {
+        refc.asReferenceType()
+        if (type.signature !is CompleteSignature) return type
         // TODO inspection:  caller class must be a subclass below the method
-        val paramType = specialCaller.getConstantOfType<PsiType>() ?: return Bot
+        val paramType = specialCaller.asType()
         return prependParameter(type, paramType)
     }
 
-    fun findStatic(refc: PsiExpression, mhType: MhType): MhType {
-        val referenceClass = refc.getConstantOfType<PsiType>() ?: return Bot
-        if (referenceClass is PsiPrimitiveType) return referenceTypeExpected(refc, referenceClass)
+    fun findStatic(refc: PsiExpression, mhType: MethodHandleType): MethodHandleType {
+        refc.asReferenceType()
         return mhType
     }
 
-    fun findStaticGetter(refc: PsiExpression, type: PsiExpression): MhType {
-        val referenceClass = refc.getConstantOfType<PsiType>() ?: return Bot
-        if (referenceClass is PsiPrimitiveType) return referenceTypeExpected(refc, referenceClass)
-        val returnType = type.getConstantOfType<PsiType>() ?: return Bot
-        if (returnType == PsiTypes.voidType()) return typeMustNotBe(type, PsiTypes.voidType())
-        return MhExactType(MHS.create(returnType, listOf()))
+    fun findStaticGetter(refc: PsiExpression, type: PsiExpression): MethodHandleType {
+        refc.asReferenceType()
+        val returnType = type.asNonVoidType()
+        return MethodHandleType(CompleteSignature(returnType, listOf()))
     }
 
-    fun findStaticSetter(refc: PsiExpression, type: PsiExpression): MhType {
-        val referenceClass = refc.getConstantOfType<PsiType>() ?: return Bot
-        if (referenceClass is PsiPrimitiveType) return referenceTypeExpected(refc, referenceClass)
-        val paramType = type.getConstantOfType<PsiType>() ?: return Bot
-        if (paramType == PsiTypes.voidType()) return typeMustNotBe(type, PsiTypes.voidType())
-        return MhExactType(MHS.create(PsiTypes.voidType(), listOf(paramType)))
+    fun findStaticSetter(refc: PsiExpression, type: PsiExpression): MethodHandleType {
+        refc.asReferenceType()
+        val paramType = type.asNonVoidType()
+        return MethodHandleType(CompleteSignature(DirectType(PsiTypes.voidType()), listOf(paramType)))
     }
 
-    fun findVirtual(refc: PsiExpression, mhType: MhType): MhType {
-        val referenceClass = refc.getConstantOfType<PsiType>() ?: return Bot
-        if (referenceClass is PsiPrimitiveType) return referenceTypeExpected(refc, referenceClass)
-        if (mhType !is MhSingleType) return mhType
-        val paramType = refc.getConstantOfType<PsiType>() ?: return Bot
+    fun findVirtual(refc: PsiExpression, mhType: MethodHandleType): MethodHandleType {
+        var referenceClass = refc.asType()
+        if (referenceClass.isPrimitive()) {
+            referenceClass = TopType
+            emitMustBeReferenceType(refc, referenceClass)
+        }
+        if (mhType.signature !is CompleteSignature) return mhType
+        val paramType = refc.asType()
         // TODO not exactly correct, receiver could be restricted to lookup class
         return prependParameter(mhType, paramType)
     }
 
     private fun prependParameter(
-        mhType: MhSingleType,
-        paramType: PsiType
-    ) = mhType.withSignature(mhType.signature.withParameters(listOf(paramType) + mhType.signature.parameters))
+        mhType: MethodHandleType,
+        paramType: Type
+    ): MethodHandleType {
+        if (mhType.signature !is CompleteSignature) {
+            return mhType
+        }
+        return MethodHandleType(mhType.signature.withParameterTypes(listOf(paramType) + mhType.signature.parameterTypes))
+    }
+
+    private fun emitProblem(element: PsiElement, message: @Nls String): MethodHandleType {
+        ssaAnalyzer.typeData.reportProblem(element) {
+            it.registerProblem(element, message, ProblemHighlightType.GENERIC_ERROR_OR_WARNING)
+        }
+        return MethodHandleType(TopSignature)
+    }
+
+    private fun emitMustNotBeVoid(typeExpr: PsiExpression) {
+        emitProblem(
+            typeExpr,
+            MethodHandleBundle.message("problem.merging.general.typeMustNotBe", PsiTypes.voidType().presentableText)
+        )
+    }
+
+    private fun emitMustBeReferenceType(refc: PsiExpression, referenceClass: Type) {
+        emitProblem(
+            refc, MethodHandleBundle.message(
+                "problem.merging.general.referenceTypeExpected",
+                referenceClass,
+            )
+        )
+    }
+
+    private fun PsiExpression.asReferenceType(): Type {
+        val referenceClass = this.asType()
+        if (referenceClass.isPrimitive()) {
+            emitMustBeReferenceType(this, referenceClass)
+            return TopType
+        }
+        return referenceClass
+    }
+
+    private fun PsiExpression.asNonVoidType(): Type {
+        val nonVoid = this.asType()
+        val voidType = DirectType(PsiTypes.voidType())
+        if (nonVoid == voidType) {
+            emitMustNotBeVoid(this)
+            return TopType
+        }
+        return nonVoid
+    }
 }

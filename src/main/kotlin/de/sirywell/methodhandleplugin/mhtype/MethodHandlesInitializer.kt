@@ -1,74 +1,124 @@
 package de.sirywell.methodhandleplugin.mhtype
 
-import de.sirywell.methodhandleplugin.MethodHandleSignature.Companion.create
-import com.intellij.psi.PsiArrayType
-import com.intellij.psi.PsiType
-import com.intellij.psi.PsiTypes
+import com.intellij.codeInspection.ProblemHighlightType
+import com.intellij.psi.*
+import de.sirywell.methodhandleplugin.MethodHandleBundle
+import de.sirywell.methodhandleplugin.asType
+import de.sirywell.methodhandleplugin.dfa.SsaAnalyzer
+import de.sirywell.methodhandleplugin.type.*
+import de.sirywell.methodhandleplugin.type.TopType
+import org.jetbrains.annotations.Nls
 
 /**
  * Contains methods from [java.lang.invoke.MethodHandles] that create
  * new [java.lang.invoke.MethodHandle]s.
  */
-object MethodHandlesInitializer {
+class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) {
 
-    fun arrayConstructor(arrayClass: PsiType): MhType {
-        if (arrayClass !is PsiArrayType) return Top
-        return MhExactType(create(arrayClass, listOf(PsiTypes.intType())))
+    private val intType = DirectType(PsiTypes.intType())
+    private val voidType = DirectType(PsiTypes.voidType())
+    private val topType = MethodHandleType(TopSignature)
+
+    fun arrayConstructor(arrayClass: PsiExpression): MethodHandleType {
+        val arrayType = arrayClass.asArrayType()
+
+        return MethodHandleType(CompleteSignature(arrayType, listOf(intType)))
     }
 
-    fun arrayElementGetter(arrayClass: PsiType): MhType {
-        return MhExactType(create((arrayClass as PsiArrayType).componentType, listOf<PsiType>(arrayClass, PsiTypes.intType())))
+    fun arrayElementGetter(arrayClass: PsiExpression): MethodHandleType {
+        val arrayType = arrayClass.asArrayType()
+        val componentType = if (arrayType !is DirectType) {
+            arrayType
+        } else {
+            DirectType((arrayType.psiType as PsiArrayType).componentType)
+        }
+        return MethodHandleType(CompleteSignature(componentType, listOf(arrayType, intType)))
     }
 
-    fun arrayElementSetter(arrayClass: PsiType): MhType {
-        if (arrayClass !is PsiArrayType) return Top
-        return MhExactType(create(PsiTypes.voidType(), listOf(arrayClass, PsiTypes.intType(), arrayClass.componentType)))
+    fun arrayElementSetter(arrayClass: PsiExpression): MethodHandleType {
+        val arrayType = arrayClass.asArrayType()
+        val componentType = if (arrayType !is DirectType) {
+            arrayType
+        } else {
+            DirectType((arrayType.psiType as PsiArrayType).componentType)
+        }
+        return MethodHandleType(CompleteSignature(voidType, listOf(arrayType, intType, componentType)))
     }
 
     // arrayElementVarHandle() no VarHandle support
 
-    fun arrayLength(arrayClass: PsiType): MhType {
-        if (arrayClass !is PsiArrayType) return Top
-        return MhExactType(create(PsiTypes.intType(), listOf(arrayClass)))
+    fun arrayLength(arrayClass: PsiExpression): MethodHandleType {
+        val arrayType = arrayClass.asArrayType()
+        return MethodHandleType(CompleteSignature(intType, listOf(arrayType)))
     }
 
     // byteArray/BufferViewVarHandle() no VarHandle support
 
-    fun constant(type: PsiType): MhType {
-        return MhExactType(create(type, listOf()))
+    fun constant(typeExpr: PsiExpression): MethodHandleType {
+        val type = typeExpr.asType()
+        return MethodHandleType(CompleteSignature(type, listOf()))
     }
 
-    fun empty(mhType: MhType): MhType = mhType
+    fun empty(mhType: MethodHandleType): MethodHandleType = mhType
 
-    fun exactInvoker(mhType: MhType, methodHandleType: PsiType) = invoker(mhType, methodHandleType)
+    fun exactInvoker(mhType: MethodHandleType, methodHandleType: PsiType) = invoker(mhType, methodHandleType)
 
-    fun identity(type: PsiType): MhType {
-        return MhExactType(create(type, listOf(type)))
+    fun identity(typeExpr: PsiExpression): MethodHandleType {
+        val type = typeExpr.asType()
+        return MethodHandleType(CompleteSignature(type, listOf(type)))
     }
 
-    fun invoker(mhType: MhType, methodHandleType: PsiType): MhType {
-        if (mhType !is MhSingleType) return Top
+    fun invoker(mhType: MethodHandleType, methodHandleType: PsiType): MethodHandleType {
+        if (mhType.signature !is CompleteSignature) return mhType
         val signature = mhType.signature
-        val list = signature.parameters.toMutableList()
-        list.add(0, methodHandleType)
-        return mhType.withSignature(create(signature.returnType, list))
+        val list = signature.parameterTypes.toMutableList()
+        list.add(0, DirectType(methodHandleType))
+        return MethodHandleType(CompleteSignature(signature.returnType(), list))
     }
 
-    fun spreadInvoker(type: MhType, leadingArgCount: Int, objectType: PsiType): MhType {
-        if (type !is MhSingleType) return Top
-        if (leadingArgCount < 0) return Top
+    fun spreadInvoker(type: MethodHandleType, leadingArgCount: Int, objectType: PsiType): MethodHandleType {
+        if (type.signature !is CompleteSignature) return type
+        if (leadingArgCount < 0) return topType
         val signature = type.signature
-        if (leadingArgCount >= signature.parameters.size) return Top
-        val keep = signature.parameters.subList(0, leadingArgCount).toMutableList()
-        keep.add(objectType.createArrayType())
-        return type.withSignature(create(signature.returnType, keep))
+        if (leadingArgCount >= signature.parameterTypes.size) return topType
+        val keep = signature.parameterTypes.subList(0, leadingArgCount).toMutableList()
+        keep.add(DirectType(objectType.createArrayType()))
+        return MethodHandleType(CompleteSignature(signature.returnType(), keep))
     }
 
-    fun throwException(returnType: PsiType, exType: PsiType): MhType {
-        return MhExactType(create(returnType, listOf(exType)))
+    fun throwException(returnTypeExpr: PsiExpression, exTypeExpr: PsiExpression): MethodHandleType {
+        return MethodHandleType(CompleteSignature(returnTypeExpr.asType(), listOf(exTypeExpr.asType())))
     }
 
-    fun zero(type: PsiType): MhType {
-        return MhExactType(create(type, listOf()))
+    fun zero(type: Type): MethodHandleType {
+        return MethodHandleType(CompleteSignature(type, listOf()))
     }
+
+    private fun PsiExpression.asArrayType(): Type {
+        val referenceClass = this.asType()
+        if (referenceClass.isPrimitive()) {
+            emitMustBeArrayType(this, referenceClass)
+            return TopType
+        }
+        return referenceClass
+    }
+
+    private fun emitProblem(element: PsiElement, message: @Nls String): MethodHandleType {
+        ssaAnalyzer.typeData.reportProblem(element) {
+            it.registerProblem(element, message, ProblemHighlightType.GENERIC_ERROR_OR_WARNING)
+        }
+        return MethodHandleType(TopSignature)
+    }
+
+
+    private fun emitMustBeArrayType(refc: PsiExpression, referenceClass: Type) {
+        emitProblem(
+            refc, MethodHandleBundle.message(
+                "problem.merging.general.arrayTypeExpected",
+                referenceClass,
+            )
+        )
+    }
+
+
 }

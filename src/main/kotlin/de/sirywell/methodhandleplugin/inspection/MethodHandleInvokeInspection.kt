@@ -14,8 +14,10 @@ import de.sirywell.intellij.ReplaceMethodCallFix
 import de.sirywell.methodhandleplugin.MethodHandleBundle
 import de.sirywell.methodhandleplugin.TypeData
 import de.sirywell.methodhandleplugin.methodName
-import de.sirywell.methodhandleplugin.mhtype.MhSingleType
 import de.sirywell.methodhandleplugin.receiverIsMethodHandle
+import de.sirywell.methodhandleplugin.type.CompleteSignature
+import de.sirywell.methodhandleplugin.type.DirectType
+import de.sirywell.methodhandleplugin.type.Type
 import java.lang.invoke.MethodHandle
 import java.lang.invoke.MethodHandles
 
@@ -31,7 +33,7 @@ class MethodHandleInvokeInspection : LocalInspectionTool() {
             val target = expression.methodExpression.qualifierExpression ?: return
             val typeData = TypeData.forFile(expression.containingFile)
             val type = typeData[target] ?: return
-            if (type !is MhSingleType) return // ignore for now
+            if (type.signature !is CompleteSignature) return // ignore for now
             val (returnType, parameters) = type.signature
             when (expression.methodName) {
                 "invoke" -> {
@@ -46,14 +48,14 @@ class MethodHandleInvokeInspection : LocalInspectionTool() {
             }
         }
 
-        private fun checkArgumentsTypes(parameters: List<PsiType>, expression: PsiMethodCallExpression) {
+        private fun checkArgumentsTypes(parameters: List<Type>, expression: PsiMethodCallExpression) {
             if (expression.argumentList.expressionTypes.zip(parameters)
                     .any { it.first != it.second }
             ) {
                 problemsHolder.registerProblem(
                     expression.methodExpression as PsiExpression,
                     MethodHandleBundle.message("problem.invocation.arguments.wrong.types",
-                        parameters.map { it.presentableText },
+                        parameters,
                         expression.argumentList.expressionTypes.map { it.presentableText }
                     ),
                     ProblemHighlightType.GENERIC_ERROR_OR_WARNING
@@ -61,21 +63,29 @@ class MethodHandleInvokeInspection : LocalInspectionTool() {
             }
         }
 
-        private fun checkReturnType(returnType: PsiType, expression: PsiMethodCallExpression) {
+        private fun checkReturnType(returnType: Type, expression: PsiMethodCallExpression) {
             val parent = expression.parent
             if (parent is PsiExpressionStatement) {
-                if (returnType != PsiTypes.voidType()) {
+                if (!returnType.canBe(PsiTypes.voidType())) {
+                    val fixes: Array<LocalQuickFix> = if (returnType is DirectType) {
+                        arrayOf(ReturnTypeInStatementFix(returnType.psiType))
+                    } else {
+                        emptyArray()
+                    }
                     problemsHolder.registerProblem(
                         expression,
                         MethodHandleBundle.message(
                             "problem.invocation.returnType.not.void",
-                            returnType.presentableText
+                            returnType
                         ),
                         ProblemHighlightType.GENERIC_ERROR_OR_WARNING,
-                        ReturnTypeInStatementFix(returnType)
+                        *fixes
                     )
                 }
-            } else if (returnType == PsiTypes.voidType() && parent !is PsiExpressionStatement) {
+            } else if (returnType is DirectType
+                && returnType.psiType == PsiTypes.voidType()
+                && parent !is PsiExpressionStatement
+            ) {
                 problemsHolder.registerProblem(
                     expression,
                     MethodHandleBundle.message(
@@ -83,26 +93,34 @@ class MethodHandleInvokeInspection : LocalInspectionTool() {
                     )
                 )
             } else if (parent !is PsiTypeCastExpression) {
-                if (returnType != PsiType.getJavaLangObject(expression.manager, expression.resolveScope)) {
+                if (!returnType.canBe(PsiType.getJavaLangObject(expression.manager, expression.resolveScope))) {
+                    val fixes: Array<LocalQuickFix> = if (returnType is DirectType) {
+                        arrayOf(
+                            LocalQuickFix.from(AddTypeCastFix(returnType.psiType, expression))!!,
+                            ReplaceMethodCallFix("invoke")
+                        )
+                    } else {
+                        arrayOf(ReplaceMethodCallFix("invoke"))
+                    }
+
                     problemsHolder.registerProblem(
                         expression.methodExpression as PsiExpression,
                         MethodHandleBundle.message(
                             "problem.invocation.returnType.not.object",
-                            returnType.presentableText
+                            returnType
                         ),
                         ProblemHighlightType.GENERIC_ERROR_OR_WARNING,
-                        LocalQuickFix.from(AddTypeCastFix(returnType, expression))!!,
-                        ReplaceMethodCallFix("invoke")
+                        *fixes
                     )
                 }
             } else {
                 val type = parent.castType?.type ?: return
-                if (type != returnType) {
+                if (!returnType.canBe(type)) {
                     problemsHolder.registerProblem(
                         parent.castType!!,
                         MethodHandleBundle.message(
                             "problem.invocation.returnType.wrong.cast",
-                            returnType.presentableText,
+                            returnType,
                             type.presentableText
                         ),
                         ProblemHighlightType.GENERIC_ERROR_OR_WARNING
@@ -112,7 +130,7 @@ class MethodHandleInvokeInspection : LocalInspectionTool() {
         }
 
         private fun checkArgumentsCount(
-            parameters: List<PsiType>,
+            parameters: List<Type>,
             expression: PsiMethodCallExpression
         ) {
             if (parameters.size != expression.argumentList.expressionCount) {
