@@ -8,6 +8,8 @@ sealed interface Signature {
 
     fun withParameterTypes(parameterTypes: List<Type>): Signature
 
+    fun parameterTypeAt(index: Int): Type
+
     fun returnType(): Type
 }
 
@@ -18,6 +20,8 @@ data object BotSignature : Signature {
 
     override fun withParameterTypes(parameterTypes: List<Type>) = this
 
+    override fun parameterTypeAt(index: Int) = BotType
+
     override fun returnType() = BotType
 }
 
@@ -27,6 +31,8 @@ data object TopSignature : Signature {
     override fun withReturnType(returnType: Type) = this
 
     override fun withParameterTypes(parameterTypes: List<Type>) = this
+
+    override fun parameterTypeAt(index: Int) = TopType
 
     override fun returnType() = TopType
 }
@@ -53,6 +59,10 @@ data class CompleteSignature(
 
     override fun withParameterTypes(parameterTypes: List<Type>): Signature {
         return CompleteSignature(returnType, parameterTypes)
+    }
+
+    override fun parameterTypeAt(index: Int): Type {
+        return parameterTypes.getOrElse(index) { TopType }
     }
 
     override fun returnType(): Type {
