@@ -25,7 +25,9 @@ class MethodHandleTransformer(private val ssaAnalyzer: SsaAnalyzer) {
     fun bindTo(typeExpr: PsiExpression, objectType: PsiExpression, block: SsaConstruction.Block): MethodHandleType {
         val type = ssaAnalyzer.mhType(typeExpr, block) ?: MethodHandleType(BotSignature)
         if (type.signature !is CompleteSignature) return type
-        val firstParamType = type.signature.parameterTypes.getOrElse(0) { return MethodHandleType(TopSignature) }
+        val firstParamType = type.signature.parameterTypes.getOrElse(0) {
+            return emitProblem(typeExpr, message("problem.general.parameters.noParameter"))
+        }
         if (firstParamType is DirectType) {
             if (firstParamType.isPrimitive()) {
                 return emitProblem(
