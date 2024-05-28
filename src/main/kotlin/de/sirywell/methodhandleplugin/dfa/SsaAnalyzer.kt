@@ -185,8 +185,6 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                     "bindTo" -> {
                         if (arguments.size != 1) return noMatch()
                         val target = qualifier ?: return noMatch()
-                        val objectType = arguments[0].type ?: return notConstant()
-                        val type = target.mhTypeOrNoMatch(block) ?: return noMatch()
                         methodHandleTransformer.bindTo(target, arguments[0], block)
                     }
 
