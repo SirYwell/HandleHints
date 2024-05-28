@@ -107,7 +107,7 @@ class LookupHelper(private val ssaAnalyzer: SsaAnalyzer) {
     private fun emitMustBeReferenceType(refc: PsiExpression, referenceClass: Type) {
         emitProblem(
             refc, MethodHandleBundle.message(
-                "problem.merging.general.referenceTypeExpected",
+                "problem.merging.general.referenceTypeExpectedReturn",
                 referenceClass,
             )
         )

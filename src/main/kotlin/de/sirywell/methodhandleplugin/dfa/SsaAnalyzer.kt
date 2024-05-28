@@ -30,6 +30,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
     private val ssaConstruction = SsaConstruction<MethodHandleType>(controlFlow)
     private val methodHandlesMerger = MethodHandlesMerger(this)
     private val methodHandlesInitializer = MethodHandlesInitializer(this)
+    private val methodHandleTransformer = MethodHandleTransformer(this)
     private val lookupHelper = LookupHelper(this)
 
     fun doTraversal() {
@@ -186,7 +187,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                         val target = qualifier ?: return noMatch()
                         val objectType = arguments[0].type ?: return notConstant()
                         val type = target.mhTypeOrNoMatch(block) ?: return noMatch()
-                        MethodHandleTransformer.bindTo(type, objectType)
+                        methodHandleTransformer.bindTo(target, arguments[0], block)
                     }
 
                     "withVarargs" -> TODO()
