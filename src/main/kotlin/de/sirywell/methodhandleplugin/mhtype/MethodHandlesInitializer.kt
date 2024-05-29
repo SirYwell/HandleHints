@@ -2,7 +2,7 @@ package de.sirywell.methodhandleplugin.mhtype
 
 import com.intellij.codeInspection.ProblemHighlightType
 import com.intellij.psi.*
-import de.sirywell.methodhandleplugin.MethodHandleBundle
+import de.sirywell.methodhandleplugin.MethodHandleBundle.message
 import de.sirywell.methodhandleplugin.asType
 import de.sirywell.methodhandleplugin.dfa.SsaAnalyzer
 import de.sirywell.methodhandleplugin.type.*
@@ -54,8 +54,12 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) {
 
     // byteArray/BufferViewVarHandle() no VarHandle support
 
-    fun constant(typeExpr: PsiExpression): MethodHandleType {
+    fun constant(typeExpr: PsiExpression, valueExpr: PsiExpression): MethodHandleType {
         val type = typeExpr.asType()
+        val valueType = valueExpr.type?.let { DirectType(it) } ?: BotType
+        if (!typesAreCompatible(type, valueType, valueExpr)) {
+            emitProblem(valueExpr, message("problem.general.parameters.expected.type", type, valueType))
+        }
         return MethodHandleType(CompleteSignature(type, listOf()))
     }
 
@@ -65,6 +69,9 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) {
 
     fun identity(typeExpr: PsiExpression): MethodHandleType {
         val type = typeExpr.asType()
+        if (type == voidType) {
+            return emitProblem(typeExpr, message("problem.merging.general.typeMustNotBe", voidType))
+        }
         return MethodHandleType(CompleteSignature(type, listOf(type)))
     }
 
@@ -96,7 +103,7 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) {
 
     private fun PsiExpression.asArrayType(): Type {
         val referenceClass = this.asType()
-        if (referenceClass.isPrimitive()) {
+        if (referenceClass is DirectType && referenceClass.psiType !is PsiArrayType) {
             emitMustBeArrayType(this, referenceClass)
             return TopType
         }
@@ -113,12 +120,24 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) {
 
     private fun emitMustBeArrayType(refc: PsiExpression, referenceClass: Type) {
         emitProblem(
-            refc, MethodHandleBundle.message(
+            refc, message(
                 "problem.merging.general.arrayTypeExpected",
                 referenceClass,
             )
         )
     }
 
+    private fun typesAreCompatible(
+        left: Type,
+        right: Type,
+        context: PsiElement
+    ): Boolean {
+        val l = (left as? DirectType)?.psiType ?: return true // assume compatible if unknown
+        var r = (right as? DirectType)?.psiType ?: return true // assume compatible if unknown
+        if (r is PsiPrimitiveType) {
+            r.getBoxedType(context)?.let { r = it }
+        }
+        return l.isConvertibleFrom(r)
+    }
 
 }

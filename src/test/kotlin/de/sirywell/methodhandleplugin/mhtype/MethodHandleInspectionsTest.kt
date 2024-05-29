@@ -2,12 +2,10 @@ package de.sirywell.methodhandleplugin.mhtype
 
 import com.intellij.refactoring.suggested.startOffset
 import com.intellij.testFramework.fixtures.LightJavaCodeInsightFixtureTestCase
-import de.sirywell.methodhandleplugin.inspection.MethodHandleCreationInspection
 
 class MethodHandleInspectionsTest : LightJavaCodeInsightFixtureTestCase() {
 
     private fun doInspectionTest() {
-        myFixture.enableInspections(MethodHandleCreationInspection())
         myFixture.testHighlighting(true, false, true, getTestName(false) + ".java")
     }
 
