@@ -33,7 +33,7 @@ class MethodHandleCreationInspection: LocalInspectionTool() {
             if (!returnTypesAreCompatible(signature, parameters[1])) {
                 problemsHolder.registerProblem(
                     expression.methodExpression as PsiExpression,
-                    MethodHandleBundle.message("problem.creation.arguments.expected.type",
+                    MethodHandleBundle.message("problem.general.parameters.expected.type",
                         signature.returnType(),
                         parameters[1].presentableText
                     ),
