@@ -57,8 +57,11 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) {
     fun constant(typeExpr: PsiExpression, valueExpr: PsiExpression): MethodHandleType {
         val type = typeExpr.asType()
         val valueType = valueExpr.type?.let { DirectType(it) } ?: BotType
+        if (type == voidType) {
+            return emitProblem(typeExpr, message("problem.creation.arguments.invalid.type", voidType))
+        }
         if (!typesAreCompatible(type, valueType, valueExpr)) {
-            emitProblem(valueExpr, message("problem.general.parameters.expected.type", type, valueType))
+            return emitProblem(valueExpr, message("problem.general.parameters.expected.type", type, valueType))
         }
         return MethodHandleType(CompleteSignature(type, listOf()))
     }
