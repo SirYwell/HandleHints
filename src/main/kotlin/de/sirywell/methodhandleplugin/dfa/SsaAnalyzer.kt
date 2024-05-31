@@ -309,7 +309,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
 
             "constant" -> {
                 if (arguments.size != 2) return noMatch()
-                methodHandlesInitializer.constant(arguments[0])
+                methodHandlesInitializer.constant(arguments[0], arguments[1])
             }
 
             "countedLoop" -> {
