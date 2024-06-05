@@ -17,12 +17,12 @@ class LookupHelper(private val ssaAnalyzer: SsaAnalyzer) {
     fun findConstructor(refc: PsiExpression, typeExpr: PsiExpression, block: SsaConstruction.Block): MethodHandleType {
         val type = ssaAnalyzer.mhType(typeExpr, block) ?: return MethodHandleType(BotSignature)
         if (type.signature !is CompleteSignature) return type
-        if (!type.signature.returnType().canBe(PsiTypes.voidType())) {
+        if (!type.signature.returnType.canBe(PsiTypes.voidType())) {
             emitProblem(
                 typeExpr,
                 MethodHandleBundle.message(
                     "problem.merging.general.otherReturnTypeExpected",
-                    type.signature.returnType(),
+                    type.signature.returnType,
                     PsiTypes.voidType().presentableText
                 )
             )
@@ -34,13 +34,13 @@ class LookupHelper(private val ssaAnalyzer: SsaAnalyzer) {
     fun findGetter(refc: PsiExpression, typeExpr: PsiExpression): MethodHandleType {
         val referenceClass = refc.asReferenceType()
         val returnType = typeExpr.asNonVoidType()
-        return MethodHandleType(CompleteSignature(returnType, listOf(referenceClass)))
+        return MethodHandleType(complete(returnType, listOf(referenceClass)))
     }
 
     fun findSetter(refc: PsiExpression, typeExpr: PsiExpression): MethodHandleType {
         val referenceClass = refc.asReferenceType()
         val paramType = typeExpr.asNonVoidType()
-        return MethodHandleType(CompleteSignature(DirectType(PsiTypes.voidType()), listOf(referenceClass, paramType)))
+        return MethodHandleType(complete(DirectType(PsiTypes.voidType()), listOf(referenceClass, paramType)))
     }
 
     fun findSpecial(refc: PsiExpression, type: MethodHandleType, specialCaller: PsiExpression): MethodHandleType {
@@ -59,13 +59,13 @@ class LookupHelper(private val ssaAnalyzer: SsaAnalyzer) {
     fun findStaticGetter(refc: PsiExpression, type: PsiExpression): MethodHandleType {
         refc.asReferenceType()
         val returnType = type.asNonVoidType()
-        return MethodHandleType(CompleteSignature(returnType, listOf()))
+        return MethodHandleType(complete(returnType, listOf()))
     }
 
     fun findStaticSetter(refc: PsiExpression, type: PsiExpression): MethodHandleType {
         refc.asReferenceType()
         val paramType = type.asNonVoidType()
-        return MethodHandleType(CompleteSignature(DirectType(PsiTypes.voidType()), listOf(paramType)))
+        return MethodHandleType(complete(DirectType(PsiTypes.voidType()), listOf(paramType)))
     }
 
     fun findVirtual(refc: PsiExpression, mhType: MethodHandleType): MethodHandleType {
@@ -87,7 +87,8 @@ class LookupHelper(private val ssaAnalyzer: SsaAnalyzer) {
         if (mhType.signature !is CompleteSignature) {
             return mhType
         }
-        return MethodHandleType(mhType.signature.withParameterTypes(listOf(paramType) + mhType.signature.parameterTypes))
+        val pt = CompleteParameterList(listOf(paramType)).addAllAt(1, mhType.signature.parameterList)
+        return MethodHandleType(mhType.signature.withParameterTypes(pt))
     }
 
     private fun emitProblem(element: PsiElement, message: @Nls String): MethodHandleType {

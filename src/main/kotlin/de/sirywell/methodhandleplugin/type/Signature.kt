@@ -6,11 +6,14 @@ sealed interface Signature {
 
     fun withReturnType(returnType: Type): Signature
 
-    fun withParameterTypes(parameterTypes: List<Type>): Signature
+    fun withParameterTypes(parameterTypes: List<Type>) = withParameterTypes(CompleteParameterList(parameterTypes))
+    fun withParameterTypes(parameterTypes: ParameterList): Signature
 
     fun parameterTypeAt(index: Int): Type
 
-    fun returnType(): Type
+    val returnType: Type
+
+    val parameterList: ParameterList
 }
 
 data object BotSignature : Signature {
@@ -18,11 +21,13 @@ data object BotSignature : Signature {
 
     override fun withReturnType(returnType: Type) = this
 
-    override fun withParameterTypes(parameterTypes: List<Type>) = this
+    override fun withParameterTypes(parameterTypes: ParameterList) = this
 
     override fun parameterTypeAt(index: Int) = BotType
 
-    override fun returnType() = BotType
+    override val returnType get() = BotType
+
+    override val parameterList get() = BotParameterList
 }
 
 data object TopSignature : Signature {
@@ -30,47 +35,52 @@ data object TopSignature : Signature {
 
     override fun withReturnType(returnType: Type) = this
 
-    override fun withParameterTypes(parameterTypes: List<Type>) = this
+    override fun withParameterTypes(parameterTypes: ParameterList) = this
 
     override fun parameterTypeAt(index: Int) = TopType
 
-    override fun returnType() = TopType
+    override val returnType get() = TopType
+
+    override val parameterList get() = TopParameterList
 }
 
 @JvmRecord
 data class CompleteSignature(
-    @get:JvmName("rType") val returnType: Type,
-    val parameterTypes: List<Type>
+    override val returnType: Type,
+    override val parameterList: ParameterList
 ) : Signature {
     override fun join(signature: Signature): Signature {
         if (signature is TopSignature) return signature
         if (signature is BotSignature) return this
         val other = signature as CompleteSignature
-        if (other.parameterTypes.size != this.parameterTypes.size) return TopSignature
         return CompleteSignature(
             returnType.join(signature.returnType),
-            signature.parameterTypes.zip(parameterTypes).map { (a, b) -> a.join(b) }
+            parameterList.join(other.parameterList)
         )
     }
 
     override fun withReturnType(returnType: Type): Signature {
-        return CompleteSignature(returnType, parameterTypes)
+        return CompleteSignature(returnType, parameterList)
     }
 
-    override fun withParameterTypes(parameterTypes: List<Type>): Signature {
+    override fun withParameterTypes(parameterTypes: ParameterList): Signature {
         return CompleteSignature(returnType, parameterTypes)
     }
 
     override fun parameterTypeAt(index: Int): Type {
-        return parameterTypes.getOrElse(index) { TopType }
-    }
-
-    override fun returnType(): Type {
-        return this.returnType
+        return parameterList[index]
     }
 
     override fun toString(): String {
-        return parameterTypes.joinToString(separator = ",", prefix = "(", postfix = ")") + returnType
+        return parameterList.toString() + returnType
     }
 
+}
+
+fun complete(returnType: Type, parameterTypes: List<Type>): Signature {
+    return complete(returnType, CompleteParameterList(parameterTypes))
+}
+
+fun complete(returnType: Type, parameterTypes: ParameterList): Signature {
+    return CompleteSignature(returnType, parameterTypes)
 }
