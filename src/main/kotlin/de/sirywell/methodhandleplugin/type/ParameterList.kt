@@ -52,6 +52,8 @@ data object BotParameterList : ParameterList {
 
     override fun sizeMatches(predicate: (Int) -> Boolean) = TriState.UNKNOWN
     override fun sizeOrNull() = null
+
+    override fun toString() = "[⊥]"
 }
 
 data object TopParameterList : ParameterList {
@@ -65,6 +67,8 @@ data object TopParameterList : ParameterList {
 
     override fun sizeMatches(predicate: (Int) -> Boolean) = TriState.UNKNOWN
     override fun sizeOrNull() = null
+
+    override fun toString() = "[⊤]"
 }
 
 data class CompleteParameterList(val parameterTypes: List<Type>) : ParameterList {
@@ -215,6 +219,12 @@ data class IncompleteParameterList(val knownParameterTypes: SortedMap<Int, Type>
 
     override fun sizeMatches(predicate: (Int) -> Boolean) = TriState.UNKNOWN
     override fun sizeOrNull() = null
+
+    override fun toString(): String {
+        return "(" +
+                (0..knownParameterTypes.lastKey()).map { parameterType(it) }.joinToString(separator = ",") +
+                ",???)"
+    }
 }
 
 private fun ParameterList.toMap(): SortedMap<Int, Type> {

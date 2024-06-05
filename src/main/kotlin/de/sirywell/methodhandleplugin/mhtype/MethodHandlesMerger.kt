@@ -32,8 +32,6 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
         val exType = exTypeExpr.asType()
         val target = ssaAnalyzer.mhType(targetExpr, block) ?: bottomType
         val handler = ssaAnalyzer.mhType(handlerExpr, block) ?: bottomType
-        if (target.signature !is CompleteSignature) return target
-        if (handler.signature !is CompleteSignature) return handler
         val handlerParameterTypes = handler.signature.parameterList
         if (handlerParameterTypes is CompleteParameterList && (handlerParameterTypes.size == 0
                     || (exType is DirectType && !handlerParameterTypes[0].canBe(exType.psiType)))
@@ -69,9 +67,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
     ): MethodHandleType {
         val target = ssaAnalyzer.mhType(targetExpr, block) ?: return bottomType
         val filter = ssaAnalyzer.mhType(filterExpr, block) ?: return bottomType
-        if (target.signature !is CompleteSignature) return target
-        if (filter.signature !is CompleteSignature) return topType
-        val parameters = target.signature.parameterList
+        var parameters = target.signature.parameterList
         val pos = posExpr.getConstantOfType<Int>() ?: return bottomType
         if (parameters is CompleteParameterList && (pos >= parameters.size || pos < 0)) {
             return emitProblem(posExpr, message("problem.merging.collectArgs.invalidIndex", pos, parameters.size))
@@ -83,10 +79,10 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
                 return topType
             }
             // the return value of filter will be passed to target at pos
-            parameters.removeAt(pos)
+            parameters = parameters.removeAt(pos)
         }
         val filterParameters = filter.signature.parameterList
-        parameters.addAllAt(pos, filterParameters)
+        parameters = parameters.addAllAt(pos, filterParameters)
         return MethodHandleType(target.signature.withParameterTypes(parameters))
     }
 
@@ -249,8 +245,6 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
         val target = ssaAnalyzer.mhType(targetExpr, block) ?: bottomType
         val newType = ssaAnalyzer.mhType(newTypeExpr, block) ?: bottomType
         // TODO proper handling of bottom/top
-        if (target.signature !is CompleteSignature) return target
-        if (newType.signature !is CompleteSignature) return newType
         val newTypeParameterList = newType.signature.parameterList
         if (newTypeParameterList !is CompleteParameterList) return newType // result param types unknown
         val targetParameterList = target.signature.parameterList
@@ -294,7 +288,6 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
         val target = ssaAnalyzer.mhType(targetExpr, block) ?: bottomType
         val filter = ssaAnalyzer.mhType(filterExpr, block) ?: bottomType
         // TODO proper handling of bottom/top
-        if (target.signature !is CompleteSignature) return target
         if (filter.signature !is CompleteSignature || filter.signature.parameterList.hasSize(1) == TriState.NO) {
             return topType
         }
@@ -306,8 +299,6 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
 
     fun foldArguments(target: MethodHandleType, pos: Int, combiner: MethodHandleType): MethodHandleType {
         // TODO proper handling of bottom/top
-        if (target.signature !is CompleteSignature) return target
-        if (combiner.signature !is CompleteSignature) return combiner
         val targetSignature = target.signature // (Z..., V, A[N]..., B...)T, where N = |combiner.parameters|
         val combinerSignature = combiner.signature // (A...)V
         if (targetSignature.parameterList.sizeMatches { pos >= it } == TriState.YES) return topType
@@ -336,9 +327,6 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
         val target = ssaAnalyzer.mhType(targetExpr, block) ?: bottomType
         val fallback = ssaAnalyzer.mhType(fallbackExpr, block) ?: bottomType
         // TODO proper handling of bottom/top
-        if (test.signature !is CompleteSignature) return test
-        if (target.signature !is CompleteSignature) return target
-        if (fallback.signature !is CompleteSignature) return fallback
         val testSignature = test.signature // (A...)boolean
         val targetSignature = target.signature // (A... B...)T
         val fallbackSignature = fallback.signature // (A... B...)T
@@ -358,7 +346,6 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
     }
 
     fun insertArguments(target: MethodHandleType, pos: Int, valueTypes: List<PsiExpression>): MethodHandleType {
-        if (target.signature !is CompleteSignature) return target
         val parameterList = target.signature.parameterList
         if (parameterList.sizeMatches { it < pos + valueTypes.size } == TriState.YES) return topType
         val new = parameterList.removeAt(pos, valueTypes.size)
@@ -382,45 +369,39 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
         if (target.signature.returnType.join(newType.signature.returnType) == TopType) {
             return incompatibleReturnTypes(targetExpr, target.signature.returnType, newType.signature.returnType)
         }
-        if (target.signature is CompleteSignature && newType.signature is CompleteSignature) {
-            val outParams = target.signature.parameterList
-            val inParams = newType.signature.parameterList
-            if (outParams.sizeMatches { it != reorder.size } == TriState.YES) {
-                return emitProblem(
-                    newTypeExpr,
-                    message("problem.merging.permute.reorderLengthMismatch", reorder.size, outParams.sizeOrNull()!!)
+        val outParams = target.signature.parameterList
+        val inParams = newType.signature.parameterList
+        if (outParams.sizeMatches { it != reorder.size } == TriState.YES) {
+            return emitProblem(
+                newTypeExpr,
+                message("problem.merging.permute.reorderLengthMismatch", reorder.size, outParams.sizeOrNull()!!)
+            )
+        }
+        // if reorder array is unknown, just assume the input is correct
+        val reorderInts = reorder.map { it.getConstantOfType<Int>() ?: return newType }
+        val resultType: MutableList<Type> = (newType.signature.parameterList as? CompleteParameterList)
+            ?.parameterTypes?.toMutableList()
+            ?: return topType
+        for ((index, value) in reorderInts.withIndex()) {
+            if (value < 0 || inParams.sizeMatches { value >= it } == TriState.YES) {
+                emitProblem(
+                    reorder[index],
+                    message("problem.merging.permute.invalidReorderIndex", 0, inParams.sizeOrNull()!!, value)
                 )
-            }
-            // if reorder array is unknown, just assume the input is correct
-            val reorderInts = reorder.map { it.getConstantOfType<Int>() ?: return newType }
-            val resultType: MutableList<Type> = (newType.signature.parameterList as? CompleteParameterList)
-                ?.parameterTypes?.toMutableList()
-                ?: return topType
-            for ((index, value) in reorderInts.withIndex()) {
-                if (value < 0 || inParams.sizeMatches { value >= it } == TriState.YES) {
-                    emitProblem(
-                        reorder[index],
-                        message("problem.merging.permute.invalidReorderIndex", 0, inParams.sizeOrNull()!!, value)
+                resultType[index] = TopType
+            } else if (outParams[index] != inParams[value]) {
+                emitProblem(
+                    reorder[index],
+                    message(
+                        "problem.merging.permute.invalidReorderIndexType",
+                        outParams[index],
+                        inParams[value]
                     )
-                    resultType[index] = TopType
-                } else if (outParams[index] != inParams[value]) {
-                    emitProblem(
-                        reorder[index],
-                        message(
-                            "problem.merging.permute.invalidReorderIndexType",
-                            outParams[index],
-                            inParams[value]
-                        )
-                    )
-                    resultType[index] = TopType
-                }
+                )
+                resultType[index] = TopType
             }
-            return MethodHandleType(complete(newType.signature.returnType, resultType))
         }
-        if (target.signature is TopSignature || newType.signature is TopSignature) {
-            return topType
-        }
-        return bottomType
+        return MethodHandleType(complete(newType.signature.returnType, resultType))
     }
 
     // fun permuteCoordinates() no VarHandle support, preview
@@ -449,8 +430,6 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
         val target = ssaAnalyzer.mhType(targetExpr, block) ?: bottomType
         val cleanup = ssaAnalyzer.mhType(cleanupExpr, block) ?: bottomType
         if (target.signature is BotSignature || cleanup.signature is BotSignature) return bottomType
-        if (target.signature !is CompleteSignature) return topType
-        if (cleanup.signature !is CompleteSignature) return topType
         val cleanupSignature = cleanup.signature
         val targetSignature = target.signature
         // TODO should use join

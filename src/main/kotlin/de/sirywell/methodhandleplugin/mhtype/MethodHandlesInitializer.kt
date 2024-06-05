@@ -79,18 +79,15 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) {
     }
 
     fun invoker(mhType: MethodHandleType, methodHandleType: PsiType): MethodHandleType {
-        if (mhType.signature !is CompleteSignature) return mhType
         val signature = mhType.signature
         val pt = signature.parameterList.addAllAt(0, CompleteParameterList(listOf(DirectType(methodHandleType))))
         return MethodHandleType(CompleteSignature(signature.returnType, pt))
     }
 
     fun spreadInvoker(type: MethodHandleType, leadingArgCount: Int, objectType: PsiType): MethodHandleType {
-        if (type.signature !is CompleteSignature) return type
         if (leadingArgCount < 0) return topType
         val signature = type.signature
-        if (signature.parameterList !is CompleteParameterList) return topType
-        val parameterList = signature.parameterList as CompleteParameterList
+        val parameterList = signature.parameterList as? CompleteParameterList ?: return topType
         if (leadingArgCount >= parameterList.size) return topType
         val keep = parameterList.parameterTypes.subList(0, leadingArgCount).toMutableList()
         keep.add(DirectType(objectType.createArrayType()))

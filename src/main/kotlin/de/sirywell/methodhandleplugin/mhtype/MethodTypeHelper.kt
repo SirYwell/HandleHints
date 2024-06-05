@@ -15,7 +15,6 @@ object MethodTypeHelper {
     private val topType = MethodHandleType(TopSignature)
 
     fun appendParameterTypes(mhType: MethodHandleType, ptypesToInsert: List<PsiExpression>): MethodHandleType {
-        if (mhType.signature !is CompleteSignature) return mhType
         // TODO check types for void
         val additionalTypes = ptypesToInsert.mapToTypes()
         if (additionalTypes.isEmpty()) return mhType // no change
@@ -24,7 +23,6 @@ object MethodTypeHelper {
     }
 
     fun changeParameterType(mhType: MethodHandleType, num: PsiExpression, nptype: PsiExpression): MethodHandleType {
-        if (mhType.signature !is CompleteSignature) return mhType
         val type = nptype.asType() // TODO inspection on void
         val pos = num.getConstantOfType<Int>() ?: return MethodHandleType(BotSignature)
         val parameters = mhType.signature.parameterList
@@ -33,15 +31,16 @@ object MethodTypeHelper {
     }
 
     fun changeReturnType(mhType: MethodHandleType, nrtype: PsiExpression): MethodHandleType {
-        if (mhType.signature !is CompleteSignature) return mhType
         val type = nrtype.asType() // TODO inspection on void
         return MethodHandleType(mhType.signature.withReturnType(type))
     }
 
     fun dropParameterTypes(mhType: MethodHandleType, start: PsiExpression, end: PsiExpression): MethodHandleType {
         if (mhType.signature !is CompleteSignature) return mhType
-        val startIndex = start.getConstantOfType<Int>() ?: return MethodHandleType(BotSignature)
-        val endIndex = end.getConstantOfType<Int>() ?: return MethodHandleType(BotSignature)
+        val startIndex = start.getConstantOfType<Int>()
+            ?: return MethodHandleType(complete(mhType.signature.returnType, BotParameterList))
+        val endIndex = end.getConstantOfType<Int>()
+            ?: return MethodHandleType(complete(mhType.signature.returnType, BotParameterList))
         val parameters = mhType.signature.parameterList
         val size = parameters.sizeOrNull() ?: return topType
         if (invalidRange(size, startIndex, endIndex)) return topType // TODO inspection
@@ -57,8 +56,7 @@ object MethodTypeHelper {
     }
 
     fun generic(mhType: MethodHandleType, objectType: PsiType): MethodHandleType {
-        if (mhType.signature !is CompleteSignature) return mhType
-        val size = (mhType.signature.parameterList as? CompleteParameterList) ?.size ?: return topType
+        val size = (mhType.signature.parameterList as? CompleteParameterList)?.size ?: return topType
         val objType = DirectType(objectType)
         return MethodHandleType(complete(objType, nCopies(size, objType)))
     }
@@ -78,11 +76,10 @@ object MethodTypeHelper {
         num: PsiExpression,
         ptypesToInsert: List<PsiExpression>
     ): MethodHandleType {
-        if (mhType.signature !is CompleteSignature) return mhType
         val types = ptypesToInsert.mapToTypes()
         // TODO check types for void
         val parameters = mhType.signature.parameterList
-        val pos = num.getConstantOfType<Int>() ?: return MethodHandleType(BotSignature)
+        val pos = num.getConstantOfType<Int>() ?: return MethodHandleType(complete(mhType.signature.returnType, BotParameterList))
         if (pos < 0 || parameters.sizeMatches { pos > it } == TriState.YES) return topType // TODO inspection
         if (types.isEmpty()) return mhType // no change
         val mutable = parameters.addAllAt(pos, CompleteParameterList(types))
@@ -105,7 +102,6 @@ object MethodTypeHelper {
     }
 
     fun methodType(rtype: PsiExpression, mhType: MethodHandleType): MethodHandleType {
-        if (mhType.signature !is CompleteSignature) return mhType
         val type = rtype.asType()
         return MethodHandleType(mhType.signature.withReturnType(type))
     }

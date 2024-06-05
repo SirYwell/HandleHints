@@ -19,9 +19,9 @@ sealed interface Signature {
 data object BotSignature : Signature {
     override fun join(signature: Signature) = signature
 
-    override fun withReturnType(returnType: Type) = this
+    override fun withReturnType(returnType: Type) = CompleteSignature(returnType, parameterList)
 
-    override fun withParameterTypes(parameterTypes: ParameterList) = this
+    override fun withParameterTypes(parameterTypes: ParameterList) = CompleteSignature(returnType, parameterTypes)
 
     override fun parameterTypeAt(index: Int) = BotType
 

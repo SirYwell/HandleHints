@@ -5,13 +5,13 @@ import java.lang.invoke.MethodType;
 class MethodHandlesCollectArguments {
   static {
     try {
-      MethodHandle target = MethodHandles.lookup().findStatic(Object.class, "?", MethodType.methodType(void.class, String.class, float.class, Double.class));
+      MethodHandle target = MethodHandles.empty(MethodType.methodType(void.class, String.class, float.class, Double.class));
       // one in target results in many in adapter
-      MethodHandle oneToMany = MethodHandles.lookup().findStatic(Object.class, "?", MethodType.methodType(String.class, double.class, Float.class));
+      MethodHandle oneToMany = MethodHandles.empty(MethodType.methodType(String.class, double.class, Float.class));
       // one in target results in zero in adapter
-      MethodHandle oneToZero = MethodHandles.lookup().findStatic(Object.class, "?", MethodType.methodType(float.class));
+      MethodHandle oneToZero = MethodHandles.empty(MethodType.methodType(float.class));
       // zero in target results in many in adapter
-      MethodHandle zeroToMany = MethodHandles.lookup().findStatic(Object.class, "?", MethodType.methodType(void.class, Integer.class, char.class));
+      MethodHandle zeroToMany = MethodHandles.empty(MethodType.methodType(void.class, Integer.class, char.class));
       <caret>
       <info descr="(double,Float,float,Double)void">MethodHandle mh0 = <info descr="(double,Float,float,Double)void">MethodHandles.collectArguments(target, 0, oneToMany)</info>;</info>
       <info descr="(String,Double)void">MethodHandle mh1 = <info descr="(String,Double)void">MethodHandles.collectArguments(target, 1, oneToZero)</info>;</info>
