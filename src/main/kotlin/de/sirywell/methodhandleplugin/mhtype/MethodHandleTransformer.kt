@@ -25,9 +25,22 @@ class MethodHandleTransformer(private val ssaAnalyzer: SsaAnalyzer) {
     fun bindTo(typeExpr: PsiExpression, objectType: PsiExpression, block: SsaConstruction.Block): MethodHandleType {
         val type = ssaAnalyzer.mhType(typeExpr, block) ?: MethodHandleType(BotSignature)
         if (type.signature !is CompleteSignature) return type
-        val firstParamType = type.signature.parameterTypes.getOrElse(0) {
-            return emitProblem(typeExpr, message("problem.general.parameters.noParameter"))
-        }
+        val parameterTypes = type.signature.parameterList
+        val firstParamType =
+            // try to extract a first param if it exists
+            // - CompleteParameterList has a first param if the size is > 0
+            // - IncompleteParameterList has a first param as we assume it to be non-empty
+            // - BotParameterList may have some first param
+            // - TopParameterList may have some first param
+            if (parameterTypes is CompleteParameterList && parameterTypes.size > 0
+                || parameterTypes is IncompleteParameterList
+                || parameterTypes is BotParameterList
+                || parameterTypes is TopParameterList
+            ) {
+                type.signature.parameterTypeAt(0)
+            } else {
+                return emitProblem(typeExpr, message("problem.general.parameters.noParameter"))
+            }
         if (firstParamType is DirectType) {
             if (firstParamType.isPrimitive()) {
                 return emitProblem(
@@ -45,7 +58,7 @@ class MethodHandleTransformer(private val ssaAnalyzer: SsaAnalyzer) {
                 )
             }
         }
-        return MethodHandleType(type.signature.withParameterTypes(type.signature.parameterTypes.drop(1)))
+        return MethodHandleType(type.signature.withParameterTypes(parameterTypes.dropFirst(1)))
     }
 
     // fun withVarargs()

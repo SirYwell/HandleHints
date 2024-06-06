@@ -22,7 +22,7 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) {
     fun arrayConstructor(arrayClass: PsiExpression): MethodHandleType {
         val arrayType = arrayClass.asArrayType()
 
-        return MethodHandleType(CompleteSignature(arrayType, listOf(intType)))
+        return MethodHandleType(complete(arrayType, listOf(intType)))
     }
 
     fun arrayElementGetter(arrayClass: PsiExpression): MethodHandleType {
@@ -32,7 +32,7 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) {
         } else {
             DirectType((arrayType.psiType as PsiArrayType).componentType)
         }
-        return MethodHandleType(CompleteSignature(componentType, listOf(arrayType, intType)))
+        return MethodHandleType(complete(componentType, listOf(arrayType, intType)))
     }
 
     fun arrayElementSetter(arrayClass: PsiExpression): MethodHandleType {
@@ -42,14 +42,14 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) {
         } else {
             DirectType((arrayType.psiType as PsiArrayType).componentType)
         }
-        return MethodHandleType(CompleteSignature(voidType, listOf(arrayType, intType, componentType)))
+        return MethodHandleType(complete(voidType, listOf(arrayType, intType, componentType)))
     }
 
     // arrayElementVarHandle() no VarHandle support
 
     fun arrayLength(arrayClass: PsiExpression): MethodHandleType {
         val arrayType = arrayClass.asArrayType()
-        return MethodHandleType(CompleteSignature(intType, listOf(arrayType)))
+        return MethodHandleType(complete(intType, listOf(arrayType)))
     }
 
     // byteArray/BufferViewVarHandle() no VarHandle support
@@ -63,7 +63,7 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) {
         if (!typesAreCompatible(type, valueType, valueExpr)) {
             return emitProblem(valueExpr, message("problem.general.parameters.expected.type", type, valueType))
         }
-        return MethodHandleType(CompleteSignature(type, listOf()))
+        return MethodHandleType(complete(type, listOf()))
     }
 
     fun empty(mhType: MethodHandleType): MethodHandleType = mhType
@@ -75,33 +75,31 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) {
         if (type == voidType) {
             return emitProblem(typeExpr, message("problem.merging.general.typeMustNotBe", voidType))
         }
-        return MethodHandleType(CompleteSignature(type, listOf(type)))
+        return MethodHandleType(complete(type, listOf(type)))
     }
 
     fun invoker(mhType: MethodHandleType, methodHandleType: PsiType): MethodHandleType {
-        if (mhType.signature !is CompleteSignature) return mhType
         val signature = mhType.signature
-        val list = signature.parameterTypes.toMutableList()
-        list.add(0, DirectType(methodHandleType))
-        return MethodHandleType(CompleteSignature(signature.returnType(), list))
+        val pt = signature.parameterList.addAllAt(0, CompleteParameterList(listOf(DirectType(methodHandleType))))
+        return MethodHandleType(CompleteSignature(signature.returnType, pt))
     }
 
     fun spreadInvoker(type: MethodHandleType, leadingArgCount: Int, objectType: PsiType): MethodHandleType {
-        if (type.signature !is CompleteSignature) return type
         if (leadingArgCount < 0) return topType
         val signature = type.signature
-        if (leadingArgCount >= signature.parameterTypes.size) return topType
-        val keep = signature.parameterTypes.subList(0, leadingArgCount).toMutableList()
+        val parameterList = signature.parameterList as? CompleteParameterList ?: return topType
+        if (leadingArgCount >= parameterList.size) return topType
+        val keep = parameterList.parameterTypes.subList(0, leadingArgCount).toMutableList()
         keep.add(DirectType(objectType.createArrayType()))
-        return MethodHandleType(CompleteSignature(signature.returnType(), keep))
+        return MethodHandleType(complete(signature.returnType, keep))
     }
 
     fun throwException(returnTypeExpr: PsiExpression, exTypeExpr: PsiExpression): MethodHandleType {
-        return MethodHandleType(CompleteSignature(returnTypeExpr.asType(), listOf(exTypeExpr.asType())))
+        return MethodHandleType(complete(returnTypeExpr.asType(), listOf(exTypeExpr.asType())))
     }
 
     fun zero(type: Type): MethodHandleType {
-        return MethodHandleType(CompleteSignature(type, listOf()))
+        return MethodHandleType(complete(type, listOf()))
     }
 
     private fun PsiExpression.asArrayType(): Type {

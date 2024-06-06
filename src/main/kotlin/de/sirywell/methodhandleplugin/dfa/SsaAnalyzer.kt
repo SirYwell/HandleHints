@@ -103,7 +103,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                         if (arguments.size == 2 && arguments[1].type == methodTypeType(expression)) {
                             MethodTypeHelper.methodType(
                                 arguments[0],
-                                arguments[1].mhType(block) ?: return notConstant()
+                                arguments[1].mhType(block) ?: notConstant()
                             )
                         } else {
                             MethodTypeHelper.methodType(arguments)
@@ -120,20 +120,20 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                     }
 
                     "insertParameterTypes" -> {
-                        val mhType = qualifier?.mhType(block) ?: return noMatch()
+                        val mhType = qualifier?.mhType(block) ?: notConstant()
                         if (arguments.isEmpty()) return noMatch()
                         MethodTypeHelper.insertParameterTypes(mhType, arguments[0], arguments.drop(1))
                     }
 
                     "changeParameterType" -> {
-                        val mhType = qualifier?.mhType(block) ?: return noMatch()
+                        val mhType = qualifier?.mhType(block) ?: notConstant()
                         if (arguments.size != 2) return noMatch()
                         val (num, type) = arguments
                         MethodTypeHelper.changeParameterType(mhType, num, type)
                     }
 
                     "changeReturnType" -> {
-                        val mhType = qualifier?.mhType(block) ?: return noMatch()
+                        val mhType = qualifier?.mhType(block) ?: notConstant()
                         if (arguments.size != 1) return noMatch()
                         val type = arguments[0]
                         MethodTypeHelper.changeReturnType(mhType, type)

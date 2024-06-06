@@ -15,9 +15,7 @@ import de.sirywell.methodhandleplugin.MethodHandleBundle
 import de.sirywell.methodhandleplugin.TypeData
 import de.sirywell.methodhandleplugin.methodName
 import de.sirywell.methodhandleplugin.receiverIsMethodHandle
-import de.sirywell.methodhandleplugin.type.CompleteSignature
-import de.sirywell.methodhandleplugin.type.DirectType
-import de.sirywell.methodhandleplugin.type.Type
+import de.sirywell.methodhandleplugin.type.*
 import java.lang.invoke.MethodHandle
 import java.lang.invoke.MethodHandles
 
@@ -48,9 +46,10 @@ class MethodHandleInvokeInspection : LocalInspectionTool() {
             }
         }
 
-        private fun checkArgumentsTypes(parameters: List<Type>, expression: PsiMethodCallExpression) {
-            if (expression.argumentList.expressionTypes.zip(parameters)
-                    .any { it.first != it.second }
+        private fun checkArgumentsTypes(parameters: ParameterList, expression: PsiMethodCallExpression) {
+            if (parameters !is CompleteParameterList) return
+            if (expression.argumentList.expressionTypes.zip(parameters.parameterTypes)
+                    .any { !it.second.canBe(it.first) }
             ) {
                 problemsHolder.registerProblem(
                     expression.methodExpression as PsiExpression,
@@ -130,9 +129,11 @@ class MethodHandleInvokeInspection : LocalInspectionTool() {
         }
 
         private fun checkArgumentsCount(
-            parameters: List<Type>,
+            parameters: ParameterList,
             expression: PsiMethodCallExpression
         ) {
+            // TODO we might know a lower bound due to IncompleteParameterList
+            if (parameters !is CompleteParameterList) return // no known size
             if (parameters.size != expression.argumentList.expressionCount) {
                 problemsHolder.registerProblem(
                     expression.methodExpression as PsiExpression,
