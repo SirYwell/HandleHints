@@ -11,10 +11,7 @@ import com.intellij.psi.*
 import com.intellij.psi.util.childrenOfType
 import com.intellij.refactoring.introduceVariable.JavaIntroduceVariableHandlerBase
 import de.sirywell.intellij.ReplaceMethodCallFix
-import de.sirywell.methodhandleplugin.MethodHandleBundle
-import de.sirywell.methodhandleplugin.TypeData
-import de.sirywell.methodhandleplugin.methodName
-import de.sirywell.methodhandleplugin.receiverIsMethodHandle
+import de.sirywell.methodhandleplugin.*
 import de.sirywell.methodhandleplugin.type.*
 import java.lang.invoke.MethodHandle
 import java.lang.invoke.MethodHandles
@@ -35,10 +32,13 @@ class MethodHandleInvokeInspection : LocalInspectionTool() {
             val (returnType, parameters) = type.signature
             when (expression.methodName) {
                 "invoke" -> {
-                    checkArgumentsCount(parameters, expression)
+                    if (type.signature.varargs == TriState.NO) {
+                        checkArgumentsCount(parameters, expression)
+                    }
                 }
 
                 "invokeExact" -> {
+                    // varargs does not matter for invokeExact
                     checkArgumentsTypes(parameters, expression)
                     checkArgumentsCount(parameters, expression)
                     checkReturnType(returnType, expression)

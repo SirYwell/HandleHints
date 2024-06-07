@@ -81,7 +81,7 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) {
     fun invoker(mhType: MethodHandleType, methodHandleType: PsiType): MethodHandleType {
         val signature = mhType.signature
         val pt = signature.parameterList.addAllAt(0, CompleteParameterList(listOf(DirectType(methodHandleType))))
-        return MethodHandleType(CompleteSignature(signature.returnType, pt))
+        return MethodHandleType(complete(signature.returnType, pt))
     }
 
     fun spreadInvoker(type: MethodHandleType, leadingArgCount: Int, objectType: PsiType): MethodHandleType {

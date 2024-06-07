@@ -4,6 +4,7 @@ import com.intellij.codeInspection.ProblemHighlightType
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiExpression
 import de.sirywell.methodhandleplugin.MethodHandleBundle.message
+import de.sirywell.methodhandleplugin.TriState
 import de.sirywell.methodhandleplugin.dfa.SsaAnalyzer
 import de.sirywell.methodhandleplugin.dfa.SsaConstruction
 import de.sirywell.methodhandleplugin.type.*
@@ -13,7 +14,7 @@ class MethodHandleTransformer(private val ssaAnalyzer: SsaAnalyzer) {
 
     // fun asCollector()
 
-    fun asFixedArity(type: MethodHandleType) = type
+    fun asFixedArity(type: MethodHandleType) = MethodHandleType(type.signature.withVarargs(TriState.NO))
 
     // fun asSpreader()
 
