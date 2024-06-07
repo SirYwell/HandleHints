@@ -461,6 +461,17 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                 methodHandlesMerger.tryFinally(arguments[0], arguments[1], block)
             }
 
+            "varHandleExactInvoker",
+            "varHandleInvoker" -> {
+                if (arguments.size != 2) return noMatch()
+                methodHandlesInitializer.varHandleInvoker(
+                    arguments[0],
+                    arguments[1],
+                    expression.methodName == "varHandleExactInvoker",
+                    block
+                )
+            }
+
             "zero" -> {
                 if (arguments.size != 1) return noMatch()
                 methodHandlesInitializer.zero(arguments[0].asType())

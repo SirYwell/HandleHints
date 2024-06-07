@@ -2,12 +2,15 @@ package de.sirywell.methodhandleplugin.mhtype
 
 import com.intellij.codeInspection.ProblemHighlightType
 import com.intellij.psi.*
+import de.sirywell.methodhandleplugin.*
 import de.sirywell.methodhandleplugin.MethodHandleBundle.message
-import de.sirywell.methodhandleplugin.asType
 import de.sirywell.methodhandleplugin.dfa.SsaAnalyzer
+import de.sirywell.methodhandleplugin.dfa.SsaConstruction
 import de.sirywell.methodhandleplugin.type.*
 import de.sirywell.methodhandleplugin.type.TopType
 import org.jetbrains.annotations.Nls
+
+private const val VAR_HANDLE_FQN = "java.lang.invoke.VarHandle"
 
 /**
  * Contains methods from [java.lang.invoke.MethodHandles] that create
@@ -139,6 +142,82 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) {
             r.getBoxedType(context)?.let { r = it }
         }
         return l.isConvertibleFrom(r)
+    }
+
+    fun varHandleInvoker(
+        accessModeExpr: PsiExpression,
+        methodTypeExpr: PsiExpression,
+        exact: Boolean,
+        block: SsaConstruction.Block
+    ): MethodHandleType {
+        val accessType = accessModeExpr.getConstantOfType<PsiField>()
+            ?.let { accessTypeForAccessModeName(it.name) }
+        var type = ssaAnalyzer.mhType(methodTypeExpr, block) ?: MethodHandleType(BotSignature)
+        if (accessType != null) {
+            type = checkAccessModeType(accessType, type, exact, methodTypeExpr)
+        }
+        val varHandleType = PsiType.getTypeByName(VAR_HANDLE_FQN, methodTypeExpr.project, methodTypeExpr.resolveScope)
+        return MethodHandleType(
+            type.signature.withParameterTypes(
+                type.signature.parameterList.addAllAt(0, CompleteParameterList(listOf(DirectType(varHandleType))))
+            )
+        )
+    }
+
+    private fun checkAccessModeType(
+        accessType: AccessType,
+        type: MethodHandleType,
+        exact: Boolean,
+        context: PsiElement
+    ): MethodHandleType {
+        // TODO do more validation using accessType
+        // e.g. minimum parameter count
+        when (accessType) {
+            AccessType.GET -> {
+                if (exact && type.signature.returnType.match(PsiTypes.voidType()) == TriState.YES) {
+                    return emitProblem(
+                        context,
+                        message("problem.general.returnType.notAllowedX", PsiTypes.voidType().presentableText)
+                    )
+                }
+
+            }
+
+            AccessType.SET -> {
+                if (exact && type.signature.returnType.match(PsiTypes.voidType()) == TriState.NO) {
+                    return emitProblem(
+                        context,
+                        message("problem.general.returnType.requiredX", PsiTypes.voidType().presentableText)
+                    )
+                }
+            }
+
+            AccessType.COMPARE_AND_SET -> {
+                if (exact && type.signature.returnType.match(PsiTypes.booleanType()) == TriState.NO) {
+                    return emitProblem(
+                        context,
+                        message("problem.general.returnType.requiredX", PsiTypes.booleanType().presentableText)
+                    )
+                }
+                // 2 trailing param types must be equal
+            }
+
+            AccessType.COMPARE_AND_EXCHANGE -> {
+                // 2 trailing param types must be equal
+                // return type must match trailing param
+            }
+
+            AccessType.GET_AND_UPDATE -> {
+                if (exact && type.signature.returnType.match(PsiTypes.voidType()) == TriState.YES) {
+                    return emitProblem(
+                        context,
+                        message("problem.general.returnType.notAllowedX", PsiTypes.voidType().presentableText)
+                    )
+                }
+                // return type must match trailing param
+            }
+        }
+        return type
     }
 
 }
