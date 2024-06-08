@@ -69,6 +69,8 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
             is PsiAssignmentExpression -> element.rExpression!!
             is PsiDeclarationStatement -> instruction.variable.initializer!!
             is PsiField -> element.initializer!!
+            is PsiInstanceOfExpression -> element.operand
+            is PsiSwitchLabeledRuleStatement -> element.enclosingSwitchBlock?.expression ?: return
             else -> TODO("Not supported: ${element.javaClass}")
         }
         val mhType = typeData[expression] ?: resolveMhType(expression, block)
@@ -86,7 +88,10 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         return variable.type != methodTypeType(variable) && variable.type != methodHandleType(variable)
     }
 
-    private fun resolveMhType(expression: PsiExpression, block: Block): MethodHandleType? {
+    fun resolveMhType(expression: PsiExpression, block: Block): MethodHandleType? {
+        if (expression.type != methodTypeType(expression) && expression.type != methodHandleType(expression)) {
+            return noMatch() // unrelated
+        }
         return resolveMhTypePlain(expression, block)
     }
 
@@ -203,13 +208,18 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         } else if (expression is PsiReferenceExpression) {
             val variable = expression.resolve() as? PsiVariable ?: return noMatch()
             val value = ssaConstruction.readVariable(variable, block)
-            if (value is Holder) {
-                return value.value
+            return if (value is Holder) {
+                value.value
             } else if (variable is PsiField) {
-                return typeData[variable] ?: noMatch()
+                typeData[variable] ?: noMatch()
+            } else {
+                // avoid StackOverflowError due to calling this method in MethodHandleTypeResolver
+                noMatch()
             }
         }
-        return noMatch()
+        val resolver = MethodHandleTypeResolver(this, block)
+        expression.accept(resolver)
+        return resolver.result
     }
 
     private fun lookup(
