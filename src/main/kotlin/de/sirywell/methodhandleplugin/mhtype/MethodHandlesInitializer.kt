@@ -18,50 +18,48 @@ private const val VAR_HANDLE_FQN = "java.lang.invoke.VarHandle"
  */
 class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) {
 
-    private val intType = DirectType(PsiTypes.intType())
-    private val voidType = DirectType(PsiTypes.voidType())
     private val topType = MethodHandleType(TopSignature)
 
     fun arrayConstructor(arrayClass: PsiExpression): MethodHandleType {
         val arrayType = arrayClass.asArrayType()
 
-        return MethodHandleType(complete(arrayType, listOf(intType)))
+        return MethodHandleType(complete(arrayType, listOf(ExactType.intType)))
     }
 
     fun arrayElementGetter(arrayClass: PsiExpression): MethodHandleType {
         val arrayType = arrayClass.asArrayType()
-        val componentType = if (arrayType !is DirectType) {
+        val componentType = if (arrayType !is ExactType) {
             arrayType
         } else {
-            DirectType((arrayType.psiType as PsiArrayType).componentType)
+            ExactType((arrayType.psiType as PsiArrayType).componentType)
         }
-        return MethodHandleType(complete(componentType, listOf(arrayType, intType)))
+        return MethodHandleType(complete(componentType, listOf(arrayType, ExactType.intType)))
     }
 
     fun arrayElementSetter(arrayClass: PsiExpression): MethodHandleType {
         val arrayType = arrayClass.asArrayType()
-        val componentType = if (arrayType !is DirectType) {
+        val componentType = if (arrayType !is ExactType) {
             arrayType
         } else {
-            DirectType((arrayType.psiType as PsiArrayType).componentType)
+            ExactType((arrayType.psiType as PsiArrayType).componentType)
         }
-        return MethodHandleType(complete(voidType, listOf(arrayType, intType, componentType)))
+        return MethodHandleType(complete(ExactType.voidType, listOf(arrayType, ExactType.intType, componentType)))
     }
 
     // arrayElementVarHandle() no VarHandle support
 
     fun arrayLength(arrayClass: PsiExpression): MethodHandleType {
         val arrayType = arrayClass.asArrayType()
-        return MethodHandleType(complete(intType, listOf(arrayType)))
+        return MethodHandleType(complete(ExactType.intType, listOf(arrayType)))
     }
 
     // byteArray/BufferViewVarHandle() no VarHandle support
 
     fun constant(typeExpr: PsiExpression, valueExpr: PsiExpression): MethodHandleType {
         val type = typeExpr.asType()
-        val valueType = valueExpr.type?.let { DirectType(it) } ?: BotType
-        if (type == voidType) {
-            return emitProblem(typeExpr, message("problem.creation.arguments.invalid.type", voidType))
+        val valueType = valueExpr.type?.let { ExactType(it) } ?: BotType
+        if (type == ExactType.voidType) {
+            return emitProblem(typeExpr, message("problem.creation.arguments.invalid.type", ExactType.voidType))
         }
         if (!typesAreCompatible(type, valueType, valueExpr)) {
             return emitProblem(valueExpr, message("problem.general.parameters.expected.type", type, valueType))
@@ -75,15 +73,15 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) {
 
     fun identity(typeExpr: PsiExpression): MethodHandleType {
         val type = typeExpr.asType()
-        if (type == voidType) {
-            return emitProblem(typeExpr, message("problem.merging.general.typeMustNotBe", voidType))
+        if (type == ExactType.voidType) {
+            return emitProblem(typeExpr, message("problem.merging.general.typeMustNotBe", ExactType.voidType))
         }
         return MethodHandleType(complete(type, listOf(type)))
     }
 
     fun invoker(mhType: MethodHandleType, methodHandleType: PsiType): MethodHandleType {
         val signature = mhType.signature
-        val pt = signature.parameterList.addAllAt(0, CompleteParameterList(listOf(DirectType(methodHandleType))))
+        val pt = signature.parameterList.addAllAt(0, CompleteParameterList(listOf(ExactType(methodHandleType))))
         return MethodHandleType(complete(signature.returnType, pt))
     }
 
@@ -93,7 +91,7 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) {
         val parameterList = signature.parameterList as? CompleteParameterList ?: return topType
         if (leadingArgCount >= parameterList.size) return topType
         val keep = parameterList.parameterTypes.subList(0, leadingArgCount).toMutableList()
-        keep.add(DirectType(objectType.createArrayType()))
+        keep.add(ExactType(objectType.createArrayType()))
         return MethodHandleType(complete(signature.returnType, keep))
     }
 
@@ -107,7 +105,7 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) {
 
     private fun PsiExpression.asArrayType(): Type {
         val referenceClass = this.asType()
-        if (referenceClass is DirectType && referenceClass.psiType !is PsiArrayType) {
+        if (referenceClass is ExactType && referenceClass.psiType !is PsiArrayType) {
             emitMustBeArrayType(this, referenceClass)
             return TopType
         }
@@ -136,8 +134,8 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) {
         right: Type,
         context: PsiElement
     ): Boolean {
-        val l = (left as? DirectType)?.psiType ?: return true // assume compatible if unknown
-        var r = (right as? DirectType)?.psiType ?: return true // assume compatible if unknown
+        val l = (left as? ExactType)?.psiType ?: return true // assume compatible if unknown
+        var r = (right as? ExactType)?.psiType ?: return true // assume compatible if unknown
         if (r is PsiPrimitiveType) {
             r.getBoxedType(context)?.let { r = it }
         }
@@ -159,7 +157,7 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) {
         val varHandleType = PsiType.getTypeByName(VAR_HANDLE_FQN, methodTypeExpr.project, methodTypeExpr.resolveScope)
         return MethodHandleType(
             type.signature.withParameterTypes(
-                type.signature.parameterList.addAllAt(0, CompleteParameterList(listOf(DirectType(varHandleType))))
+                type.signature.parameterList.addAllAt(0, CompleteParameterList(listOf(ExactType(varHandleType))))
             )
         )
     }

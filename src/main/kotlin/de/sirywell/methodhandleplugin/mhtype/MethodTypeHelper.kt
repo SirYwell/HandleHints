@@ -57,16 +57,16 @@ object MethodTypeHelper {
 
     fun generic(mhType: MethodHandleType, objectType: PsiType): MethodHandleType {
         val size = (mhType.signature.parameterList as? CompleteParameterList)?.size ?: return topType
-        val objType = DirectType(objectType)
+        val objType = ExactType(objectType)
         return MethodHandleType(complete(objType, nCopies(size, objType)))
     }
 
     fun genericMethodType(objectArgCount: PsiExpression, finalArray: Boolean, objectType: PsiType): MethodHandleType {
-        val objType = DirectType(objectType)
+        val objType = ExactType(objectType)
         val count = objectArgCount.getConstantOfType<Int>() ?: return MethodHandleType(BotSignature)
         var parameters = nCopies(count, objType)
         if (finalArray) {
-            parameters = parameters + DirectType(objectType.createArrayType())
+            parameters = parameters + ExactType(objectType.createArrayType())
         }
         return MethodHandleType(complete(objType, parameters))
     }
@@ -120,14 +120,14 @@ object MethodTypeHelper {
     }
 
     private fun unwrap(type: Type): Type {
-        if (type !is DirectType) {
+        if (type !is ExactType) {
             return type
         }
-        return DirectType(PsiPrimitiveType.getOptionallyUnboxedType(type.psiType) ?: type.psiType)
+        return ExactType(PsiPrimitiveType.getOptionallyUnboxedType(type.psiType) ?: type.psiType)
     }
 
     private fun wrap(context: PsiElement, type: Type): Type {
-        if (type !is DirectType || type.psiType !is PsiPrimitiveType) return type
-        return DirectType(type.psiType.getBoxedType(context) ?: type.psiType)
+        if (type !is ExactType || type.psiType !is PsiPrimitiveType) return type
+        return ExactType(type.psiType.getBoxedType(context) ?: type.psiType)
     }
 }

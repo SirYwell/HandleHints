@@ -42,7 +42,7 @@ class MethodHandleTransformer(private val ssaAnalyzer: SsaAnalyzer) {
             } else {
                 return emitProblem(typeExpr, message("problem.general.parameters.noParameter"))
             }
-        if (firstParamType is DirectType) {
+        if (firstParamType is ExactType) {
             if (firstParamType.isPrimitive()) {
                 return emitProblem(
                     typeExpr,

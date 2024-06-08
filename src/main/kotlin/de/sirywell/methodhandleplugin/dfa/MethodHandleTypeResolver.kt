@@ -1,5 +1,6 @@
 package de.sirywell.methodhandleplugin.dfa
 
+import com.intellij.openapi.util.RecursionManager.doPreventingRecursion
 import com.intellij.psi.*
 import com.intellij.psi.util.childrenOfType
 import de.sirywell.methodhandleplugin.type.BotSignature
@@ -42,7 +43,9 @@ class MethodHandleTypeResolver(private val ssaAnalyzer: SsaAnalyzer, private val
     }
 
     private fun calculateType(expression: PsiExpression): MethodHandleType? {
-        return ssaAnalyzer.typeData[expression] ?: ssaAnalyzer.resolveMhType(expression, block)
+        return ssaAnalyzer.typeData[expression]
+            // SsaAnalyzer might call us again. Prevent SOE
+            ?: doPreventingRecursion(expression, true) { ssaAnalyzer.resolveMhType(expression, block) }
     }
 
 }

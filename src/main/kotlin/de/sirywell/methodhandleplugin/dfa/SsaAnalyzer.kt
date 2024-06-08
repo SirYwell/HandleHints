@@ -346,8 +346,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
             "dropArguments" -> {
                 if (arguments.size < 3) return noMatch()
                 val i = arguments[1].getConstantOfType<Int>() ?: return notConstant()
-                val target = arguments[0].mhType(block) ?: return noMatch()
-                methodHandlesMerger.dropArguments(target, i, arguments.subList(2))
+                methodHandlesMerger.dropArguments(arguments[0], i, arguments.subList(2), block)
             }
 
             "dropArgumentsToMatch" -> notConstant() // likely too difficult to get something precise here
@@ -421,12 +420,11 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
 
             "insertArguments" -> {
                 if (arguments.size < 2) return noMatch()
-                val target = arguments[0].mhType(block) ?: return noMatch()
-                val pos = arguments[1].getConstantOfType<Int>() ?: return notConstant()
                 methodHandlesMerger.insertArguments(
-                    target,
-                    pos,
-                    arguments.subList(2)
+                    arguments[0],
+                    arguments[1],
+                    arguments.subList(2),
+                    block
                 )
             }
 

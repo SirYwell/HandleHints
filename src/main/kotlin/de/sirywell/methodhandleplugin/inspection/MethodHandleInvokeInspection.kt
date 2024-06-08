@@ -66,7 +66,7 @@ class MethodHandleInvokeInspection : LocalInspectionTool() {
             val parent = expression.parent
             if (parent is PsiExpressionStatement) {
                 if (!returnType.canBe(PsiTypes.voidType())) {
-                    val fixes: Array<LocalQuickFix> = if (returnType is DirectType) {
+                    val fixes: Array<LocalQuickFix> = if (returnType is ExactType) {
                         arrayOf(ReturnTypeInStatementFix(returnType.psiType))
                     } else {
                         emptyArray()
@@ -81,7 +81,7 @@ class MethodHandleInvokeInspection : LocalInspectionTool() {
                         *fixes
                     )
                 }
-            } else if (returnType is DirectType
+            } else if (returnType is ExactType
                 && returnType.psiType == PsiTypes.voidType()
                 && parent !is PsiExpressionStatement
             ) {
@@ -93,7 +93,7 @@ class MethodHandleInvokeInspection : LocalInspectionTool() {
                 )
             } else if (parent !is PsiTypeCastExpression) {
                 if (!returnType.canBe(PsiType.getJavaLangObject(expression.manager, expression.resolveScope))) {
-                    val fixes: Array<LocalQuickFix> = if (returnType is DirectType) {
+                    val fixes: Array<LocalQuickFix> = if (returnType is ExactType) {
                         arrayOf(
                             LocalQuickFix.from(AddTypeCastFix(returnType.psiType, expression))!!,
                             ReplaceMethodCallFix("invoke")

@@ -44,7 +44,7 @@ class LookupHelper(private val ssaAnalyzer: SsaAnalyzer) {
     fun findSetter(refc: PsiExpression, typeExpr: PsiExpression): MethodHandleType {
         val referenceClass = refc.asReferenceType()
         val paramType = typeExpr.asNonVoidType()
-        return MethodHandleType(complete(DirectType(PsiTypes.voidType()), listOf(referenceClass, paramType)))
+        return MethodHandleType(complete(ExactType.voidType, listOf(referenceClass, paramType)))
     }
 
     fun findSpecial(
@@ -80,7 +80,7 @@ class LookupHelper(private val ssaAnalyzer: SsaAnalyzer) {
     fun findStaticSetter(refc: PsiExpression, type: PsiExpression): MethodHandleType {
         refc.asReferenceType()
         val paramType = type.asNonVoidType()
-        return MethodHandleType(complete(DirectType(PsiTypes.voidType()), listOf(paramType)))
+        return MethodHandleType(complete(ExactType.voidType, listOf(paramType)))
     }
 
     fun findVirtual(refc: PsiExpression, nameExpr: PsiExpression, type: MethodHandleType): MethodHandleType {
@@ -138,7 +138,7 @@ class LookupHelper(private val ssaAnalyzer: SsaAnalyzer) {
 
     private fun PsiExpression.asNonVoidType(): Type {
         val nonVoid = this.asType()
-        val voidType = DirectType(PsiTypes.voidType())
+        val voidType = ExactType.voidType
         if (nonVoid == voidType) {
             emitMustNotBeVoid(this)
             return TopType
@@ -151,7 +151,7 @@ class LookupHelper(private val ssaAnalyzer: SsaAnalyzer) {
         signature: Signature,
         methods: (PsiClass) -> Array<PsiMethod>
     ): MethodHandleType {
-        if (referenceClass is DirectType) {
+        if (referenceClass is ExactType) {
             val method = PsiTypesUtil.getPsiClass(referenceClass.psiType)?.let {
                 findMethodMatching(signature, methods(it))
             }

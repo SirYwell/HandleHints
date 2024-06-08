@@ -69,7 +69,7 @@ fun Collection<PsiExpression>.mapToTypes(): List<Type> {
 fun PsiExpression.asType(): Type {
     return (JavaReflectionReferenceUtil.getReflectiveType(this)?.type
         ?: getConstantOfType<PsiType>())
-        ?.let { DirectType(it) }
+        ?.let { ExactType(it) }
         ?: BotType
 }
 
@@ -79,19 +79,19 @@ fun objectType(manager: PsiManager, scope: GlobalSearchScope): PsiType {
 
 fun findMethodMatching(signature: Signature, methods: Array<PsiMethod>): PsiMethod? {
     if (signature !is CompleteSignature) return null
-    if (signature.returnType !is DirectType) return null
+    if (signature.returnType !is ExactType) return null
     val parameterList = signature.parameterList as? CompleteParameterList ?: return null
-    return methods.find { matches(it, signature.returnType as DirectType, parameterList) }
+    return methods.find { matches(it, signature.returnType as ExactType, parameterList) }
 }
 
-fun matches(method: PsiMethod, returnType: DirectType, parameterList: CompleteParameterList): Boolean {
+fun matches(method: PsiMethod, returnType: ExactType, parameterList: CompleteParameterList): Boolean {
     if (method.returnType == null) {
         if (returnType.psiType != PsiTypes.voidType()) {
             return false
         }
     } else if (method.returnType != returnType.psiType) return false
     if (parameterList.size != method.parameterList.parametersCount) return false
-    val ps = parameterList.parameterTypes.map { it as? DirectType ?: return false }.map { it.psiType }
+    val ps = parameterList.parameterTypes.map { it as? ExactType ?: return false }.map { it.psiType }
     return method.parameterList.parameters
         .map { if (it.type is PsiEllipsisType) (it.type as PsiEllipsisType).toArrayType() else it.type }
         .foldIndexed(true) { index, acc, param -> acc && ps[index] == param }
