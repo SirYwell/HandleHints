@@ -3,10 +3,9 @@ package de.sirywell.methodhandleplugin
 import com.intellij.codeInspection.dataFlow.CommonDataflow
 import com.intellij.codeInspection.dataFlow.CommonDataflow.DataflowResult
 import com.intellij.psi.*
+import com.intellij.psi.impl.source.resolve.reference.impl.JavaReflectionReferenceUtil
 import com.intellij.psi.search.GlobalSearchScope
-import de.sirywell.methodhandleplugin.type.BotType
-import de.sirywell.methodhandleplugin.type.DirectType
-import de.sirywell.methodhandleplugin.type.Type
+import de.sirywell.methodhandleplugin.type.*
 import java.lang.invoke.MethodHandle
 import java.lang.invoke.MethodHandles
 import java.lang.invoke.MethodType.methodType
@@ -62,15 +61,38 @@ inline fun <reified T> PsiExpression.getConstantOfType(): T? {
         ?.getDfType(this)
         ?.getConstantOfType(T::class.java)
 }
+
 fun Collection<PsiExpression>.mapToTypes(): List<Type> {
     return this.map { element -> element.asType() }
 }
 
 fun PsiExpression.asType(): Type {
-    return getConstantOfType<PsiType>()?.let { DirectType(it) } ?: BotType
+    return (JavaReflectionReferenceUtil.getReflectiveType(this)?.type
+        ?: getConstantOfType<PsiType>())
+        ?.let { DirectType(it) }
+        ?: BotType
 }
 
 fun objectType(manager: PsiManager, scope: GlobalSearchScope): PsiType {
     return PsiType.getJavaLangObject(manager, scope)
 }
 
+fun findMethodMatching(signature: Signature, methods: Array<PsiMethod>): PsiMethod? {
+    if (signature !is CompleteSignature) return null
+    if (signature.returnType !is DirectType) return null
+    val parameterList = signature.parameterList as? CompleteParameterList ?: return null
+    return methods.find { matches(it, signature.returnType as DirectType, parameterList) }
+}
+
+fun matches(method: PsiMethod, returnType: DirectType, parameterList: CompleteParameterList): Boolean {
+    if (method.returnType == null) {
+        if (returnType.psiType != PsiTypes.voidType()) {
+            return false
+        }
+    } else if (method.returnType != returnType.psiType) return false
+    if (parameterList.size != method.parameterList.parametersCount) return false
+    val ps = parameterList.parameterTypes.map { it as? DirectType ?: return false }.map { it.psiType }
+    return method.parameterList.parameters
+        .map { if (it.type is PsiEllipsisType) (it.type as PsiEllipsisType).toArrayType() else it.type }
+        .foldIndexed(true) { index, acc, param -> acc && ps[index] == param }
+}

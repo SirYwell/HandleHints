@@ -2,8 +2,8 @@ package de.sirywell.methodhandleplugin.mhtype
 
 import com.intellij.codeInspection.ProblemHighlightType
 import com.intellij.psi.*
-import de.sirywell.methodhandleplugin.MethodHandleBundle
-import de.sirywell.methodhandleplugin.asType
+import com.intellij.psi.util.PsiTypesUtil
+import de.sirywell.methodhandleplugin.*
 import de.sirywell.methodhandleplugin.dfa.SsaAnalyzer
 import de.sirywell.methodhandleplugin.dfa.SsaConstruction
 import de.sirywell.methodhandleplugin.type.*
@@ -16,7 +16,6 @@ class LookupHelper(private val ssaAnalyzer: SsaAnalyzer) {
 
     fun findConstructor(refc: PsiExpression, typeExpr: PsiExpression, block: SsaConstruction.Block): MethodHandleType {
         val type = ssaAnalyzer.mhType(typeExpr, block) ?: return MethodHandleType(BotSignature)
-        if (type.signature !is CompleteSignature) return type
         if (!type.signature.returnType.canBe(PsiTypes.voidType())) {
             emitProblem(
                 typeExpr,
@@ -28,7 +27,12 @@ class LookupHelper(private val ssaAnalyzer: SsaAnalyzer) {
             )
         }
         val referenceClass = refc.asReferenceType()
-        return MethodHandleType(type.signature.withReturnType(referenceClass))
+        val methodHandleType = enhanceVarargsIfKnown(referenceClass, type.signature) { it.constructors }
+        return MethodHandleType(
+            methodHandleType
+                .signature.withReturnType(referenceClass)
+                .withVarargs(methodHandleType.signature.varargs)
+        )
     }
 
     fun findGetter(refc: PsiExpression, typeExpr: PsiExpression): MethodHandleType {
@@ -43,17 +47,28 @@ class LookupHelper(private val ssaAnalyzer: SsaAnalyzer) {
         return MethodHandleType(complete(DirectType(PsiTypes.voidType()), listOf(referenceClass, paramType)))
     }
 
-    fun findSpecial(refc: PsiExpression, type: MethodHandleType, specialCaller: PsiExpression): MethodHandleType {
-        refc.asReferenceType()
+    fun findSpecial(
+        refc: PsiExpression,
+        nameExpr: PsiExpression,
+        type: MethodHandleType,
+        specialCaller: PsiExpression
+    ): MethodHandleType {
+        val referenceClass = refc.asReferenceType()
         if (type.signature !is CompleteSignature) return type
         // TODO inspection:  caller class must be a subclass below the method
         val paramType = specialCaller.asType()
-        return prependParameter(type, paramType)
+        val name = nameExpr.getConstantOfType<String>() ?: return prependParameter(type, paramType)
+        return prependParameter(enhanceVarargsIfKnown(referenceClass, type.signature) {
+            it.findMethodsByName(name, true)
+        }, paramType)
     }
 
-    fun findStatic(refc: PsiExpression, mhType: MethodHandleType): MethodHandleType {
-        refc.asReferenceType()
-        return mhType
+    fun findStatic(refc: PsiExpression, nameExpr: PsiExpression, mhType: MethodHandleType): MethodHandleType {
+        val type = refc.asReferenceType()
+        val name = nameExpr.getConstantOfType<String>() ?: return mhType
+        return enhanceVarargsIfKnown(type, mhType.signature) {
+            it.findMethodsByName(name, true)
+        }
     }
 
     fun findStaticGetter(refc: PsiExpression, type: PsiExpression): MethodHandleType {
@@ -68,16 +83,14 @@ class LookupHelper(private val ssaAnalyzer: SsaAnalyzer) {
         return MethodHandleType(complete(DirectType(PsiTypes.voidType()), listOf(paramType)))
     }
 
-    fun findVirtual(refc: PsiExpression, mhType: MethodHandleType): MethodHandleType {
-        var referenceClass = refc.asType()
-        if (referenceClass.isPrimitive()) {
-            referenceClass = TopType
-            emitMustBeReferenceType(refc, referenceClass)
-        }
-        if (mhType.signature !is CompleteSignature) return mhType
-        val paramType = refc.asType()
+    fun findVirtual(refc: PsiExpression, nameExpr: PsiExpression, type: MethodHandleType): MethodHandleType {
+        val referenceClass = refc.asReferenceType()
+        if (type.signature !is CompleteSignature) return type
         // TODO not exactly correct, receiver could be restricted to lookup class
-        return prependParameter(mhType, paramType)
+        val name = nameExpr.getConstantOfType<String>() ?: return prependParameter(type, referenceClass)
+        return prependParameter(enhanceVarargsIfKnown(referenceClass, type.signature) {
+            it.findMethodsByName(name, true)
+        }, referenceClass)
     }
 
     private fun prependParameter(
@@ -88,7 +101,7 @@ class LookupHelper(private val ssaAnalyzer: SsaAnalyzer) {
             return mhType
         }
         val pt = CompleteParameterList(listOf(paramType)).addAllAt(1, mhType.signature.parameterList)
-        return MethodHandleType(mhType.signature.withParameterTypes(pt))
+        return MethodHandleType(mhType.signature.withParameterTypes(pt).withVarargs(mhType.signature.varargs))
     }
 
     private fun emitProblem(element: PsiElement, message: @Nls String): MethodHandleType {
@@ -131,5 +144,20 @@ class LookupHelper(private val ssaAnalyzer: SsaAnalyzer) {
             return TopType
         }
         return nonVoid
+    }
+
+    private fun enhanceVarargsIfKnown(
+        referenceClass: Type,
+        signature: Signature,
+        methods: (PsiClass) -> Array<PsiMethod>
+    ): MethodHandleType {
+        if (referenceClass is DirectType) {
+            val method = PsiTypesUtil.getPsiClass(referenceClass.psiType)?.let {
+                findMethodMatching(signature, methods(it))
+            }
+            val varargs = method?.isVarArgs.toTriState()
+            return MethodHandleType(signature.withVarargs(varargs))
+        }
+        return MethodHandleType(signature)
     }
 }

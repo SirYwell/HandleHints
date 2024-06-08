@@ -3,7 +3,12 @@ package de.sirywell.methodhandleplugin
 enum class TriState {
     YES,
     UNKNOWN,
-    NO
+    NO;
+
+    fun join(other: TriState): TriState {
+        if (this != other) return UNKNOWN
+        return this
+    }
 }
 
 fun Boolean?.toTriState() = when (this) {

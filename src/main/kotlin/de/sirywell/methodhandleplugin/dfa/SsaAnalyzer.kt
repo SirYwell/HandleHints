@@ -183,7 +183,10 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
             } else if (receiverIsMethodHandle(expression)) {
                 return when (expression.methodName) {
                     "asCollector" -> TODO()
-                    "asFixedArity" -> TODO()
+                    "asFixedArity" -> {
+                        if (arguments.isNotEmpty()) return noMatch()
+                        methodHandleTransformer.asFixedArity(qualifier?.mhType(block)?: notConstant())
+                    }
                     "asSpreader" -> TODO()
                     "asType" -> TODO()
                     "asVarargsCollector" -> TODO()
@@ -198,6 +201,9 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                     "invoke",
                     "invokeExact",
                     "invokeWithArguments" -> noMethodHandle()
+                    "type" -> qualifier?.mhType(block)
+                        ?.signature?.withVarargs(TriState.NO) // if ever used somewhere else, assume non-varargs
+                        ?.let { MethodHandleType(it) }
 
                     in objectMethods -> noMethodHandle()
                     else -> warnUnsupported(expression, "MethodHandle")
@@ -237,25 +243,25 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
             "findSetter" -> findAccessor(arguments, lookupHelper::findSetter)
             "findSpecial" -> {
                 if (arguments.size != 4) return noMatch()
-                val (refc, _, type, specialCaller) = arguments
+                val (refc, name, type, specialCaller) = arguments
                 val t = type.mhType(block) ?: return notConstant()
-                lookupHelper.findSpecial(refc, t, specialCaller)
+                lookupHelper.findSpecial(refc, name, t, specialCaller)
             }
 
             "findStatic" -> {
                 if (arguments.size != 3) return noMatch()
-                val (refc, _, type) = arguments
+                val (refc, name, type) = arguments
                 val t = type.mhType(block) ?: return notConstant()
-                lookupHelper.findStatic(refc, t)
+                lookupHelper.findStatic(refc, name, t)
             }
 
             "findStaticGetter" -> findAccessor(arguments, lookupHelper::findStaticGetter)
             "findStaticSetter" -> findAccessor(arguments, lookupHelper::findStaticSetter)
             "findVirtual" -> {
                 if (arguments.size != 3) return noMatch()
-                val (refc, _, type) = arguments
+                val (refc, name, type) = arguments
                 val t = type.mhType(block) ?: return notConstant()
-                lookupHelper.findVirtual(refc, t)
+                lookupHelper.findVirtual(refc, name, t)
             }
 
             "accessClass",
