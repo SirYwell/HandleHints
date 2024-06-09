@@ -226,7 +226,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
         block: SsaConstruction.Block
     ): MethodHandleType {
         val types = valueTypes.mapToTypes()
-        val target = ssaAnalyzer.resolveMhType(targetExpr, block) ?: bottomType
+        val target = ssaAnalyzer.mhType(targetExpr, block) ?: bottomType
         val signature = target.signature
         if (signature.parameterList.compareSize(pos) == PartialOrder.LT) {
             return emitOutOfBounds(signature.parameterList.sizeOrNull(), targetExpr, pos, false)
