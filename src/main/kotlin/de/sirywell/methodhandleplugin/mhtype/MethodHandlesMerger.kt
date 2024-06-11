@@ -34,7 +34,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
         val handler = ssaAnalyzer.mhType(handlerExpr, block) ?: bottomType
         val handlerParameterTypes = handler.signature.parameterList
         if (handlerParameterTypes is CompleteParameterList && (handlerParameterTypes.size == 0
-                    || (exType is DirectType && !handlerParameterTypes[0].canBe(exType.psiType)))
+                    || (exType is ExactType && !handlerParameterTypes[0].canBe(exType.psiType)))
         ) {
             emitProblem(handlerExpr, message("problem.merging.catchException.missingException", exType))
         }
@@ -68,12 +68,15 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
         val target = ssaAnalyzer.mhType(targetExpr, block) ?: return bottomType
         val filter = ssaAnalyzer.mhType(filterExpr, block) ?: return bottomType
         var parameters = target.signature.parameterList
-        val pos = posExpr.getConstantOfType<Int>() ?: return bottomType
-        if (parameters is CompleteParameterList && (pos >= parameters.size || pos < 0)) {
-            return emitProblem(posExpr, message("problem.merging.collectArgs.invalidIndex", pos, parameters.size))
+        val pos = posExpr.nonNegativeInt() ?: return bottomType
+        if (parameters is CompleteParameterList && pos >= parameters.size) {
+            return emitProblem(
+                posExpr,
+                message("problem.general.position.invalidIndexKnownBoundsExcl", pos, parameters.size)
+            )
         }
         val returnType = filter.signature.returnType
-        if (returnType is DirectType && returnType.psiType != PsiTypes.voidType()) {
+        if (returnType is ExactType && returnType.psiType != PsiTypes.voidType()) {
             // the return type of the filter must match the replaced type
             if (parameters[pos] != returnType) {
                 return topType
@@ -100,7 +103,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
         if (iterations.signature is BotSignature) {
             // iterations and init have an effectively identical parameter list
             // so if one is missing, just use the other, but assert return type
-            iterations = init?.signature?.withReturnType(DirectType(PsiTypes.intType()))?.let { MethodHandleType(it) }
+            iterations = init?.signature?.withReturnType(ExactType.intType)?.let { MethodHandleType(it) }
                 ?: return bottomType
         }
         if (init == null || init.signature is BotSignature) {
@@ -216,11 +219,18 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
         return MethodHandleType(init.signature)
     }
 
-    fun dropArguments(target: MethodHandleType, pos: Int, valueTypes: List<PsiExpression>): MethodHandleType {
+    fun dropArguments(
+        targetExpr: PsiExpression,
+        pos: Int,
+        valueTypes: List<PsiExpression>,
+        block: SsaConstruction.Block
+    ): MethodHandleType {
         val types = valueTypes.mapToTypes()
-        if (target.signature !is CompleteSignature) return target
+        val target = ssaAnalyzer.mhType(targetExpr, block) ?: bottomType
         val signature = target.signature
-        if (signature.parameterList.sizeMatches { pos > it } == TriState.YES) return topType
+        if (signature.parameterList.compareSize(pos) == PartialOrder.LT) {
+            return emitOutOfBounds(signature.parameterList.sizeOrNull(), targetExpr, pos, false)
+        }
         val list = signature.parameterList.addAllAt(pos, CompleteParameterList(types))
         return MethodHandleType(signature.withParameterTypes(list))
     }
@@ -232,7 +242,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
     fun dropReturn(targetExpr: PsiExpression, block: SsaConstruction.Block): MethodHandleType {
         val target = ssaAnalyzer.mhType(targetExpr, block) ?: bottomType
         if (target.signature is CompleteSignature) {
-            return MethodHandleType(target.signature.withReturnType(DirectType(PsiTypes.voidType())))
+            return MethodHandleType(target.signature.withReturnType(ExactType.voidType))
         }
         return target
     }
@@ -345,9 +355,24 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
         return MethodHandleType(targetSignature)
     }
 
-    fun insertArguments(target: MethodHandleType, pos: Int, valueTypes: List<PsiExpression>): MethodHandleType {
+    fun insertArguments(
+        targetExpr: PsiExpression,
+        posExpr: PsiExpression,
+        valueTypes: List<PsiExpression>,
+        block: SsaConstruction.Block
+    ): MethodHandleType {
+        val target = ssaAnalyzer.mhType(targetExpr, block) ?: bottomType
+        val pos = posExpr.nonNegativeInt() ?: return topType
         val parameterList = target.signature.parameterList
-        if (parameterList.sizeMatches { it < pos + valueTypes.size } == TriState.YES) return topType
+        if (parameterList.compareSize(pos + valueTypes.size) == PartialOrder.LT) {
+            // the index of the first value that is out of bounds
+            val valueTypesIndex = parameterList.sizeOrNull()?.minus(pos)
+            val expr = valueTypesIndex?.let { valueTypes.getOrNull(it) }
+            if (expr != null) {
+                return emitProblem(expr, message("problem.general.position.invalidIndexOffset", valueTypesIndex + pos))
+            }
+            return emitOutOfBounds(parameterList.sizeOrNull(), posExpr, pos, false)
+        }
         val new = parameterList.removeAt(pos, valueTypes.size)
         return MethodHandleType(target.signature.withParameterTypes(new))
     }
@@ -378,12 +403,12 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
             )
         }
         // if reorder array is unknown, just assume the input is correct
-        val reorderInts = reorder.map { it.getConstantOfType<Int>() ?: return newType }
+        val reorderInts = reorder.map { it.nonNegativeInt() ?: return newType }
         val resultType: MutableList<Type> = (newType.signature.parameterList as? CompleteParameterList)
             ?.parameterTypes?.toMutableList()
             ?: return topType
         for ((index, value) in reorderInts.withIndex()) {
-            if (value < 0 || inParams.sizeMatches { value >= it } == TriState.YES) {
+            if (inParams.compareSize(value + 1) == PartialOrder.LT) {
                 emitProblem(
                     reorder[index],
                     message("problem.merging.permute.invalidReorderIndex", 0, inParams.sizeOrNull()!!, value)
@@ -476,6 +501,32 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
         }
         return topType
     }
+
+    private fun emitOutOfBounds(
+        size: Int?,
+        targetExpr: PsiExpression,
+        pos: Int,
+        exclusive: Boolean
+    ) = if (size != null) {
+        if (exclusive) {
+            emitProblem(targetExpr, message("problem.general.position.invalidIndexKnownBoundsExcl", pos, size))
+        } else {
+            emitProblem(targetExpr, message("problem.general.position.invalidIndexKnownBoundsIncl", pos, size))
+        }
+    } else {
+        emitProblem(targetExpr, message("problem.general.position.invalidIndex", pos))
+    }
+
+    fun PsiExpression.nonNegativeInt(): Int? {
+        return this.getConstantOfType<Int>()?.let {
+            if (it < 0) {
+                emitProblem(this, message("problem.general.position.invalidIndexNegative", it))
+                return null
+            }
+            return it
+        }
+    }
+
 }
 
 private fun ParameterList.effectivelyIdenticalTo(other: ParameterList): Boolean {
@@ -489,3 +540,4 @@ private fun <E> List<E>.startsWith(list: List<E>): Boolean {
     if (list.size > this.size) return false
     return this.subList(0, list.size) == list
 }
+

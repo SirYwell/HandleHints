@@ -15,7 +15,14 @@ sealed interface ParameterList {
 
     fun join(parameterList: ParameterList): ParameterList
 
-    fun hasSize(size: Int): TriState
+    fun hasSize(size: Int): TriState {
+        return when (compareSize(size)) {
+            PartialOrder.LT,
+            PartialOrder.GT -> TriState.NO
+            PartialOrder.EQ -> TriState.YES
+            PartialOrder.UNORDERED -> TriState.UNKNOWN
+        }
+    }
 
     fun dropFirst(n: Int): ParameterList
 
@@ -31,6 +38,8 @@ sealed interface ParameterList {
 
     fun sizeMatches(predicate: (Int) -> Boolean): TriState
 
+    fun compareSize(value: Int): PartialOrder
+
     fun sizeOrNull(): Int?
 
 }
@@ -38,7 +47,6 @@ sealed interface ParameterList {
 data object BotParameterList : ParameterList {
     override fun parameterType(index: Int) = BotType
     override fun join(parameterList: ParameterList) = parameterList
-    override fun hasSize(size: Int) = TriState.UNKNOWN
     override fun dropFirst(n: Int) = this
     override fun removeAt(index: Int, n: Int) = this
     override fun addAllAt(index: Int, parameterList: ParameterList): ParameterList {
@@ -51,6 +59,11 @@ data object BotParameterList : ParameterList {
     }
 
     override fun sizeMatches(predicate: (Int) -> Boolean) = TriState.UNKNOWN
+    override fun compareSize(value: Int): PartialOrder {
+        return if (value < 0) PartialOrder.GT // if value is negative, this is definitely greater
+        else PartialOrder.UNORDERED
+    }
+
     override fun sizeOrNull() = null
 
     override fun toString() = "[⊥]"
@@ -59,13 +72,17 @@ data object BotParameterList : ParameterList {
 data object TopParameterList : ParameterList {
     override fun parameterType(index: Int) = TopType
     override fun join(parameterList: ParameterList) = this
-    override fun hasSize(size: Int) = TriState.UNKNOWN
     override fun dropFirst(n: Int) = this
     override fun removeAt(index: Int, n: Int) = this
     override fun addAllAt(index: Int, parameterList: ParameterList) = this
     override fun setAt(index: Int, type: Type) = TopParameterList
 
     override fun sizeMatches(predicate: (Int) -> Boolean) = TriState.UNKNOWN
+    override fun compareSize(value: Int): PartialOrder {
+        return if (value < 0) PartialOrder.GT // if value is negative, this is definitely greater
+        else PartialOrder.UNORDERED
+    }
+
     override fun sizeOrNull() = null
 
     override fun toString() = "[⊤]"
@@ -105,7 +122,6 @@ data class CompleteParameterList(val parameterTypes: List<Type>) : ParameterList
         }
     }
 
-    override fun hasSize(size: Int) = (this.size == size).toTriState()
     override fun dropFirst(n: Int): ParameterList {
         if (parameterTypes.size < n) return TopParameterList
         return CompleteParameterList(parameterTypes.drop(n))
@@ -148,6 +164,8 @@ data class CompleteParameterList(val parameterTypes: List<Type>) : ParameterList
         return predicate(size).toTriState()
     }
 
+    override fun compareSize(value: Int) = size.compareTo(value).order()
+
     override fun sizeOrNull() = size
 
     override fun toString(): String {
@@ -173,8 +191,6 @@ data class IncompleteParameterList(val knownParameterTypes: SortedMap<Int, Type>
             }
         }
     }
-
-    override fun hasSize(size: Int) = TriState.UNKNOWN
 
     override fun dropFirst(n: Int): ParameterList {
         val mutableMap = knownParameterTypes.toMutableMap()
@@ -218,6 +234,12 @@ data class IncompleteParameterList(val knownParameterTypes: SortedMap<Int, Type>
     }
 
     override fun sizeMatches(predicate: (Int) -> Boolean) = TriState.UNKNOWN
+    override fun compareSize(value: Int): PartialOrder {
+        return if (value < 0) PartialOrder.GT // if value is negative, this is definitely greater
+        else if (value < knownParameterTypes.lastKey()) PartialOrder.GT // at least one parameter is definitely greater
+        else PartialOrder.UNORDERED
+    }
+
     override fun sizeOrNull() = null
 
     override fun toString(): String {
