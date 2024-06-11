@@ -9,6 +9,11 @@ enum class TriState {
         if (this != other) return UNKNOWN
         return this
     }
+
+    fun sharpenTowardsNo(other: TriState): TriState {
+        if (this == NO || other == NO) return NO
+        return this.join(other)
+    }
 }
 
 fun Boolean?.toTriState() = when (this) {

@@ -13,7 +13,9 @@ sealed interface ParameterList {
     fun parameterType(index: Int): Type
     operator fun get(index: Int) = parameterType(index)
 
-    fun join(parameterList: ParameterList): ParameterList
+    fun join(parameterList: ParameterList) = joinIdentical(parameterList).first
+
+    fun joinIdentical(parameterList: ParameterList): Pair<ParameterList, TriState>
 
     fun hasSize(size: Int): TriState {
         return when (compareSize(size)) {
@@ -46,7 +48,7 @@ sealed interface ParameterList {
 
 data object BotParameterList : ParameterList {
     override fun parameterType(index: Int) = BotType
-    override fun join(parameterList: ParameterList) = parameterList
+    override fun joinIdentical(parameterList: ParameterList) = parameterList to TriState.UNKNOWN
     override fun dropFirst(n: Int) = this
     override fun removeAt(index: Int, n: Int) = this
     override fun addAllAt(index: Int, parameterList: ParameterList): ParameterList {
@@ -71,7 +73,7 @@ data object BotParameterList : ParameterList {
 
 data object TopParameterList : ParameterList {
     override fun parameterType(index: Int) = TopType
-    override fun join(parameterList: ParameterList) = this
+    override fun joinIdentical(parameterList: ParameterList) = this to TriState.UNKNOWN
     override fun dropFirst(n: Int) = this
     override fun removeAt(index: Int, n: Int) = this
     override fun addAllAt(index: Int, parameterList: ParameterList) = this
@@ -94,29 +96,32 @@ data class CompleteParameterList(val parameterTypes: List<Type>) : ParameterList
         return parameterTypes.getOrElse(index) { TopType }
     }
 
-    override fun join(parameterList: ParameterList): ParameterList {
+    override fun joinIdentical(parameterList: ParameterList): Pair<ParameterList, TriState> {
         return when (parameterList) {
-            BotParameterList -> this
-            TopParameterList -> TopParameterList
+            BotParameterList -> this to TriState.UNKNOWN
+            TopParameterList -> TopParameterList to TriState.UNKNOWN
             is CompleteParameterList -> {
                 if (size != parameterList.size) {
-                    TopParameterList
+                    TopParameterList to TriState.NO
                 } else {
-                    CompleteParameterList(parameterTypes.zip(parameterList.parameterTypes).map { (a, b) -> a.join(b) })
+                    val params = parameterTypes.zip(parameterList.parameterTypes).map { (a, b) -> a.joinIdentical(b) }
+                    val identical = paramsAreIdentical(params)
+                    CompleteParameterList(params.map { it.first }) to identical
                 }
             }
 
             is IncompleteParameterList -> {
                 if (size < parameterList.knownParameterTypes.lastKey()) {
                     // this list is definitely smaller than the other list, therefore incompatible
-                    TopParameterList
+                    TopParameterList to TriState.NO
                 } else {
                     // join the known types, keep the rest (others would be BotType anyway)
-                    val params = parameterTypes.toMutableList()
+                    val params = parameterTypes.map { it to TriState.UNKNOWN }.toMutableList()
                     parameterList.knownParameterTypes.forEach { (index, type) ->
-                        params[index] = params[index].join(type)
+                        params[index] = parameterTypes[index].joinIdentical(type)
                     }
-                    CompleteParameterList(params)
+                    val identical = paramsAreIdentical(params)
+                    CompleteParameterList(params.map { it.first }) to identical
                 }
             }
         }
@@ -178,16 +183,23 @@ data class IncompleteParameterList(val knownParameterTypes: SortedMap<Int, Type>
         return knownParameterTypes[index] ?: if (index < 0) TopType else BotType
     }
 
-    override fun join(parameterList: ParameterList): ParameterList {
+    override fun joinIdentical(parameterList: ParameterList): Pair<ParameterList, TriState> {
         return when (parameterList) {
-            BotParameterList -> this
-            TopParameterList -> TopParameterList
-            is CompleteParameterList -> parameterList.join(this) // do not reimplement code here for no reason
+            BotParameterList -> this to TriState.UNKNOWN
+            TopParameterList -> TopParameterList to TriState.UNKNOWN
+            is CompleteParameterList -> parameterList.joinIdentical(this) // do not reimplement code here for no reason
             is IncompleteParameterList -> {
                 val new = (knownParameterTypes.entries + (parameterList.knownParameterTypes.entries))
                     .stream()
-                    .collect(Collectors.toMap({ it.key }, { it.value }, Type::join))
-                IncompleteParameterList(new.toSortedMap())
+                    .collect(Collectors.toMap({ it.key }, { it.value to TriState.UNKNOWN },
+                        { (type, _), (other, _) -> type.joinIdentical(other) })
+                    )
+                val identical = if (paramsAreIdentical(new.values) == TriState.NO) {
+                    TriState.NO
+                } else {
+                    TriState.YES
+                }
+                IncompleteParameterList(new.mapValues { it.value.first }.toSortedMap()) to identical
             }
         }
     }
@@ -257,6 +269,16 @@ private fun ParameterList.toMap(): SortedMap<Int, Type> {
         is IncompleteParameterList -> knownParameterTypes
     }
 }
+
+private fun paramsAreIdentical(params: Iterable<Pair<Type, TriState>>) =
+    if (params.any { it.second == TriState.NO }) {
+        TriState.NO
+    } else if (params.all { it.second == TriState.YES }) {
+        TriState.YES
+    } else {
+        TriState.UNKNOWN
+    }
+
 
 private fun <E> List<E>.toIndexedMap() = this.mapIndexed { index, e -> index to e }.toMap().toSortedMap()
 private fun <K, V> emptySortedMap() = Collections.emptySortedMap<K, V>()

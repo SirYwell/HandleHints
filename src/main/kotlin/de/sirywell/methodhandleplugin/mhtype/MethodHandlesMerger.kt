@@ -436,15 +436,39 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
         targetsExprs: List<PsiExpression>,
         block: SsaConstruction.Block
     ): MethodHandleType {
+        if (targetsExprs.isEmpty()) {
+            emitProblem(fallbackExpr.parent, message("problem.merging.tableSwitch.noCases"))
+        }
         val fallback = ssaAnalyzer.mhType(fallbackExpr, block) ?: bottomType
+        var error = checkFirstParameter(fallback.signature.parameterList, fallbackExpr)
         val targets = targetsExprs.map { ssaAnalyzer.mhType(it, block) ?: bottomType }
-        if (fallback.signature is TopSignature) return topType
-        if (targets.any { it.signature is TopSignature }) return topType
+        for ((index, target) in targets.withIndex()) {
+            error = error or checkFirstParameter(target.signature.parameterList, targetsExprs[index])
+        }
         val cases = targets.map { it.signature }
-        // TODO actually join all signatures
-        // TODO ensure first param is int
-        if (cases.any { it.join(fallback.signature) == TopSignature }) return topType
-        return MethodHandleType(fallback.signature)
+        var prev = fallback.signature
+        for ((index, case) in cases.withIndex()) {
+            val (signature, identical) = prev.joinIdentical(case)
+            if (identical == TriState.NO) {
+                emitProblem(targetsExprs[index], message("problem.merging.tableSwitch.notIdentical"))
+                error = true
+            }
+            prev = signature
+        }
+        if (error) {
+            return MethodHandleType(TopSignature)
+        }
+        return MethodHandleType(prev)
+    }
+
+    private fun checkFirstParameter(parameterList: ParameterList, context: PsiExpression): Boolean {
+        if (parameterList.compareSize(1) == PartialOrder.LT
+            || parameterList[0].match(PsiTypes.intType()) == TriState.NO
+        ) {
+            emitProblem(context, message("problem.merging.tableSwitch.leadingInt"))
+            return true
+        }
+        return false
     }
 
     fun tryFinally(

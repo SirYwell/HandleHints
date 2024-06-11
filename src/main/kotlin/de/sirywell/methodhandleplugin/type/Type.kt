@@ -11,7 +11,9 @@ import de.sirywell.methodhandleplugin.toTriState
 
 sealed interface Type {
 
-    fun join(other: Type): Type
+    fun join(other: Type) = joinIdentical(other).first
+
+    fun joinIdentical(other: Type): Pair<Type, TriState>
 
     fun erase(manager: PsiManager, scope: GlobalSearchScope): Type
 
@@ -23,7 +25,7 @@ sealed interface Type {
 }
 
 data object BotType : Type {
-    override fun join(other: Type) = other
+    override fun joinIdentical(other: Type) = other to TriState.UNKNOWN
     override fun erase(manager: PsiManager, scope: GlobalSearchScope) = this
     override fun match(psiType: PsiType) = TriState.UNKNOWN
 
@@ -33,7 +35,7 @@ data object BotType : Type {
 }
 
 data object TopType : Type {
-    override fun join(other: Type) = this
+    override fun joinIdentical(other: Type) = this to TriState.UNKNOWN
     override fun erase(manager: PsiManager, scope: GlobalSearchScope) = this
     override fun match(psiType: PsiType) = TriState.UNKNOWN
 
@@ -52,12 +54,15 @@ data class ExactType(val psiType: PsiType) : Type {
         val intType = ExactType(PsiTypes.intType())
     }
 
-    override fun join(other: Type): Type {
+    override fun joinIdentical(other: Type): Pair<Type, TriState> {
         return when (other) {
-            is BotType -> this
-            is TopType -> other
-            is ExactType -> if (other.psiType == psiType) this else TopType
-
+            is ExactType -> if (other.psiType == psiType) {
+                this to TriState.YES
+            } else {
+                TopType to TriState.NO
+            }
+            is BotType -> this to TriState.UNKNOWN
+            is TopType -> other to TriState.UNKNOWN
         }
     }
 
