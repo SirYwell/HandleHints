@@ -1,6 +1,6 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
-    <id>de.sirywell.methodhandleplugin</id>
+    <id>de.sirywell.handlehints</id>
     <name>HandleHints</name>
     <vendor>sirywell</vendor>
 
@@ -8,22 +8,25 @@
     <depends>com.intellij.modules.java</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <localInspection implementationClass="de.sirywell.methodhandleplugin.inspection.MethodHandleInvokeInspection"
+        <localInspection implementationClass="de.sirywell.handlehints.inspection.MethodHandleInvokeInspection"
                          bundle="messages.MethodHandleMessages"
                          key="displayname.dataflow.analysis.methodhandle.invocation"
                          groupPath="Java" groupKey="group.dataflow.analysis"
                          shortName="MhInvocation"
                          level="WARNING" enabledByDefault="true" language="JAVA"/>
-        <localInspection implementationClass="de.sirywell.methodhandleplugin.inspection.MethodHandleMergeInspection"
+        <localInspection implementationClass="de.sirywell.handlehints.inspection.MethodHandleEditInspection"
                          bundle="messages.MethodHandleMessages"
-                         key="displayname.dataflow.analysis.methodhandle.merge"
+                         key="displayname.dataflow.analysis.methodhandle.edit"
                          groupPath="Java" groupKey="group.dataflow.analysis"
                          shortName="MhMerge"
                          level="WARNING" enabledByDefault="true" language="JAVA"/>
-        <codeInsight.inlayProvider language="JAVA" implementationClass="de.sirywell.methodhandleplugin.MethodTypeInlayProvider"/>
+        <codeInsight.declarativeInlayProvider language="JAVA"
+                                              implementationClass="de.sirywell.handlehints.MethodTypeInlayProvider"
+                                              group="TYPES_GROUP" isEnabledByDefault="true" nameKey="name"
+                                              providerId="HandleHints-Java"/>
     </extensions>
 
     <applicationListeners>
     </applicationListeners>
-    <resource-bundle/>
+    <resource-bundle>messages.MethodHandleMessages</resource-bundle>
 </idea-plugin>

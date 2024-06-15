@@ -3,7 +3,7 @@
 ![Build](https://github.com/SirYwell/HandleHints/workflows/Build/badge.svg)
 [![Version](https://img.shields.io/jetbrains/plugin/v/PLUGIN_ID.svg)](https://plugins.jetbrains.com/plugin/PLUGIN_ID)
 [![Downloads](https://img.shields.io/jetbrains/plugin/d/PLUGIN_ID.svg)](https://plugins.jetbrains.com/plugin/PLUGIN_ID)
-
+<!--
 ## Template ToDo list
 - [x] Create a new [IntelliJ Platform Plugin Template][template] project.
 - [ ] Get familiar with the [template documentation][template].
@@ -13,9 +13,22 @@
 - [ ] Set the Plugin ID in the above README badges.
 - [ ] Set the [Deployment Token](https://plugins.jetbrains.com/docs/marketplace/plugin-upload.html).
 - [ ] Click the <kbd>Watch</kbd> button on the top of the [IntelliJ Platform Plugin Template][template] to be notified about releases containing new features and fixes.
+-->
 
 <!-- Plugin description -->
 This IntelliJ plugin adds inspections and tools to make working with Java MethodHandles easier.
+
+### Features
+
+- Dataflow-sensitive type analysis
+- Support for methods from the `MethodHandles` class
+- Support for methods from the `MethodHandles.Lookup` class
+- Support for methods from the `MethodType` class
+- Support for methods from the `MethodHandle` class
+- Precise type tracking for parameters and return types separately
+- Inspections for supported creation/transformation/combination methods
+- Inspections for `invoke` and `invokeExact` arguments and return type checks
+- Inlay type hints
 <!-- Plugin description end -->
 
 ## Installation
