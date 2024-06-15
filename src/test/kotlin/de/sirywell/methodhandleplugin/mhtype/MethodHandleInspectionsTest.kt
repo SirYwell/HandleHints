@@ -71,6 +71,8 @@ class MethodHandleInspectionsTest : LightJavaCodeInsightFixtureTestCase() {
 
     fun testMethodHandlesIdentity() = doTypeCheckingTest()
 
+    fun testMethodHandlesTableSwitch() = doTypeCheckingTest()
+
     fun testMethodHandlesThrowException() = doTypeCheckingTest()
 
     fun testMethodHandlesZero() = doInspectionTest()

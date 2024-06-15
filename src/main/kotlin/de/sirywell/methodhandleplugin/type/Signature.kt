@@ -4,7 +4,9 @@ import de.sirywell.methodhandleplugin.TriState
 
 sealed interface Signature {
 
-    fun join(signature: Signature): Signature
+    fun join(signature: Signature) = joinIdentical(signature).first
+
+    fun joinIdentical(signature: Signature): Pair<Signature, TriState>
 
     fun withReturnType(returnType: Type): Signature
 
@@ -23,7 +25,7 @@ sealed interface Signature {
 }
 
 data object BotSignature : Signature {
-    override fun join(signature: Signature) = signature
+    override fun joinIdentical(signature: Signature) = signature to TriState.UNKNOWN
 
     override fun withReturnType(returnType: Type) = CompleteSignature(returnType, parameterList, TriState.NO)
 
@@ -42,7 +44,7 @@ data object BotSignature : Signature {
 }
 
 data object TopSignature : Signature {
-    override fun join(signature: Signature) = this
+    override fun joinIdentical(signature: Signature) = this to TriState.UNKNOWN
 
     override fun withReturnType(returnType: Type) = this
 
@@ -65,15 +67,10 @@ data class CompleteSignature(
     override val parameterList: ParameterList,
     override val varargs: TriState
 ) : Signature {
-    override fun join(signature: Signature): Signature {
-        if (signature is TopSignature) return signature
-        if (signature is BotSignature) return this
-        val other = signature as CompleteSignature
-        return CompleteSignature(
-            returnType.join(signature.returnType),
-            parameterList.join(other.parameterList),
-            varargs.join(other.varargs)
-        )
+    override fun joinIdentical(signature: Signature): Pair<Signature, TriState> {
+        val (ret, rIdentical) = returnType.joinIdentical(signature.returnType)
+        val (params, pIdentical) = parameterList.joinIdentical(signature.parameterList)
+        return CompleteSignature(ret, params, TriState.NO) to rIdentical.sharpenTowardsNo(pIdentical)
     }
 
     override fun withReturnType(returnType: Type): Signature {
