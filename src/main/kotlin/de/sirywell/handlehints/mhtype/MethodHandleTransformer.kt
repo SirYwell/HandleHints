@@ -1,16 +1,14 @@
 package de.sirywell.handlehints.mhtype
 
-import com.intellij.codeInspection.ProblemHighlightType
-import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiExpression
 import de.sirywell.handlehints.MethodHandleBundle.message
 import de.sirywell.handlehints.TriState
 import de.sirywell.handlehints.dfa.SsaAnalyzer
 import de.sirywell.handlehints.dfa.SsaConstruction
+import de.sirywell.handlehints.inspection.ProblemEmitter
 import de.sirywell.handlehints.type.*
-import org.jetbrains.annotations.Nls
 
-class MethodHandleTransformer(private val ssaAnalyzer: SsaAnalyzer) {
+class MethodHandleTransformer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ssaAnalyzer.typeData) {
 
     // fun asCollector()
 
@@ -64,10 +62,4 @@ class MethodHandleTransformer(private val ssaAnalyzer: SsaAnalyzer) {
 
     // fun withVarargs()
 
-    private fun emitProblem(element: PsiElement, message: @Nls String): MethodHandleType {
-        ssaAnalyzer.typeData.reportProblem(element) {
-            it.registerProblem(element, message, ProblemHighlightType.GENERIC_ERROR_OR_WARNING)
-        }
-        return MethodHandleType(TopSignature)
-    }
 }

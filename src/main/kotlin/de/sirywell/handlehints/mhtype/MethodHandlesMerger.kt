@@ -1,22 +1,19 @@
 package de.sirywell.handlehints.mhtype
 
-import com.intellij.codeInspection.ProblemHighlightType
-import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiExpression
 import com.intellij.psi.PsiTypes
 import de.sirywell.handlehints.*
 import de.sirywell.handlehints.MethodHandleBundle.message
 import de.sirywell.handlehints.dfa.SsaAnalyzer
 import de.sirywell.handlehints.dfa.SsaConstruction
+import de.sirywell.handlehints.inspection.ProblemEmitter
 import de.sirywell.handlehints.type.*
-import de.sirywell.handlehints.type.TopType
-import org.jetbrains.annotations.Nls
 
 /**
  * Contains methods to merge multiple [MethodHandleType]s into a new one,
  * provided by [java.lang.invoke.MethodHandles]
  */
-class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
+class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ssaAnalyzer.typeData) {
 
     private val bottomType = MethodHandleType(BotSignature)
     private val topType = MethodHandleType(TopSignature)
@@ -39,7 +36,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
             emitProblem(handlerExpr, message("problem.merging.catchException.missingException", exType))
         }
         val returnType = if (target.signature.returnType != handler.signature.returnType) {
-            incompatibleReturnTypes(targetExpr, target.signature.returnType, handler.signature.returnType)
+            emitIncompatibleReturnTypes(targetExpr, target.signature.returnType, handler.signature.returnType)
             TopType
         } else {
             target.signature.returnType
@@ -173,7 +170,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
         val start = ssaAnalyzer.mhType(startExpr, block) ?: bottomType
         val end = ssaAnalyzer.mhType(endExpr, block) ?: bottomType
         if (start.signature.returnType.join(end.signature.returnType) == TopType) {
-            return incompatibleReturnTypes(startExpr, start.signature.returnType, end.signature.returnType)
+            return emitIncompatibleReturnTypes(startExpr, start.signature.returnType, end.signature.returnType)
         }
         if (start.signature !is CompleteSignature || end.signature !is CompleteSignature) {
             return bottomType // TODO not correct
@@ -392,7 +389,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
         val target = ssaAnalyzer.mhType(targetExpr, block) ?: bottomType
         val newType = ssaAnalyzer.mhType(newTypeExpr, block) ?: bottomType
         if (target.signature.returnType.join(newType.signature.returnType) == TopType) {
-            return incompatibleReturnTypes(targetExpr, target.signature.returnType, newType.signature.returnType)
+            return emitIncompatibleReturnTypes(targetExpr, target.signature.returnType, newType.signature.returnType)
         }
         val outParams = target.signature.parameterList
         val inParams = newType.signature.parameterList
@@ -504,42 +501,6 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) {
         predExpr: PsiExpression,
         block: SsaConstruction.Block
     ) = doWhileLoop(initExpr, bodyExpr, predExpr, block) // same type behavior
-
-    private fun incompatibleReturnTypes(
-        element: PsiElement,
-        first: Type,
-        second: Type
-    ): MethodHandleType {
-        return emitProblem(
-            element, message(
-                "problem.merging.general.incompatibleReturnType",
-                first,
-                second
-            )
-        )
-    }
-
-    private fun emitProblem(element: PsiElement, message: @Nls String): MethodHandleType {
-        ssaAnalyzer.typeData.reportProblem(element) {
-            it.registerProblem(element, message, ProblemHighlightType.GENERIC_ERROR_OR_WARNING)
-        }
-        return topType
-    }
-
-    private fun emitOutOfBounds(
-        size: Int?,
-        targetExpr: PsiExpression,
-        pos: Int,
-        exclusive: Boolean
-    ) = if (size != null) {
-        if (exclusive) {
-            emitProblem(targetExpr, message("problem.general.position.invalidIndexKnownBoundsExcl", pos, size))
-        } else {
-            emitProblem(targetExpr, message("problem.general.position.invalidIndexKnownBoundsIncl", pos, size))
-        }
-    } else {
-        emitProblem(targetExpr, message("problem.general.position.invalidIndex", pos))
-    }
 
     fun PsiExpression.nonNegativeInt(): Int? {
         return this.getConstantOfType<Int>()?.let {

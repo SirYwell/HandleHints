@@ -1,16 +1,17 @@
 package de.sirywell.handlehints.mhtype
 
-import com.intellij.codeInspection.ProblemHighlightType
-import com.intellij.psi.*
+import com.intellij.psi.PsiClass
+import com.intellij.psi.PsiExpression
+import com.intellij.psi.PsiMethod
+import com.intellij.psi.PsiTypes
 import com.intellij.psi.util.PsiTypesUtil
 import de.sirywell.handlehints.*
 import de.sirywell.handlehints.dfa.SsaAnalyzer
 import de.sirywell.handlehints.dfa.SsaConstruction
+import de.sirywell.handlehints.inspection.ProblemEmitter
 import de.sirywell.handlehints.type.*
-import de.sirywell.handlehints.type.TopType
-import org.jetbrains.annotations.Nls
 
-class LookupHelper(private val ssaAnalyzer: SsaAnalyzer) {
+class LookupHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ssaAnalyzer.typeData) {
 
     // MethodHandle factory methods
 
@@ -102,29 +103,6 @@ class LookupHelper(private val ssaAnalyzer: SsaAnalyzer) {
         }
         val pt = CompleteParameterList(listOf(paramType)).addAllAt(1, mhType.signature.parameterList)
         return MethodHandleType(mhType.signature.withParameterTypes(pt).withVarargs(mhType.signature.varargs))
-    }
-
-    private fun emitProblem(element: PsiElement, message: @Nls String): MethodHandleType {
-        ssaAnalyzer.typeData.reportProblem(element) {
-            it.registerProblem(element, message, ProblemHighlightType.GENERIC_ERROR_OR_WARNING)
-        }
-        return MethodHandleType(TopSignature)
-    }
-
-    private fun emitMustNotBeVoid(typeExpr: PsiExpression) {
-        emitProblem(
-            typeExpr,
-            MethodHandleBundle.message("problem.merging.general.typeMustNotBe", PsiTypes.voidType().presentableText)
-        )
-    }
-
-    private fun emitMustBeReferenceType(refc: PsiExpression, referenceClass: Type) {
-        emitProblem(
-            refc, MethodHandleBundle.message(
-                "problem.merging.general.referenceTypeExpectedReturn",
-                referenceClass,
-            )
-        )
     }
 
     private fun PsiExpression.asReferenceType(): Type {

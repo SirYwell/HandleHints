@@ -1,14 +1,12 @@
 package de.sirywell.handlehints.mhtype
 
-import com.intellij.codeInspection.ProblemHighlightType
 import com.intellij.psi.*
 import de.sirywell.handlehints.*
 import de.sirywell.handlehints.MethodHandleBundle.message
 import de.sirywell.handlehints.dfa.SsaAnalyzer
 import de.sirywell.handlehints.dfa.SsaConstruction
+import de.sirywell.handlehints.inspection.ProblemEmitter
 import de.sirywell.handlehints.type.*
-import de.sirywell.handlehints.type.TopType
-import org.jetbrains.annotations.Nls
 
 private const val VAR_HANDLE_FQN = "java.lang.invoke.VarHandle"
 
@@ -16,7 +14,7 @@ private const val VAR_HANDLE_FQN = "java.lang.invoke.VarHandle"
  * Contains methods from [java.lang.invoke.MethodHandles] that create
  * new [java.lang.invoke.MethodHandle]s.
  */
-class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) {
+class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ssaAnalyzer.typeData) {
 
     private val topType = MethodHandleType(TopSignature)
 
@@ -110,23 +108,6 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) {
             return TopType
         }
         return referenceClass
-    }
-
-    private fun emitProblem(element: PsiElement, message: @Nls String): MethodHandleType {
-        ssaAnalyzer.typeData.reportProblem(element) {
-            it.registerProblem(element, message, ProblemHighlightType.GENERIC_ERROR_OR_WARNING)
-        }
-        return MethodHandleType(TopSignature)
-    }
-
-
-    private fun emitMustBeArrayType(refc: PsiExpression, referenceClass: Type) {
-        emitProblem(
-            refc, message(
-                "problem.merging.general.arrayTypeExpected",
-                referenceClass,
-            )
-        )
     }
 
     private fun typesAreCompatible(
