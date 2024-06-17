@@ -32,6 +32,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
     private val methodHandlesInitializer = MethodHandlesInitializer(this)
     private val methodHandleTransformer = MethodHandleTransformer(this)
     private val lookupHelper = LookupHelper(this)
+    private val methodTypeHelper = MethodTypeHelper(this)
 
     fun doTraversal() {
         ssaConstruction.traverse(::onRead, ::onWrite)
@@ -106,59 +107,59 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                     "methodType" -> {
                         if (arguments.isEmpty()) return noMatch()
                         if (arguments.size == 2 && arguments[1].type == methodTypeType(expression)) {
-                            MethodTypeHelper.methodType(
+                            methodTypeHelper.methodType(
                                 arguments[0],
                                 arguments[1].mhType(block) ?: notConstant()
                             )
                         } else {
-                            MethodTypeHelper.methodType(arguments)
+                            methodTypeHelper.methodType(arguments)
                         }
                     }
 
-                    "unwrap" -> MethodTypeHelper.unwrap(qualifier?.mhType(block) ?: return noMatch())
-                    "wrap" -> MethodTypeHelper.wrap(expression, qualifier?.mhType(block) ?: return noMatch())
+                    "unwrap" -> methodTypeHelper.unwrap(qualifier?.mhType(block) ?: return noMatch())
+                    "wrap" -> methodTypeHelper.wrap(expression, qualifier?.mhType(block) ?: return noMatch())
                     "dropParameterTypes" -> {
                         val mhType = qualifier?.mhType(block) ?: return noMatch()
                         if (arguments.size != 2) return noMatch()
                         val (start, end) = arguments
-                        MethodTypeHelper.dropParameterTypes(mhType, start, end)
+                        methodTypeHelper.dropParameterTypes(mhType, start, end)
                     }
 
                     "insertParameterTypes" -> {
                         val mhType = qualifier?.mhType(block) ?: notConstant()
                         if (arguments.isEmpty()) return noMatch()
-                        MethodTypeHelper.insertParameterTypes(mhType, arguments[0], arguments.drop(1))
+                        methodTypeHelper.insertParameterTypes(mhType, arguments[0], arguments.drop(1))
                     }
 
                     "changeParameterType" -> {
                         val mhType = qualifier?.mhType(block) ?: notConstant()
                         if (arguments.size != 2) return noMatch()
                         val (num, type) = arguments
-                        MethodTypeHelper.changeParameterType(mhType, num, type)
+                        methodTypeHelper.changeParameterType(mhType, num, type)
                     }
 
                     "changeReturnType" -> {
                         val mhType = qualifier?.mhType(block) ?: notConstant()
                         if (arguments.size != 1) return noMatch()
                         val type = arguments[0]
-                        MethodTypeHelper.changeReturnType(mhType, type)
+                        methodTypeHelper.changeReturnType(mhType, type)
                     }
 
                     "appendParameterTypes" ->
-                        MethodTypeHelper.appendParameterTypes(qualifier?.mhType(block) ?: return noMatch(), arguments)
+                        methodTypeHelper.appendParameterTypes(qualifier?.mhType(block) ?: return noMatch(), arguments)
 
                     "erase" ->
-                        MethodTypeHelper.erase(qualifier?.mhType(block) ?: return noMatch(), expression)
+                        methodTypeHelper.erase(qualifier?.mhType(block) ?: return noMatch(), expression)
 
                     "generic" ->
-                        MethodTypeHelper.generic(qualifier?.mhType(block) ?: return noMatch(), objectType(expression))
+                        methodTypeHelper.generic(qualifier?.mhType(block) ?: return noMatch(), objectType(expression))
 
                     "genericMethodType" -> {
                         val size = arguments.size
                         if (size != 1 && arguments.size != 2) return noMatch()
                         val finalArray =
                             if (size == 1) false else arguments[1].getConstantOfType<Boolean>() ?: return notConstant()
-                        MethodTypeHelper.genericMethodType(arguments[0], finalArray, objectType(expression))
+                        methodTypeHelper.genericMethodType(arguments[0], finalArray, objectType(expression))
                     }
 
                     "fromMethodDescriptorString" -> notConstant() // not supported

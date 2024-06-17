@@ -6,12 +6,14 @@ import com.intellij.psi.PsiPrimitiveType
 import com.intellij.psi.PsiType
 import de.sirywell.handlehints.TriState
 import de.sirywell.handlehints.asType
+import de.sirywell.handlehints.dfa.SsaAnalyzer
 import de.sirywell.handlehints.getConstantOfType
+import de.sirywell.handlehints.inspection.ProblemEmitter
 import de.sirywell.handlehints.mapToTypes
 import de.sirywell.handlehints.type.*
 import java.util.Collections.nCopies
 
-object MethodTypeHelper {
+class MethodTypeHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ssaAnalyzer.typeData) {
     private val topType = MethodHandleType(TopSignature)
 
     fun appendParameterTypes(mhType: MethodHandleType, ptypesToInsert: List<PsiExpression>): MethodHandleType {
