@@ -22,7 +22,7 @@ class MethodHandleTransformer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmi
     // fun asVarargsCollector()
 
     fun bindTo(typeExpr: PsiExpression, objectType: PsiExpression, block: SsaConstruction.Block): MethodHandleType {
-        val type = ssaAnalyzer.mhType(typeExpr, block) ?: MethodHandleType(BotSignature)
+        val type = ssaAnalyzer.methodHandleType(typeExpr, block) ?: MethodHandleType(BotSignature)
         if (type.signature !is CompleteSignature) return type
         val parameterTypes = type.signature.parameterList
         val firstParamType =

@@ -27,7 +27,7 @@ class MethodHandleInvokeInspection : LocalInspectionTool() {
             if (!receiverIsMethodHandle(expression)) return
             val target = expression.methodExpression.qualifierExpression ?: return
             val typeData = TypeData.forFile(expression.containingFile)
-            val type = typeData[target] ?: return
+            val type = typeData[target] as? MethodHandleType ?: return
             if (type.signature !is CompleteSignature) return // ignore for now
             val (returnType, parameters) = type.signature
             when (expression.methodName) {

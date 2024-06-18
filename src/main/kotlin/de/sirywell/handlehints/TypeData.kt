@@ -7,8 +7,9 @@ import com.intellij.psi.PsiFile
 import com.intellij.psi.util.CachedValuesManager
 import de.sirywell.handlehints.dfa.MhTypeProvider
 import de.sirywell.handlehints.type.MethodHandleType
+import de.sirywell.handlehints.type.TypeLatticeElement
 
-class TypeData: ModificationTracker by ModificationTracker.NEVER_CHANGED {
+class TypeData : ModificationTracker by ModificationTracker.NEVER_CHANGED {
     companion object {
         fun forFile(file: PsiFile): TypeData {
             return CachedValuesManager.getManager(file.project)
@@ -21,11 +22,13 @@ class TypeData: ModificationTracker by ModificationTracker.NEVER_CHANGED {
                 )
         }
     }
-    private val map = mutableMapOf<PsiElement, MethodHandleType>()
+
+    private val map = mutableMapOf<PsiElement, TypeLatticeElement<*>>()
     private val problems = mutableMapOf<PsiElement, (ProblemsHolder) -> Unit>()
 
+    inline operator fun <reified T : TypeLatticeElement<*>> invoke(element: PsiElement) = get(element) as? T
     operator fun get(element: PsiElement) = map[element]
-    operator fun set(element: PsiElement, type: MethodHandleType) {
+    operator fun set(element: PsiElement, type: TypeLatticeElement<*>) {
         map[element] = type
     }
 

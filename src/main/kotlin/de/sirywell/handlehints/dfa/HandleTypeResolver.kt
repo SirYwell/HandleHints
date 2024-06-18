@@ -3,18 +3,24 @@ package de.sirywell.handlehints.dfa
 import com.intellij.openapi.util.RecursionManager.doPreventingRecursion
 import com.intellij.psi.*
 import com.intellij.psi.util.childrenOfType
-import de.sirywell.handlehints.type.BotSignature
-import de.sirywell.handlehints.type.MethodHandleType
+import de.sirywell.handlehints.type.TypeLatticeElement
+import kotlin.reflect.KClass
+import kotlin.reflect.cast
 
-class MethodHandleTypeResolver(private val ssaAnalyzer: SsaAnalyzer, private val block: SsaConstruction.Block) :
+class HandleTypeResolver<T : TypeLatticeElement<T>>(
+    private val ssaAnalyzer: SsaAnalyzer,
+    private val block: SsaConstruction.Block,
+    private val bot: T,
+    private val clazz: KClass<T>
+) :
     JavaRecursiveElementVisitor() {
 
-    var result: MethodHandleType? = null
+    var result: T? = null
         private set
 
     override fun visitSwitchExpression(expression: PsiSwitchExpression) {
         val rules = (expression.body ?: return).childrenOfType<PsiSwitchLabeledRuleStatement>()
-        var r = MethodHandleType(BotSignature)
+        var r = bot
         for (rule in rules) {
             rule.body?.accept(this) ?: continue
             r = r.join(result ?: continue)
@@ -31,10 +37,8 @@ class MethodHandleTypeResolver(private val ssaAnalyzer: SsaAnalyzer, private val
     }
 
     override fun visitConditionalExpression(expression: PsiConditionalExpression) {
-        val then = calculateType(expression.thenExpression ?: return)
-            ?: MethodHandleType(BotSignature)
-        val elsa = calculateType(expression.elseExpression ?: return)
-            ?: MethodHandleType(BotSignature)
+        val then = calculateType(expression.thenExpression ?: return) ?: bot
+        val elsa = calculateType(expression.elseExpression ?: return) ?: bot
         result = then.join(elsa)
     }
 
@@ -42,10 +46,15 @@ class MethodHandleTypeResolver(private val ssaAnalyzer: SsaAnalyzer, private val
         result = calculateType(expression.expression ?: return)
     }
 
-    private fun calculateType(expression: PsiExpression): MethodHandleType? {
-        return ssaAnalyzer.typeData[expression]
-            // SsaAnalyzer might call us again. Prevent SOE
-            ?: doPreventingRecursion(expression, true) { ssaAnalyzer.resolveMhType(expression, block) }
+    private fun calculateType(expression: PsiExpression): T? {
+        val t: TypeLatticeElement<*> = (ssaAnalyzer.typeData[expression]
+        // SsaAnalyzer might call us again. Prevent SOE
+            ?: doPreventingRecursion(expression, true) { ssaAnalyzer.resolveType(expression, block) })
+            ?: return null
+        if (clazz.isInstance(t)) {
+            return clazz.cast(t)
+        }
+        return null
     }
 
 }
