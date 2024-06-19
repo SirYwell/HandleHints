@@ -57,6 +57,8 @@ class MethodHandleInspectionsTest : LightJavaCodeInsightFixtureTestCase() {
 
     fun testMethodHandlesArrayElementSetter() = doTypeCheckingTest()
 
+    fun testMethodHandlesArrayElementVarHandle() = doTypeCheckingTest()
+
     fun testMethodHandlesArrayLength() = doTypeCheckingTest()
 
     fun testMethodHandlesCatchException() = doTypeCheckingTest()

@@ -5,17 +5,13 @@ import de.sirywell.handlehints.toTriState
 import java.util.*
 import java.util.stream.Collectors
 
-sealed interface ParameterList {
+sealed interface ParameterList : TypeLatticeElement<ParameterList> {
     /**
      * Returns [TopType] if the index is out of known bounds.
      * Returns [BotType] if no better type is known for that index.
      */
     fun parameterType(index: Int): Type
     operator fun get(index: Int) = parameterType(index)
-
-    fun join(parameterList: ParameterList) = joinIdentical(parameterList).first
-
-    fun joinIdentical(parameterList: ParameterList): Pair<ParameterList, TriState>
 
     fun hasSize(size: Int): TriState {
         return when (compareSize(size)) {
@@ -48,7 +44,7 @@ sealed interface ParameterList {
 
 data object BotParameterList : ParameterList {
     override fun parameterType(index: Int) = BotType
-    override fun joinIdentical(parameterList: ParameterList) = parameterList to TriState.UNKNOWN
+    override fun joinIdentical(other: ParameterList) = other to TriState.UNKNOWN
     override fun dropFirst(n: Int) = this
     override fun removeAt(index: Int, n: Int) = this
     override fun addAllAt(index: Int, parameterList: ParameterList): ParameterList {
@@ -73,7 +69,7 @@ data object BotParameterList : ParameterList {
 
 data object TopParameterList : ParameterList {
     override fun parameterType(index: Int) = TopType
-    override fun joinIdentical(parameterList: ParameterList) = this to TriState.UNKNOWN
+    override fun joinIdentical(other: ParameterList) = this to TriState.UNKNOWN
     override fun dropFirst(n: Int) = this
     override fun removeAt(index: Int, n: Int) = this
     override fun addAllAt(index: Int, parameterList: ParameterList) = this
@@ -96,28 +92,28 @@ data class CompleteParameterList(val parameterTypes: List<Type>) : ParameterList
         return parameterTypes.getOrElse(index) { TopType }
     }
 
-    override fun joinIdentical(parameterList: ParameterList): Pair<ParameterList, TriState> {
-        return when (parameterList) {
+    override fun joinIdentical(other: ParameterList): Pair<ParameterList, TriState> {
+        return when (other) {
             BotParameterList -> this to TriState.UNKNOWN
             TopParameterList -> TopParameterList to TriState.UNKNOWN
             is CompleteParameterList -> {
-                if (size != parameterList.size) {
+                if (size != other.size) {
                     TopParameterList to TriState.NO
                 } else {
-                    val params = parameterTypes.zip(parameterList.parameterTypes).map { (a, b) -> a.joinIdentical(b) }
+                    val params = parameterTypes.zip(other.parameterTypes).map { (a, b) -> a.joinIdentical(b) }
                     val identical = paramsAreIdentical(params)
                     CompleteParameterList(params.map { it.first }) to identical
                 }
             }
 
             is IncompleteParameterList -> {
-                if (size < parameterList.knownParameterTypes.lastKey()) {
+                if (size < other.knownParameterTypes.lastKey()) {
                     // this list is definitely smaller than the other list, therefore incompatible
                     TopParameterList to TriState.NO
                 } else {
                     // join the known types, keep the rest (others would be BotType anyway)
                     val params = parameterTypes.map { it to TriState.UNKNOWN }.toMutableList()
-                    parameterList.knownParameterTypes.forEach { (index, type) ->
+                    other.knownParameterTypes.forEach { (index, type) ->
                         params[index] = parameterTypes[index].joinIdentical(type)
                     }
                     val identical = paramsAreIdentical(params)
@@ -183,16 +179,16 @@ data class IncompleteParameterList(val knownParameterTypes: SortedMap<Int, Type>
         return knownParameterTypes[index] ?: if (index < 0) TopType else BotType
     }
 
-    override fun joinIdentical(parameterList: ParameterList): Pair<ParameterList, TriState> {
-        return when (parameterList) {
+    override fun joinIdentical(other: ParameterList): Pair<ParameterList, TriState> {
+        return when (other) {
             BotParameterList -> this to TriState.UNKNOWN
             TopParameterList -> TopParameterList to TriState.UNKNOWN
-            is CompleteParameterList -> parameterList.joinIdentical(this) // do not reimplement code here for no reason
+            is CompleteParameterList -> other.joinIdentical(this) // do not reimplement code here for no reason
             is IncompleteParameterList -> {
-                val new = (knownParameterTypes.entries + (parameterList.knownParameterTypes.entries))
+                val new = (knownParameterTypes.entries + (other.knownParameterTypes.entries))
                     .stream()
                     .collect(Collectors.toMap({ it.key }, { it.value to TriState.UNKNOWN },
-                        { (type, _), (other, _) -> type.joinIdentical(other) })
+                        { (type, _), (o, _) -> type.joinIdentical(o) })
                     )
                 val identical = if (paramsAreIdentical(new.values) == TriState.NO) {
                     TriState.NO

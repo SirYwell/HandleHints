@@ -16,7 +16,7 @@ class LookupHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ssaAna
     // MethodHandle factory methods
 
     fun findConstructor(refc: PsiExpression, typeExpr: PsiExpression, block: SsaConstruction.Block): MethodHandleType {
-        val type = ssaAnalyzer.mhType(typeExpr, block) ?: return MethodHandleType(BotSignature)
+        val type = ssaAnalyzer.methodHandleType(typeExpr, block) ?: return MethodHandleType(BotSignature)
         if (!type.signature.returnType.canBe(PsiTypes.voidType())) {
             emitProblem(
                 typeExpr,

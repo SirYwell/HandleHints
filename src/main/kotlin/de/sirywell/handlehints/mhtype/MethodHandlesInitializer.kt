@@ -26,25 +26,27 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEm
 
     fun arrayElementGetter(arrayClass: PsiExpression): MethodHandleType {
         val arrayType = arrayClass.asArrayType()
-        val componentType = if (arrayType !is ExactType) {
-            arrayType
-        } else {
-            ExactType((arrayType.psiType as PsiArrayType).componentType)
-        }
+        val componentType = getComponentType(arrayType)
         return MethodHandleType(complete(componentType, listOf(arrayType, ExactType.intType)))
     }
 
     fun arrayElementSetter(arrayClass: PsiExpression): MethodHandleType {
         val arrayType = arrayClass.asArrayType()
-        val componentType = if (arrayType !is ExactType) {
-            arrayType
-        } else {
-            ExactType((arrayType.psiType as PsiArrayType).componentType)
-        }
+        val componentType = getComponentType(arrayType)
         return MethodHandleType(complete(ExactType.voidType, listOf(arrayType, ExactType.intType, componentType)))
     }
 
-    // arrayElementVarHandle() no VarHandle support
+    fun arrayElementVarHandle(arrayClass: PsiExpression): VarHandleType {
+        val arrayType = arrayClass.asArrayType()
+        val componentType = getComponentType(arrayType)
+        return CompleteVarHandleType(componentType, CompleteParameterList(listOf(arrayType, ExactType.intType)))
+    }
+
+    private fun getComponentType(arrayType: Type) = if (arrayType !is ExactType) {
+        arrayType
+    } else {
+        ExactType((arrayType.psiType as PsiArrayType).componentType)
+    }
 
     fun arrayLength(arrayClass: PsiExpression): MethodHandleType {
         val arrayType = arrayClass.asArrayType()
@@ -131,7 +133,7 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEm
     ): MethodHandleType {
         val accessType = accessModeExpr.getConstantOfType<PsiField>()
             ?.let { accessTypeForAccessModeName(it.name) }
-        var type = ssaAnalyzer.mhType(methodTypeExpr, block) ?: MethodHandleType(BotSignature)
+        var type = ssaAnalyzer.methodHandleType(methodTypeExpr, block) ?: MethodHandleType(BotSignature)
         if (accessType != null) {
             type = checkAccessModeType(accessType, type, exact, methodTypeExpr)
         }

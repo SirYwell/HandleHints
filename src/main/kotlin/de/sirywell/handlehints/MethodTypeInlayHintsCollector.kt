@@ -9,8 +9,7 @@ import com.intellij.psi.PsiParameterList
 import com.intellij.psi.PsiReferenceExpression
 import com.intellij.refactoring.suggested.endOffset
 import com.intellij.refactoring.suggested.startOffset
-import de.sirywell.handlehints.type.BotSignature
-import de.sirywell.handlehints.type.TopSignature
+import de.sirywell.handlehints.type.*
 
 class MethodTypeInlayHintsCollector : SharedBypassCollector {
 
@@ -33,7 +32,10 @@ class MethodTypeInlayHintsCollector : SharedBypassCollector {
         val typeData = TypeData.forFile(element.containingFile)
         val type = typeData[element] ?: return
         // don't print
-        if (type.signature is TopSignature || type.signature is BotSignature) {
+        if (type is MethodHandleType && (type.signature is TopSignature || type.signature is BotSignature)) {
+            return
+        }
+        if (type is TopVarHandleType || type is BotVarHandleType) {
             return
         }
         sink.addPresentation(InlineInlayPosition(pos, belongsToBefore), hasBackground = true) {

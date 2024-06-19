@@ -9,11 +9,7 @@ import de.sirywell.handlehints.TriState
 import de.sirywell.handlehints.objectType
 import de.sirywell.handlehints.toTriState
 
-sealed interface Type {
-
-    fun join(other: Type) = joinIdentical(other).first
-
-    fun joinIdentical(other: Type): Pair<Type, TriState>
+sealed interface Type : TypeLatticeElement<Type> {
 
     fun erase(manager: PsiManager, scope: GlobalSearchScope): Type
 
