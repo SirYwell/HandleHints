@@ -6,7 +6,14 @@ import java.lang.invoke.VarHandle;
 class LookupFindStaticVarHandle {
   static {
     try {
-      <info descr="()(Boolean)">VarHandle vh = <info descr="()(Boolean)">MethodHandles.lookup().findStaticVarHandle(Boolean.class, "FALSE", Boolean.class)</info>;</info>
+      // valid
+      <info descr="()(Boolean)">VarHandle vh0 = <info descr="()(Boolean)">MethodHandles.lookup().findStaticVarHandle(Boolean.class, "FALSE", Boolean.class)</info>;</info>
+      // invalid - field cannot be of type void
+      <info descr="()(⊤)">VarHandle vh1 = <info descr="()(⊤)">MethodHandles.lookup().findStaticVarHandle(Boolean.class, "FALSE", void.class)</info>;</info>
+      // invalid - target class cannot be void
+      <info descr="()(Boolean)">VarHandle vh2 = <info descr="()(Boolean)">MethodHandles.lookup().findStaticVarHandle(void.class, "FALSE", Boolean.class)</info>;</info>
+      // invalid - target class cannot be int
+      <info descr="()(Boolean)">VarHandle vh3 = <info descr="()(Boolean)">MethodHandles.lookup().findStaticVarHandle(int.class, "FALSE", Boolean.class)</info>;</info>
     } catch (Throwable ignored) {}
   }
 }
