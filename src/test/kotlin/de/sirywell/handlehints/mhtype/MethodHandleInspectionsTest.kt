@@ -49,6 +49,10 @@ class MethodHandleInspectionsTest : LightJavaCodeInsightFixtureTestCase() {
 
     fun testLookupFindStaticSetter() = doTypeCheckingTest()
 
+    fun testLookupFindStaticVarHandle() = doTypeCheckingTest()
+
+    fun testLookupFindVarHandle() = doTypeCheckingTest()
+
     fun testLookupFindVirtual() = doTypeCheckingTest()
 
     fun testMethodHandlesArrayConstructor() = doTypeCheckingTest()

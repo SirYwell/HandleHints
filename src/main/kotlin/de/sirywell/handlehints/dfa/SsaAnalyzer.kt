@@ -250,7 +250,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         expression: PsiMethodCallExpression,
         arguments: List<PsiExpression>,
         block: Block
-    ): MethodHandleType? {
+    ): TypeLatticeElement<*>? {
         return when (expression.methodName) {
             "findConstructor" -> {
                 if (arguments.size != 2) return noMatch()
@@ -281,6 +281,8 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                 val t = type.methodHandleType(block) ?: return notConstant()
                 lookupHelper.findVirtual(refc, name, t)
             }
+            "findStaticVarHandle" -> findAccessor(arguments, lookupHelper::findStaticVarHandle)
+            "findVarHandle" -> findAccessor(arguments, lookupHelper::findVarHandle)
 
             "accessClass",
             "defineClass",
@@ -289,8 +291,6 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
             "dropLookupMode",
             "ensureInitialized",
             "findClass",
-            "findStaticVarHandle",
-            "findVarHandle",
             "hasFullPrivilegeAccess",
             "hasPrivateAccess",
             "in",
@@ -310,10 +310,10 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         }
     }
 
-    private fun findAccessor(
+    private fun <T> findAccessor(
         arguments: List<PsiExpression>,
-        resolver: (PsiExpression, PsiExpression) -> MethodHandleType
-    ): MethodHandleType? {
+        resolver: (PsiExpression, PsiExpression) -> T
+    ): T? {
         if (arguments.size != 3) return noMatch()
         val (refc, _, type) = arguments
         return resolver(refc, type)
@@ -524,7 +524,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         }
     }
 
-    private fun noMatch(): MethodHandleType? {
+    private fun <T: TypeLatticeElement<*>> noMatch(): T? {
         return null
     }
 
