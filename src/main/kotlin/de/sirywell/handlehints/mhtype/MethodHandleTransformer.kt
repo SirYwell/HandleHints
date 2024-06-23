@@ -12,7 +12,7 @@ class MethodHandleTransformer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmi
 
     // fun asCollector()
 
-    fun asFixedArity(type: MethodHandleType) = MethodHandleType(type.signature.withVarargs(TriState.NO))
+    fun asFixedArity(type: MethodHandleType) = type.withVarargs(TriState.NO)
 
     // fun asSpreader()
 
@@ -22,9 +22,9 @@ class MethodHandleTransformer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmi
     // fun asVarargsCollector()
 
     fun bindTo(typeExpr: PsiExpression, objectType: PsiExpression, block: SsaConstruction.Block): MethodHandleType {
-        val type = ssaAnalyzer.methodHandleType(typeExpr, block) ?: MethodHandleType(BotSignature)
-        if (type.signature !is CompleteSignature) return type
-        val parameterTypes = type.signature.parameterList
+        val type = ssaAnalyzer.methodHandleType(typeExpr, block) ?: BotMethodHandleType
+        if (type !is CompleteMethodHandleType) return type
+        val parameterTypes = type.parameterList
         val firstParamType =
             // try to extract a first param if it exists
             // - CompleteParameterList has a first param if the size is > 0
@@ -36,7 +36,7 @@ class MethodHandleTransformer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmi
                 || parameterTypes is BotParameterList
                 || parameterTypes is TopParameterList
             ) {
-                type.signature.parameterTypeAt(0)
+                type.parameterTypeAt(0)
             } else {
                 return emitProblem(typeExpr, message("problem.general.parameters.noParameter"))
             }
@@ -57,7 +57,7 @@ class MethodHandleTransformer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmi
                 )
             }
         }
-        return MethodHandleType(type.signature.withParameterTypes(parameterTypes.dropFirst(1)))
+        return type.withParameterTypes(parameterTypes.dropFirst(1))
     }
 
     // fun withVarargs()

@@ -32,10 +32,7 @@ class MethodTypeInlayHintsCollector : SharedBypassCollector {
         val typeData = TypeData.forFile(element.containingFile)
         val type = typeData[element] ?: return
         // don't print
-        if (type is MethodHandleType && (type.signature is TopSignature || type.signature is BotSignature)) {
-            return
-        }
-        if (type is TopVarHandleType || type is BotVarHandleType) {
+        if (type is TopTypeLatticeElement || type is BotTypeLatticeElement) {
             return
         }
         sink.addPresentation(InlineInlayPosition(pos, belongsToBefore), hasBackground = true) {

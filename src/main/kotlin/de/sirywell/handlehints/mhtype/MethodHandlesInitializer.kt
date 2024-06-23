@@ -16,24 +16,24 @@ private const val VAR_HANDLE_FQN = "java.lang.invoke.VarHandle"
  */
 class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ssaAnalyzer.typeData) {
 
-    private val topType = MethodHandleType(TopSignature)
+    private val topType = TopMethodHandleType
 
     fun arrayConstructor(arrayClass: PsiExpression): MethodHandleType {
         val arrayType = arrayClass.asArrayType()
 
-        return MethodHandleType(complete(arrayType, listOf(ExactType.intType)))
+        return complete(arrayType, listOf(ExactType.intType))
     }
 
     fun arrayElementGetter(arrayClass: PsiExpression): MethodHandleType {
         val arrayType = arrayClass.asArrayType()
         val componentType = getComponentType(arrayType)
-        return MethodHandleType(complete(componentType, listOf(arrayType, ExactType.intType)))
+        return complete(componentType, listOf(arrayType, ExactType.intType))
     }
 
     fun arrayElementSetter(arrayClass: PsiExpression): MethodHandleType {
         val arrayType = arrayClass.asArrayType()
         val componentType = getComponentType(arrayType)
-        return MethodHandleType(complete(ExactType.voidType, listOf(arrayType, ExactType.intType, componentType)))
+        return complete(ExactType.voidType, listOf(arrayType, ExactType.intType, componentType))
     }
 
     fun arrayElementVarHandle(arrayClass: PsiExpression): VarHandleType {
@@ -50,7 +50,7 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEm
 
     fun arrayLength(arrayClass: PsiExpression): MethodHandleType {
         val arrayType = arrayClass.asArrayType()
-        return MethodHandleType(complete(ExactType.intType, listOf(arrayType)))
+        return complete(ExactType.intType, listOf(arrayType))
     }
 
     // byteArray/BufferViewVarHandle() no VarHandle support
@@ -64,7 +64,7 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEm
         if (!typesAreCompatible(type, valueType, valueExpr)) {
             return emitProblem(valueExpr, message("problem.general.parameters.expected.type", type, valueType))
         }
-        return MethodHandleType(complete(type, listOf()))
+        return complete(type, listOf())
     }
 
     fun empty(mhType: MethodHandleType): MethodHandleType = mhType
@@ -76,31 +76,29 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEm
         if (type == ExactType.voidType) {
             return emitProblem(typeExpr, message("problem.merging.general.typeMustNotBe", ExactType.voidType))
         }
-        return MethodHandleType(complete(type, listOf(type)))
+        return complete(type, listOf(type))
     }
 
     fun invoker(mhType: MethodHandleType, methodHandleType: PsiType): MethodHandleType {
-        val signature = mhType.signature
-        val pt = signature.parameterList.addAllAt(0, CompleteParameterList(listOf(ExactType(methodHandleType))))
-        return MethodHandleType(complete(signature.returnType, pt))
+        val pt = mhType.parameterList.addAllAt(0, CompleteParameterList(listOf(ExactType(methodHandleType))))
+        return complete(mhType.returnType, pt)
     }
 
     fun spreadInvoker(type: MethodHandleType, leadingArgCount: Int, objectType: PsiType): MethodHandleType {
         if (leadingArgCount < 0) return topType
-        val signature = type.signature
-        val parameterList = signature.parameterList as? CompleteParameterList ?: return topType
+        val parameterList = type.parameterList as? CompleteParameterList ?: return topType
         if (leadingArgCount >= parameterList.size) return topType
         val keep = parameterList.parameterTypes.subList(0, leadingArgCount).toMutableList()
         keep.add(ExactType(objectType.createArrayType()))
-        return MethodHandleType(complete(signature.returnType, keep))
+        return complete(type.returnType, keep)
     }
 
     fun throwException(returnTypeExpr: PsiExpression, exTypeExpr: PsiExpression): MethodHandleType {
-        return MethodHandleType(complete(returnTypeExpr.asType(), listOf(exTypeExpr.asType())))
+        return complete(returnTypeExpr.asType(), listOf(exTypeExpr.asType()))
     }
 
     fun zero(type: Type): MethodHandleType {
-        return MethodHandleType(complete(type, listOf()))
+        return complete(type, listOf())
     }
 
     private fun PsiExpression.asArrayType(): Type {
@@ -133,16 +131,14 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEm
     ): MethodHandleType {
         val accessType = accessModeExpr.getConstantOfType<PsiField>()
             ?.let { accessTypeForAccessModeName(it.name) }
-        var type = ssaAnalyzer.methodHandleType(methodTypeExpr, block) ?: MethodHandleType(BotSignature)
+        var type = ssaAnalyzer.methodHandleType(methodTypeExpr, block) ?: BotMethodHandleType
         if (accessType != null) {
             type = checkAccessModeType(accessType, type, exact, methodTypeExpr)
         }
         val varHandleType = PsiType.getTypeByName(VAR_HANDLE_FQN, methodTypeExpr.project, methodTypeExpr.resolveScope)
-        return MethodHandleType(
-            type.signature.withParameterTypes(
-                type.signature.parameterList.addAllAt(0, CompleteParameterList(listOf(ExactType(varHandleType))))
+        return type.withParameterTypes(
+                type.parameterList.addAllAt(0, CompleteParameterList(listOf(ExactType(varHandleType))))
             )
-        )
     }
 
     private fun checkAccessModeType(
@@ -155,7 +151,7 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEm
         // e.g. minimum parameter count
         when (accessType) {
             AccessType.GET -> {
-                if (exact && type.signature.returnType.match(PsiTypes.voidType()) == TriState.YES) {
+                if (exact && type.returnType.match(PsiTypes.voidType()) == TriState.YES) {
                     return emitProblem(
                         context,
                         message("problem.general.returnType.notAllowedX", PsiTypes.voidType().presentableText)
@@ -165,7 +161,7 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEm
             }
 
             AccessType.SET -> {
-                if (exact && type.signature.returnType.match(PsiTypes.voidType()) == TriState.NO) {
+                if (exact && type.returnType.match(PsiTypes.voidType()) == TriState.NO) {
                     return emitProblem(
                         context,
                         message("problem.general.returnType.requiredX", PsiTypes.voidType().presentableText)
@@ -174,7 +170,7 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEm
             }
 
             AccessType.COMPARE_AND_SET -> {
-                if (exact && type.signature.returnType.match(PsiTypes.booleanType()) == TriState.NO) {
+                if (exact && type.returnType.match(PsiTypes.booleanType()) == TriState.NO) {
                     return emitProblem(
                         context,
                         message("problem.general.returnType.requiredX", PsiTypes.booleanType().presentableText)
@@ -189,7 +185,7 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEm
             }
 
             AccessType.GET_AND_UPDATE -> {
-                if (exact && type.signature.returnType.match(PsiTypes.voidType()) == TriState.YES) {
+                if (exact && type.returnType.match(PsiTypes.voidType()) == TriState.YES) {
                     return emitProblem(
                         context,
                         message("problem.general.returnType.notAllowedX", PsiTypes.voidType().presentableText)

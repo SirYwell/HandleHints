@@ -83,19 +83,18 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
             is PsiSwitchLabeledRuleStatement -> element.enclosingSwitchBlock?.expression ?: return
             else -> TODO("Not supported: ${element.javaClass}")
         }
-        val type = typeData<MethodHandleType>(expression) ?: resolveType(expression, block)
+        val type = typeData(expression) ?: resolveType(expression, block)
         type?.let { typeData[expression] = it }
-        ssaConstruction.writeVariable(instruction.variable, block, Holder(type ?: notConstant()))
-        if (type != null) {
-            typeData[controlFlow.getElement(index)] = type
-        }
+        ssaConstruction.writeVariable(instruction.variable, block, Holder(type ?: return))
+        typeData[controlFlow.getElement(index)] = type
     }
 
     /**
      * Returns true if the variable type has no [MethodHandleType]
      */
     private fun isUnrelated(variable: PsiVariable): Boolean {
-        return isUnrelated(variable.type, variable)    }
+        return isUnrelated(variable.type, variable)
+    }
 
     private fun isUnrelated(type: PsiType, context: PsiElement): Boolean {
         return type != methodTypeType(context)
@@ -160,23 +159,30 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                     }
 
                     "appendParameterTypes" ->
-                        methodTypeHelper.appendParameterTypes(qualifier?.methodHandleType(block) ?: return noMatch(), arguments)
+                        methodTypeHelper.appendParameterTypes(
+                            qualifier?.methodHandleType(block) ?: return noMatch(),
+                            arguments
+                        )
 
                     "erase" ->
                         methodTypeHelper.erase(qualifier?.methodHandleType(block) ?: return noMatch(), expression)
 
                     "generic" ->
-                        methodTypeHelper.generic(qualifier?.methodHandleType(block) ?: return noMatch(), objectType(expression))
+                        methodTypeHelper.generic(
+                            qualifier?.methodHandleType(block) ?: return noMatch(),
+                            objectType(expression)
+                        )
 
                     "genericMethodType" -> {
                         val size = arguments.size
                         if (size != 1 && arguments.size != 2) return noMatch()
                         val finalArray =
-                            if (size == 1) false else arguments[1].getConstantOfType<Boolean>() ?: return notConstant()
+                            if (size == 1) false else arguments[1].getConstantOfType<Boolean>()
+                                ?: return notConstant<MethodHandleType>()
                         methodTypeHelper.genericMethodType(arguments[0], finalArray, objectType(expression))
                     }
 
-                    "fromMethodDescriptorString" -> notConstant() // not supported
+                    "fromMethodDescriptorString" -> notConstant<MethodHandleType>() // not supported
 
                     "describeConstable",
                     "descriptorString",
@@ -200,8 +206,9 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                     "asCollector" -> TODO()
                     "asFixedArity" -> {
                         if (arguments.isNotEmpty()) return noMatch()
-                        methodHandleTransformer.asFixedArity(qualifier?.methodHandleType(block)?: notConstant())
+                        methodHandleTransformer.asFixedArity(qualifier?.methodHandleType(block) ?: notConstant())
                     }
+
                     "asSpreader" -> TODO()
                     "asType" -> TODO()
                     "asVarargsCollector" -> TODO()
@@ -216,9 +223,9 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                     "invoke",
                     "invokeExact",
                     "invokeWithArguments" -> noMethodHandle()
+
                     "type" -> qualifier?.methodHandleType(block)
-                        ?.signature?.withVarargs(TriState.NO) // if ever used somewhere else, assume non-varargs
-                        ?.let { MethodHandleType(it) }
+                        ?.withVarargs(TriState.NO) // if ever used somewhere else, assume non-varargs
 
                     in objectMethods -> noMethodHandle()
                     else -> warnUnsupported(expression, "MethodHandle")
@@ -239,7 +246,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
             }
         }
         // TODO is there a better way for this?
-        val resolver = HandleTypeResolver(this, block, MethodHandleType(BotSignature), MethodHandleType::class)
+        val resolver = HandleTypeResolver(this, block, BotMethodHandleType, MethodHandleType::class)
         val resolver2 = HandleTypeResolver(this, block, BotVarHandleType, VarHandleType::class)
         expression.accept(resolver)
         expression.accept(resolver2)
@@ -262,14 +269,14 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
             "findSpecial" -> {
                 if (arguments.size != 4) return noMatch()
                 val (refc, name, type, specialCaller) = arguments
-                val t = type.methodHandleType(block) ?: return notConstant()
+                val t = type.methodHandleType(block) ?: notConstant()
                 lookupHelper.findSpecial(refc, name, t, specialCaller)
             }
 
             "findStatic" -> {
                 if (arguments.size != 3) return noMatch()
                 val (refc, name, type) = arguments
-                val t = type.methodHandleType(block) ?: return notConstant()
+                val t = type.methodHandleType(block) ?: notConstant()
                 lookupHelper.findStatic(refc, name, t)
             }
 
@@ -278,9 +285,10 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
             "findVirtual" -> {
                 if (arguments.size != 3) return noMatch()
                 val (refc, name, type) = arguments
-                val t = type.methodHandleType(block) ?: return notConstant()
+                val t = type.methodHandleType(block) ?: notConstant()
                 lookupHelper.findVirtual(refc, name, t)
             }
+
             "findStaticVarHandle" -> findAccessor(arguments, lookupHelper::findStaticVarHandle)
             "findVarHandle" -> findAccessor(arguments, lookupHelper::findVarHandle)
 
@@ -364,11 +372,11 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
 
             "dropArguments" -> {
                 if (arguments.size < 3) return noMatch()
-                val i = arguments[1].getConstantOfType<Int>() ?: return notConstant()
+                val i = arguments[1].getConstantOfType<Int>() ?: return notConstant<MethodHandleType>()
                 methodHandlesMerger.dropArguments(arguments[0], i, arguments.subList(2), block)
             }
 
-            "dropArgumentsToMatch" -> notConstant() // likely too difficult to get something precise here
+            "dropArgumentsToMatch" -> notConstant<MethodHandleType>() // likely too difficult to get something precise here
             "dropReturn" -> {
                 if (arguments.size != 1) return noMatch()
                 methodHandlesMerger.dropReturn(arguments[0], block)
@@ -395,7 +403,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
             "filterArguments" -> {
                 if (arguments.size < 2) return noMatch()
                 val target = arguments[0].methodHandleType(block) ?: return noMatch()
-                val pos = arguments[1].getConstantOfType<Int>() ?: return notConstant()
+                val pos = arguments[1].getConstantOfType<Int>() ?: return notConstant<MethodHandleType>()
                 val filter = arguments.drop(2).map { it.methodHandleType(block) ?: return noMatch() }
                 methodHandlesMerger.filterArguments(target, pos, filter)
             }
@@ -412,7 +420,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                 when (arguments.size) {
                     3 -> {
                         target = arguments[0].methodHandleType(block) ?: return noMatch()
-                        pos = arguments[1].getConstantOfType<Int>() ?: return notConstant()
+                        pos = arguments[1].getConstantOfType<Int>() ?: return notConstant<MethodHandleType>()
                         combiner = arguments[2].methodHandleType(block) ?: return noMatch()
                     }
 
@@ -456,7 +464,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
             }
 
             "iteratedLoop" -> TODO("not implemented")
-            "loop" -> notConstant()
+            "loop" -> notConstant<MethodHandleType>()
             "permuteArguments" -> {
                 if (arguments.size < 2) noMatch()
                 else {
@@ -471,7 +479,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
 
             "spreadInvoker" -> {
                 if (arguments.size != 2) return noMatch()
-                val leadingArgCount = arguments[1].getConstantOfType<Int>() ?: return notConstant()
+                val leadingArgCount = arguments[1].getConstantOfType<Int>() ?: return notConstant<MethodHandleType>()
                 methodHandlesInitializer.spreadInvoker(
                     arguments[0].methodHandleType(block) ?: return noMatch(),
                     leadingArgCount,
@@ -524,12 +532,12 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         }
     }
 
-    private fun <T: TypeLatticeElement<*>> noMatch(): T? {
+    private fun <T : TypeLatticeElement<*>> noMatch(): T? {
         return null
     }
 
-    private fun notConstant(): MethodHandleType {
-        return MethodHandleType(BotSignature)
+    private inline fun <reified T : TypeLatticeElement<T>> notConstant(): T {
+        return bottomForType<T>()
     }
 
     private fun singleParameter(
@@ -574,8 +582,25 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         return PsiType.getJavaLangObject(element.manager, element.resolveScope)
     }
 
-    private fun warnUnsupported(expression: PsiMethodCallExpression, className: String): MethodHandleType {
+    private fun warnUnsupported(
+        expression: PsiMethodCallExpression,
+        className: String
+    ): TypeLatticeElement<*>? {
         LOG.warnOnce("Unsupported method $className#${expression.methodName}")
-        return MethodHandleType(BotSignature)
+        return null
     }
+
+    private inline fun <reified T> bottomForType(): T {
+        if (T::class == MethodHandleType::class) {
+            return T::class.java.cast(BotMethodHandleType)
+        }
+        if (T::class == VarHandleType::class) {
+            return T::class.java.cast(BotVarHandleType)
+        }
+        if (T::class == Type::class) {
+            return T::class.java.cast(BotType)
+        }
+        throw UnsupportedOperationException("${T::class} is not supported")
+    }
+
 }

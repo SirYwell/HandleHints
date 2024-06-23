@@ -15,8 +15,8 @@ import de.sirywell.handlehints.type.*
  */
 class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ssaAnalyzer.typeData) {
 
-    private val bottomType = MethodHandleType(BotSignature)
-    private val topType = MethodHandleType(TopSignature)
+    private val bottomType = BotMethodHandleType
+    private val topType = TopMethodHandleType
 
     // TODO effectively identical sequences for loops???
 
@@ -29,31 +29,31 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         val exType = exTypeExpr.asType()
         val target = ssaAnalyzer.methodHandleType(targetExpr, block) ?: bottomType
         val handler = ssaAnalyzer.methodHandleType(handlerExpr, block) ?: bottomType
-        val handlerParameterTypes = handler.signature.parameterList
+        val handlerParameterTypes = handler.parameterList
         if (handlerParameterTypes is CompleteParameterList && (handlerParameterTypes.size == 0
                     || (exType is ExactType && !handlerParameterTypes[0].canBe(exType.psiType)))
         ) {
             emitProblem(handlerExpr, message("problem.merging.catchException.missingException", exType))
         }
-        val returnType = if (target.signature.returnType != handler.signature.returnType) {
-            emitIncompatibleReturnTypes(targetExpr, target.signature.returnType, handler.signature.returnType)
+        val returnType = if (target.returnType != handler.returnType) {
+            emitIncompatibleReturnTypes(targetExpr, target.returnType, handler.returnType)
             TopType
         } else {
-            target.signature.returnType
+            target.returnType
         }
         val comparableTypes = handlerParameterTypes.dropFirst(1)
         // TODO calculate common type of parameters
-        if (!comparableTypes.effectivelyIdenticalTo(target.signature.parameterList)) {
+        if (!comparableTypes.effectivelyIdenticalTo(target.parameterList)) {
             emitProblem(
                 targetExpr,
                 message(
                     "problem.merging.general.effectivelyIdenticalParametersExpected",
-                    target.signature,
+                    target,
                     comparableTypes
                 )
             )
         }
-        return MethodHandleType(target.signature.withReturnType(returnType))
+        return target.withReturnType(returnType)
     }
 
     fun collectArguments(
@@ -64,7 +64,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
     ): MethodHandleType {
         val target = ssaAnalyzer.methodHandleType(targetExpr, block) ?: return bottomType
         val filter = ssaAnalyzer.methodHandleType(filterExpr, block) ?: return bottomType
-        var parameters = target.signature.parameterList
+        var parameters = target.parameterList
         val pos = posExpr.nonNegativeInt() ?: return bottomType
         if (parameters is CompleteParameterList && pos >= parameters.size) {
             return emitProblem(
@@ -72,7 +72,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
                 message("problem.general.position.invalidIndexKnownBoundsExcl", pos, parameters.size)
             )
         }
-        val returnType = filter.signature.returnType
+        val returnType = filter.returnType
         if (returnType is ExactType && returnType.psiType != PsiTypes.voidType()) {
             // the return type of the filter must match the replaced type
             if (parameters[pos] != returnType) {
@@ -81,9 +81,9 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
             // the return value of filter will be passed to target at pos
             parameters = parameters.removeAt(pos)
         }
-        val filterParameters = filter.signature.parameterList
+        val filterParameters = filter.parameterList
         parameters = parameters.addAllAt(pos, filterParameters)
-        return MethodHandleType(target.signature.withParameterTypes(parameters))
+        return target.withParameterTypes(parameters)
     }
 
     // fun collectCoordinates() no VarHandle support, preview
@@ -97,29 +97,29 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         var iterations = ssaAnalyzer.methodHandleType(iterationsExpr, block) ?: bottomType
         var init = ssaAnalyzer.methodHandleType(initExpr, block)
         val body = ssaAnalyzer.methodHandleType(bodyExpr, block) ?: bottomType
-        if (iterations.signature is BotSignature) {
+        if (iterations is BotMethodHandleType) {
             // iterations and init have an effectively identical parameter list
             // so if one is missing, just use the other, but assert return type
-            iterations = init?.signature?.withReturnType(ExactType.intType)?.let { MethodHandleType(it) }
+            iterations = init?.withReturnType(ExactType.intType)
                 ?: return bottomType
         }
-        if (init == null || init.signature is BotSignature) {
+        if (init == null || init is BotMethodHandleType) {
             // just assume they are both the same (besides return type) for the rest of the logic
-            val returnType = body.signature.returnType
-            init = MethodHandleType(iterations.signature.withReturnType(returnType))
+            val returnType = body.returnType
+            init = iterations.withReturnType(returnType)
         }
-        if (iterations.signature is TopSignature || body.signature is TopSignature || init.signature is TopSignature) {
+        if (iterations is TopMethodHandleType || body is TopMethodHandleType || init is TopMethodHandleType) {
             return topType
         }
-        if (!iterations.signature.returnType.canBe(PsiTypes.intType())) {
+        if (!iterations.returnType.canBe(PsiTypes.intType())) {
             return topType
         }
-        if (body.signature is CompleteSignature) {
+        if (body is CompleteMethodHandleType) {
             val externalParameters: ParameterList
-            val internalParameters = body.signature.parameterList
-            val returnType = body.signature.returnType
-            if (init.signature is CompleteSignature) {
-                if (returnType != (init.signature as CompleteSignature).returnType) {
+            val internalParameters = body.parameterList
+            val returnType = body.returnType
+            if (init is CompleteMethodHandleType) {
+                if (returnType != init.returnType) {
                     return topType
                 }
             }
@@ -132,7 +132,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
                 externalParameters = if (size != 1) {
                     internalParameters.dropFirst(1)
                 } else {
-                    (iterations.signature as CompleteSignature).parameterList
+                    (iterations as CompleteMethodHandleType).parameterList
                 }
             } else {
                 // (V I A...)
@@ -143,21 +143,21 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
                 externalParameters = if (size != 2) {
                     internalParameters.dropFirst(2)
                 } else {
-                    (iterations.signature as CompleteSignature).parameterList
+                    (iterations as CompleteMethodHandleType).parameterList
                 }
             }
-            if (!(init.signature as CompleteSignature).parameterList.effectivelyIdenticalTo(externalParameters)) {
+            if (!(init as CompleteMethodHandleType).parameterList.effectivelyIdenticalTo(externalParameters)) {
                 return topType
             }
-            if (!(iterations.signature as CompleteSignature).parameterList.effectivelyIdenticalTo(externalParameters)) {
+            if (!(iterations as CompleteMethodHandleType).parameterList.effectivelyIdenticalTo(externalParameters)) {
                 return topType
             }
         }
-        if (!iterations.signature.returnType.canBe(PsiTypes.intType())) {
+        if (!iterations.returnType.canBe(PsiTypes.intType())) {
             return topType
         }
         // this might not be very precise
-        return MethodHandleType(iterations.signature.withReturnType(init.signature.returnType))
+        return iterations.withReturnType(init.returnType)
     }
 
     fun countedLoop(
@@ -169,14 +169,14 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
     ): MethodHandleType {
         val start = ssaAnalyzer.methodHandleType(startExpr, block) ?: bottomType
         val end = ssaAnalyzer.methodHandleType(endExpr, block) ?: bottomType
-        if (start.signature.returnType.join(end.signature.returnType) == TopType) {
-            return emitIncompatibleReturnTypes(startExpr, start.signature.returnType, end.signature.returnType)
+        if (start.returnType.join(end.returnType) == TopType) {
+            return emitIncompatibleReturnTypes(startExpr, start.returnType, end.returnType)
         }
-        if (start.signature !is CompleteSignature || end.signature !is CompleteSignature) {
+        if (start !is CompleteMethodHandleType || end !is CompleteMethodHandleType) {
             return bottomType // TODO not correct
         }
-        val startParameterList = start.signature.parameterList as? CompleteParameterList ?: return topType
-        val endParameterList = end.signature.parameterList as? CompleteParameterList ?: return topType
+        val startParameterList = start.parameterList as? CompleteParameterList ?: return topType
+        val endParameterList = end.parameterList as? CompleteParameterList ?: return topType
         if (startParameterList.parameterTypes.effectivelyIdenticalTo(endParameterList.parameterTypes)) {
             return topType
         }
@@ -193,27 +193,27 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         val init = ssaAnalyzer.methodHandleType(initExpr, block) ?: bottomType
         val body = ssaAnalyzer.methodHandleType(bodyExpr, block) ?: bottomType
         val pred = ssaAnalyzer.methodHandleType(predExpr, block) ?: bottomType
-        if (!pred.signature.returnType.canBe(PsiTypes.booleanType())) {
+        if (!pred.returnType.canBe(PsiTypes.booleanType())) {
             return topType
         }
-        val internalParams = (body.signature as? CompleteSignature)?.parameterList ?: return body
-        if (internalParams != ((pred.signature as? CompleteSignature)?.parameterList ?: return pred)) {
+        val internalParams = (body as? CompleteMethodHandleType)?.parameterList ?: return body
+        if (internalParams != ((pred as? CompleteMethodHandleType)?.parameterList ?: return pred)) {
             return topType
         }
-        val returnType = init.signature.returnType.join(body.signature.returnType)
+        val returnType = init.returnType.join(body.returnType)
         if (returnType == TopType) {
             return topType
         }
-        if (body.signature.returnType.canBe(PsiTypes.voidType())) {
-            if (init.signature != body.signature) return topType
+        if (body.returnType.canBe(PsiTypes.voidType())) {
+            if (init != body) return topType
         } else {
             if (internalParams.hasSize(0) == TriState.YES) return topType
-            if (internalParams[0].join(body.signature.returnType) == TopType) return topType
-            if (init.signature !is CompleteSignature) return init
-            if (init.signature.parameterList != internalParams.dropFirst(1)) return topType
+            if (internalParams[0].join(body.returnType) == TopType) return topType
+            if (init !is CompleteMethodHandleType) return init
+            if (init.parameterList != internalParams.dropFirst(1)) return topType
         }
         // TODO this is not always correct due to effectively identical parameter lists
-        return MethodHandleType(init.signature)
+        return init
     }
 
     fun dropArguments(
@@ -224,12 +224,12 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
     ): MethodHandleType {
         val types = valueTypes.mapToTypes()
         val target = ssaAnalyzer.methodHandleType(targetExpr, block) ?: bottomType
-        val signature = target.signature
+        val signature = target
         if (signature.parameterList.compareSize(pos) == PartialOrder.LT) {
             return emitOutOfBounds(signature.parameterList.sizeOrNull(), targetExpr, pos, false)
         }
         val list = signature.parameterList.addAllAt(pos, CompleteParameterList(types))
-        return MethodHandleType(signature.withParameterTypes(list))
+        return signature.withParameterTypes(list)
     }
 
     // fun dropArgumentsToMatch()
@@ -238,8 +238,8 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
 
     fun dropReturn(targetExpr: PsiExpression, block: SsaConstruction.Block): MethodHandleType {
         val target = ssaAnalyzer.methodHandleType(targetExpr, block) ?: bottomType
-        if (target.signature is CompleteSignature) {
-            return MethodHandleType(target.signature.withReturnType(ExactType.voidType))
+        if (target is CompleteMethodHandleType) {
+            return target.withReturnType(ExactType.voidType)
         }
         return target
     }
@@ -252,9 +252,9 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         val target = ssaAnalyzer.methodHandleType(targetExpr, block) ?: bottomType
         val newType = ssaAnalyzer.methodHandleType(newTypeExpr, block) ?: bottomType
         // TODO proper handling of bottom/top
-        val newTypeParameterList = newType.signature.parameterList
+        val newTypeParameterList = newType.parameterList
         if (newTypeParameterList !is CompleteParameterList) return newType // result param types unknown
-        val targetParameterList = target.signature.parameterList
+        val targetParameterList = target.parameterList
         if (targetParameterList !is CompleteParameterList) return target // source param types unknown
         if (targetParameterList.size != newTypeParameterList.size) return topType
         return newType
@@ -262,12 +262,12 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
 
     fun filterArguments(target: MethodHandleType, pos: Int, filters: List<MethodHandleType>): MethodHandleType {
         // TODO proper handling of bottom/top
-        if (target.signature !is CompleteSignature) return target
-        if (filters.any { it.signature !is CompleteSignature }) return topType
-        val targetSignature = target.signature
+        if (target !is CompleteMethodHandleType) return target
+        if (filters.any { it !is CompleteMethodHandleType }) return topType
+        val targetSignature = target
         val targetParameterList = targetSignature.parameterList
         if (targetParameterList.sizeMatches { pos + filters.size > it } == TriState.YES) return topType
-        val filtersCast = filters.map { it.signature as CompleteSignature }
+        val filtersCast = filters.map { it as CompleteMethodHandleType }
         // filters must be unary operators T1 -> T2
         if (filtersCast.any { it.parameterList.hasSize(1) == TriState.NO }) return topType
         // return type of filters[i] must be type of targetParameters[i + pos]
@@ -282,7 +282,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
             if (index >= pos && index - pos < filters.size) filtersCast[index - pos].parameterList[0]
             else psiType
         }
-        return MethodHandleType(targetSignature.withParameterTypes(result))
+        return targetSignature.withParameterTypes(result)
     }
 
     // fun filterCoordinates() no VarHandle support, preview
@@ -295,33 +295,33 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         val target = ssaAnalyzer.methodHandleType(targetExpr, block) ?: bottomType
         val filter = ssaAnalyzer.methodHandleType(filterExpr, block) ?: bottomType
         // TODO proper handling of bottom/top
-        if (filter.signature !is CompleteSignature || filter.signature.parameterList.hasSize(1) == TriState.NO) {
+        if (filter !is CompleteMethodHandleType || filter.parameterList.hasSize(1) == TriState.NO) {
             return topType
         }
-        if (target.signature.returnType.join(filter.signature.parameterList[0]) == TopType) return topType
-        return MethodHandleType(target.signature.withReturnType(filter.signature.returnType))
+        if (target.returnType.join(filter.parameterList[0]) == TopType) return topType
+        return target.withReturnType(filter.returnType)
     }
 
     // filterValue() no VarHandle support, preview
 
     fun foldArguments(target: MethodHandleType, pos: Int, combiner: MethodHandleType): MethodHandleType {
         // TODO proper handling of bottom/top
-        val targetSignature = target.signature // (Z..., V, A[N]..., B...)T, where N = |combiner.parameters|
-        val combinerSignature = combiner.signature // (A...)V
+        val targetSignature = target // (Z..., V, A[N]..., B...)T, where N = |combiner.parameters|
+        val combinerSignature = combiner // (A...)V
         if (targetSignature.parameterList.sizeMatches { pos >= it } == TriState.YES) return topType
         val combinerIsVoid = combinerSignature.returnType.match(PsiTypes.voidType())
         val combinerParameterList = combinerSignature.parameterList as? CompleteParameterList ?: return topType
         val sub: List<Type> = when (combinerIsVoid) {
             TriState.YES -> combinerParameterList.parameterTypes
             TriState.NO -> listOf(combinerSignature.returnType) + combinerParameterList.parameterTypes
-            TriState.UNKNOWN -> return MethodHandleType(target.signature.withParameterTypes(TopParameterList))
+            TriState.UNKNOWN -> return target.withParameterTypes(TopParameterList)
         }
         // TODO type-check sub with existing list
         var newParameters = targetSignature.parameterList
         if (combinerIsVoid == TriState.NO) {
             newParameters = newParameters.removeAt(pos)
         }
-        return MethodHandleType(targetSignature.withParameterTypes(newParameters))
+        return targetSignature.withParameterTypes(newParameters)
     }
 
     fun guardWithTest(
@@ -334,9 +334,9 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         val target = ssaAnalyzer.methodHandleType(targetExpr, block) ?: bottomType
         val fallback = ssaAnalyzer.methodHandleType(fallbackExpr, block) ?: bottomType
         // TODO proper handling of bottom/top
-        val testSignature = test.signature // (A...)boolean
-        val targetSignature = target.signature // (A... B...)T
-        val fallbackSignature = fallback.signature // (A... B...)T
+        val testSignature = test // (A...)boolean
+        val targetSignature = target // (A... B...)T
+        val fallbackSignature = fallback // (A... B...)T
         if (!testSignature.returnType.canBe(PsiTypes.booleanType())) return topType
         if (targetSignature != fallbackSignature) return topType
         val testParameterList = testSignature.parameterList as? CompleteParameterList ?: return topType
@@ -349,7 +349,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         ) {
             return topType
         }
-        return MethodHandleType(targetSignature)
+        return targetSignature
     }
 
     fun insertArguments(
@@ -360,7 +360,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
     ): MethodHandleType {
         val target = ssaAnalyzer.methodHandleType(targetExpr, block) ?: bottomType
         val pos = posExpr.nonNegativeInt() ?: return topType
-        val parameterList = target.signature.parameterList
+        val parameterList = target.parameterList
         if (parameterList.compareSize(pos + valueTypes.size) == PartialOrder.LT) {
             // the index of the first value that is out of bounds
             val valueTypesIndex = parameterList.sizeOrNull()?.minus(pos)
@@ -371,7 +371,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
             return emitOutOfBounds(parameterList.sizeOrNull(), posExpr, pos, false)
         }
         val new = parameterList.removeAt(pos, valueTypes.size)
-        return MethodHandleType(target.signature.withParameterTypes(new))
+        return target.withParameterTypes(new)
     }
 
     fun iteratedLoop(iterator: MethodHandleType, init: MethodHandleType, body: MethodHandleType): MethodHandleType =
@@ -388,11 +388,11 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
     ): MethodHandleType {
         val target = ssaAnalyzer.methodHandleType(targetExpr, block) ?: bottomType
         val newType = ssaAnalyzer.methodHandleType(newTypeExpr, block) ?: bottomType
-        if (target.signature.returnType.join(newType.signature.returnType) == TopType) {
-            return emitIncompatibleReturnTypes(targetExpr, target.signature.returnType, newType.signature.returnType)
+        if (target.returnType.join(newType.returnType) == TopType) {
+            return emitIncompatibleReturnTypes(targetExpr, target.returnType, newType.returnType)
         }
-        val outParams = target.signature.parameterList
-        val inParams = newType.signature.parameterList
+        val outParams = target.parameterList
+        val inParams = newType.parameterList
         if (outParams.sizeMatches { it != reorder.size } == TriState.YES) {
             return emitProblem(
                 newTypeExpr,
@@ -401,7 +401,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         }
         // if reorder array is unknown, just assume the input is correct
         val reorderInts = reorder.map { it.nonNegativeInt() ?: return newType }
-        val resultType: MutableList<Type> = (newType.signature.parameterList as? CompleteParameterList)
+        val resultType: MutableList<Type> = (newType.parameterList as? CompleteParameterList)
             ?.parameterTypes?.toMutableList()
             ?: return topType
         for ((index, value) in reorderInts.withIndex()) {
@@ -423,7 +423,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
                 resultType[index] = TopType
             }
         }
-        return MethodHandleType(complete(newType.signature.returnType, resultType))
+        return complete(newType.returnType, resultType)
     }
 
     // fun permuteCoordinates() no VarHandle support, preview
@@ -437,13 +437,13 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
             emitProblem(fallbackExpr.parent, message("problem.merging.tableSwitch.noCases"))
         }
         val fallback = ssaAnalyzer.methodHandleType(fallbackExpr, block) ?: bottomType
-        var error = checkFirstParameter(fallback.signature.parameterList, fallbackExpr)
+        var error = checkFirstParameter(fallback.parameterList, fallbackExpr)
         val targets = targetsExprs.map { ssaAnalyzer.methodHandleType(it, block) ?: bottomType }
         for ((index, target) in targets.withIndex()) {
-            error = error or checkFirstParameter(target.signature.parameterList, targetsExprs[index])
+            error = error or checkFirstParameter(target.parameterList, targetsExprs[index])
         }
-        val cases = targets.map { it.signature }
-        var prev = fallback.signature
+        val cases = targets.map { it }
+        var prev = fallback
         for ((index, case) in cases.withIndex()) {
             val (signature, identical) = prev.joinIdentical(case)
             if (identical == TriState.NO) {
@@ -453,9 +453,9 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
             prev = signature
         }
         if (error) {
-            return MethodHandleType(TopSignature)
+            return TopMethodHandleType
         }
-        return MethodHandleType(prev)
+        return prev
     }
 
     private fun checkFirstParameter(parameterList: ParameterList, context: PsiExpression): Boolean {
@@ -475,24 +475,22 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
     ): MethodHandleType {
         val target = ssaAnalyzer.methodHandleType(targetExpr, block) ?: bottomType
         val cleanup = ssaAnalyzer.methodHandleType(cleanupExpr, block) ?: bottomType
-        if (target.signature is BotSignature || cleanup.signature is BotSignature) return bottomType
-        val cleanupSignature = cleanup.signature
-        val targetSignature = target.signature
+        if (target is BotMethodHandleType || cleanup is BotMethodHandleType) return bottomType
         // TODO should use join
-        if (cleanupSignature.returnType != targetSignature.returnType) return topType
-        val isVoid = targetSignature.returnType.match(PsiTypes.voidType())
+        if (cleanup.returnType != target.returnType) return topType
+        val isVoid = target.returnType.match(PsiTypes.voidType())
         val leading = when (isVoid) {
             TriState.YES -> 1
             TriState.NO -> 2
-            TriState.UNKNOWN -> return MethodHandleType(complete(targetSignature.returnType, TopParameterList))
+            TriState.UNKNOWN -> return complete(target.returnType, TopParameterList)
         }
-        if (cleanupSignature.parameterList.sizeMatches { it < leading } == TriState.YES) return topType
+        if (cleanup.parameterList.sizeMatches { it < leading } == TriState.YES) return topType
         // TODO 0th param must be <= Throwable
-        if (isVoid == TriState.NO && cleanupSignature.parameterList[1] != cleanupSignature.returnType) return topType
-        val aList = cleanupSignature.parameterList.dropFirst(leading) as? CompleteParameterList ?: return topType
-        val targetParameterList = targetSignature.parameterList as? CompleteParameterList ?: return topType
+        if (isVoid == TriState.NO && cleanup.parameterList[1] != cleanup.returnType) return topType
+        val aList = cleanup.parameterList.dropFirst(leading) as? CompleteParameterList ?: return topType
+        val targetParameterList = target.parameterList as? CompleteParameterList ?: return topType
         if (!targetParameterList.parameterTypes.startsWith(aList.parameterTypes)) return topType
-        return MethodHandleType(targetSignature)
+        return target
     }
 
     fun whileLoop(
