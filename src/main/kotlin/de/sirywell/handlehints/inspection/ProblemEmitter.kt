@@ -7,7 +7,7 @@ import com.intellij.psi.PsiTypes
 import de.sirywell.handlehints.MethodHandleBundle.message
 import de.sirywell.handlehints.TypeData
 import de.sirywell.handlehints.type.MethodHandleType
-import de.sirywell.handlehints.type.TopSignature
+import de.sirywell.handlehints.type.TopMethodHandleType
 import de.sirywell.handlehints.type.Type
 import org.jetbrains.annotations.Nls
 
@@ -17,7 +17,7 @@ abstract class ProblemEmitter(private val typeData: TypeData) {
         typeData.reportProblem(element) {
             it.registerProblem(element, message, ProblemHighlightType.GENERIC_ERROR_OR_WARNING)
         }
-        return MethodHandleType(TopSignature)
+        return TopMethodHandleType
     }
 
     protected fun emitMustNotBeVoid(typeExpr: PsiExpression) {

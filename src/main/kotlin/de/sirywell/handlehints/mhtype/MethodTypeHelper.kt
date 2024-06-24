@@ -14,63 +14,63 @@ import de.sirywell.handlehints.type.*
 import java.util.Collections.nCopies
 
 class MethodTypeHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ssaAnalyzer.typeData) {
-    private val topType = MethodHandleType(TopSignature)
+    private val topType = TopMethodHandleType
 
     fun appendParameterTypes(mhType: MethodHandleType, ptypesToInsert: List<PsiExpression>): MethodHandleType {
         // TODO check types for void
         val additionalTypes = ptypesToInsert.mapToTypes()
         if (additionalTypes.isEmpty()) return mhType // no change
-        val parameters = mhType.signature.parameterList as? CompleteParameterList ?: return topType
+        val parameters = mhType.parameterList as? CompleteParameterList ?: return topType
         return withParameters(mhType, parameters.addAllAt(parameters.size, CompleteParameterList(additionalTypes)))
     }
 
     fun changeParameterType(mhType: MethodHandleType, num: PsiExpression, nptype: PsiExpression): MethodHandleType {
         val type = nptype.asType() // TODO inspection on void
-        val pos = num.getConstantOfType<Int>() ?: return MethodHandleType(BotSignature)
-        val parameters = mhType.signature.parameterList
+        val pos = num.getConstantOfType<Int>() ?: return BotMethodHandleType
+        val parameters = mhType.parameterList
         if (pos < 0 || parameters.sizeMatches { pos > it } == TriState.YES) return topType // TODO inspection
         return withParameters(mhType, parameters.setAt(pos, type))
     }
 
     fun changeReturnType(mhType: MethodHandleType, nrtype: PsiExpression): MethodHandleType {
         val type = nrtype.asType() // TODO inspection on void
-        return MethodHandleType(mhType.signature.withReturnType(type))
+        return mhType.withReturnType(type)
     }
 
     fun dropParameterTypes(mhType: MethodHandleType, start: PsiExpression, end: PsiExpression): MethodHandleType {
-        if (mhType.signature !is CompleteSignature) return mhType
+        if (mhType !is CompleteMethodHandleType) return mhType
         val startIndex = start.getConstantOfType<Int>()
-            ?: return MethodHandleType(complete(mhType.signature.returnType, BotParameterList))
+            ?: return complete(mhType.returnType, BotParameterList)
         val endIndex = end.getConstantOfType<Int>()
-            ?: return MethodHandleType(complete(mhType.signature.returnType, BotParameterList))
-        val parameters = mhType.signature.parameterList
+            ?: return complete(mhType.returnType, BotParameterList)
+        val parameters = mhType.parameterList
         val size = parameters.sizeOrNull() ?: return topType
         if (invalidRange(size, startIndex, endIndex)) return topType // TODO inspection
         return withParameters(mhType, parameters.removeAt(startIndex, endIndex - startIndex))
     }
 
     fun erase(mhType: MethodHandleType, objectType: PsiExpression): MethodHandleType {
-        val ret = mhType.signature.returnType.erase(objectType.manager, objectType.resolveScope)
-        val parameterList = mhType.signature.parameterList as? CompleteParameterList
-            ?: return MethodHandleType(complete(ret, TopParameterList))
+        val ret = mhType.returnType.erase(objectType.manager, objectType.resolveScope)
+        val parameterList = mhType.parameterList as? CompleteParameterList
+            ?: return complete(ret, TopParameterList)
         val params = parameterList.parameterTypes.map { it.erase(objectType.manager, objectType.resolveScope) }
-        return MethodHandleType(complete(ret, params))
+        return complete(ret, params)
     }
 
     fun generic(mhType: MethodHandleType, objectType: PsiType): MethodHandleType {
-        val size = (mhType.signature.parameterList as? CompleteParameterList)?.size ?: return topType
+        val size = (mhType.parameterList as? CompleteParameterList)?.size ?: return topType
         val objType = ExactType(objectType)
-        return MethodHandleType(complete(objType, nCopies(size, objType)))
+        return complete(objType, nCopies(size, objType))
     }
 
     fun genericMethodType(objectArgCount: PsiExpression, finalArray: Boolean, objectType: PsiType): MethodHandleType {
         val objType = ExactType(objectType)
-        val count = objectArgCount.getConstantOfType<Int>() ?: return MethodHandleType(BotSignature)
+        val count = objectArgCount.getConstantOfType<Int>() ?: return BotMethodHandleType
         var parameters = nCopies(count, objType)
         if (finalArray) {
             parameters = parameters + ExactType(objectType.createArrayType())
         }
-        return MethodHandleType(complete(objType, parameters))
+        return complete(objType, parameters)
     }
 
     fun insertParameterTypes(
@@ -80,8 +80,8 @@ class MethodTypeHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ss
     ): MethodHandleType {
         val types = ptypesToInsert.mapToTypes()
         // TODO check types for void
-        val parameters = mhType.signature.parameterList
-        val pos = num.getConstantOfType<Int>() ?: return MethodHandleType(complete(mhType.signature.returnType, BotParameterList))
+        val parameters = mhType.parameterList
+        val pos = num.getConstantOfType<Int>() ?: return complete(mhType.returnType, BotParameterList)
         if (pos < 0 || parameters.sizeMatches { pos > it } == TriState.YES) return topType // TODO inspection
         if (types.isEmpty()) return mhType // no change
         val mutable = parameters.addAllAt(pos, CompleteParameterList(types))
@@ -91,7 +91,7 @@ class MethodTypeHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ss
     private fun withParameters(
         mhType: MethodHandleType,
         newParameters: ParameterList
-    ) = MethodHandleType(mhType.signature.withParameterTypes(newParameters))
+    ) = mhType.withParameterTypes(newParameters)
 
     private fun invalidRange(parametersSize: Int, start: Int, end: Int): Boolean {
         return start < 0 || start > parametersSize || end < 0 || end > parametersSize || start > end
@@ -100,12 +100,12 @@ class MethodTypeHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ss
     fun methodType(args: List<PsiExpression>): MethodHandleType {
         val rtype = args[0].asType()
         val params = args.drop(1).map { it.asType() }
-        return MethodHandleType(complete(rtype, params))
+        return complete(rtype, params)
     }
 
     fun methodType(rtype: PsiExpression, mhType: MethodHandleType): MethodHandleType {
         val type = rtype.asType()
-        return MethodHandleType(mhType.signature.withReturnType(type))
+        return mhType.withReturnType(type)
     }
 
     fun unwrap(mhType: MethodHandleType): MethodHandleType = mapTypes(mhType, this::unwrap)
@@ -113,12 +113,12 @@ class MethodTypeHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ss
     fun wrap(context: PsiElement, mhType: MethodHandleType): MethodHandleType = mapTypes(mhType) { wrap(context, it) }
 
     private fun mapTypes(mhType: MethodHandleType, map: (Type) -> Type): MethodHandleType {
-        if (mhType.signature !is CompleteSignature) return mhType
-        val ret = map(mhType.signature.returnType)
-        val parameterList = mhType.signature.parameterList as? CompleteParameterList
-            ?: return MethodHandleType(complete(ret, TopParameterList))
+        if (mhType !is CompleteMethodHandleType) return mhType
+        val ret = map(mhType.returnType)
+        val parameterList = mhType.parameterList as? CompleteParameterList
+            ?: return complete(ret, TopParameterList)
         val params = parameterList.parameterTypes.map { map(it) }
-        return MethodHandleType(complete(ret, params))
+        return complete(ret, params)
     }
 
     private fun unwrap(type: Type): Type {

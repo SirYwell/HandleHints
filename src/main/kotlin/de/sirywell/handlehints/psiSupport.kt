@@ -77,11 +77,11 @@ fun objectType(manager: PsiManager, scope: GlobalSearchScope): PsiType {
     return PsiType.getJavaLangObject(manager, scope)
 }
 
-fun findMethodMatching(signature: Signature, methods: Array<PsiMethod>): PsiMethod? {
-    if (signature !is CompleteSignature) return null
-    if (signature.returnType !is ExactType) return null
-    val parameterList = signature.parameterList as? CompleteParameterList ?: return null
-    return methods.find { matches(it, signature.returnType as ExactType, parameterList) }
+fun findMethodMatching(methodHandleType: MethodHandleType, methods: Array<PsiMethod>): PsiMethod? {
+    if (methodHandleType !is CompleteMethodHandleType) return null
+    if (methodHandleType.returnType !is ExactType) return null
+    val parameterList = methodHandleType.parameterList as? CompleteParameterList ?: return null
+    return methods.find { matches(it, methodHandleType.returnType as ExactType, parameterList) }
 }
 
 fun matches(method: PsiMethod, returnType: ExactType, parameterList: CompleteParameterList): Boolean {

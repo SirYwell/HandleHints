@@ -28,11 +28,11 @@ class MethodHandleInvokeInspection : LocalInspectionTool() {
             val target = expression.methodExpression.qualifierExpression ?: return
             val typeData = TypeData.forFile(expression.containingFile)
             val type = typeData[target] as? MethodHandleType ?: return
-            if (type.signature !is CompleteSignature) return // ignore for now
-            val (returnType, parameters) = type.signature
+            if (type !is CompleteMethodHandleType) return // ignore for now
+            val (returnType, parameters) = type
             when (expression.methodName) {
                 "invoke" -> {
-                    if (type.signature.varargs == TriState.NO) {
+                    if (type.varargs == TriState.NO) {
                         checkArgumentsCount(parameters, expression)
                     }
                 }
