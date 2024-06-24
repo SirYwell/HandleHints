@@ -10,6 +10,7 @@ import de.sirywell.handlehints.*
 import de.sirywell.handlehints.dfa.SsaConstruction.*
 import de.sirywell.handlehints.mhtype.*
 import de.sirywell.handlehints.type.*
+import kotlin.reflect.KClass
 
 class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) {
     companion object {
@@ -42,7 +43,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         if (isUnrelated(instruction.variable)) return
         val element = controlFlow.getElement(index)
         if (element is PsiReferenceExpression && isUnstableVariable(element, instruction.variable)) {
-            typeData[element] = notConstant()
+            typeData[element] = bottomForType(instruction.variable.type, instruction.variable)
             return
         }
         val value = ssaConstruction.readVariable(instruction.variable, block)
@@ -128,10 +129,10 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         if (expression.type == null || isUnrelated(expression.type!!, expression)) {
             return noMatch() // unrelated
         }
-        return resolveMhTypePlain(expression, block)
+        return resolveTypePlain(expression, block)
     }
 
-    private fun resolveMhTypePlain(expression: PsiExpression, block: Block): TypeLatticeElement<*>? {
+    private fun resolveTypePlain(expression: PsiExpression, block: Block): TypeLatticeElement<*>? {
         if (expression is PsiLiteralExpression && expression.value == null) return null
         if (expression is PsiMethodCallExpression) {
             val arguments = expression.argumentList.expressions.asList()
@@ -258,7 +259,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         } else if (expression is PsiReferenceExpression) {
             val variable = expression.resolve() as? PsiVariable ?: return noMatch()
             if (isUnstableVariable(expression, variable)) {
-                return notConstant()
+                return bottomForType(variable.type, variable)
             }
             val value = ssaConstruction.readVariable(variable, block)
             return if (value is Holder) {
@@ -615,17 +616,30 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         return null
     }
 
-    private inline fun <reified T> bottomForType(): T {
-        if (T::class == MethodHandleType::class) {
-            return T::class.java.cast(BotMethodHandleType)
+    private inline fun <reified T : TypeLatticeElement<*>> bottomForType(): T {
+        return bottomForType(T::class)
+    }
+
+    private fun <T : TypeLatticeElement<*>> bottomForType(clazz: KClass<T>): T {
+        if (clazz == MethodHandleType::class) {
+            return clazz.java.cast(BotMethodHandleType)
         }
-        if (T::class == VarHandleType::class) {
-            return T::class.java.cast(BotVarHandleType)
+        if (clazz == VarHandleType::class) {
+            return clazz.java.cast(BotVarHandleType)
         }
-        if (T::class == Type::class) {
-            return T::class.java.cast(BotType)
+        if (clazz == Type::class) {
+            return clazz.java.cast(BotType)
         }
-        throw UnsupportedOperationException("${T::class} is not supported")
+        throw UnsupportedOperationException("$clazz is not supported")
+    }
+
+    private fun bottomForType(psiType: PsiType, context: PsiElement): TypeLatticeElement<*> {
+        return when (psiType) {
+            methodTypeType(context) -> bottomForType<MethodHandleType>()
+            methodHandleType(context) -> bottomForType<MethodHandleType>()
+            varHandleType(context) -> bottomForType<VarHandleType>()
+            else -> throw UnsupportedOperationException("${psiType.presentableText} is not supported")
+        }
     }
 
 }
