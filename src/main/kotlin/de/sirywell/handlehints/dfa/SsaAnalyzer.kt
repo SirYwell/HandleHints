@@ -43,7 +43,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         if (isUnrelated(instruction.variable)) return
         val element = controlFlow.getElement(index)
         if (element is PsiReferenceExpression && isUnstableVariable(element, instruction.variable)) {
-            typeData[element] = bottomForType(instruction.variable.type, instruction.variable)
+            typeData[element] = topForType(instruction.variable.type, instruction.variable)
             return
         }
         val value = ssaConstruction.readVariable(instruction.variable, block)
@@ -217,9 +217,9 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                     "parameterList",
                     "parameterType",
                     "toMethodDescriptorString",
-                        -> noMethodHandle()
+                        -> unrelatedType()
 
-                    in objectMethods -> noMethodHandle()
+                    in objectMethods -> unrelatedType()
                     else -> warnUnsupported(expression, "MethodType")
                 }
             } else if (receiverIsMethodHandles(expression)) {
@@ -245,21 +245,27 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                     "describeConstable",
                     "invoke",
                     "invokeExact",
-                    "invokeWithArguments" -> noMethodHandle()
+                    "invokeWithArguments" -> unrelatedType()
 
                     "type" -> qualifier?.methodHandleType(block)
                         ?.withVarargs(TriState.NO) // if ever used somewhere else, assume non-varargs
 
-                    in objectMethods -> noMethodHandle()
+                    in objectMethods -> unrelatedType()
                     else -> warnUnsupported(expression, "MethodHandle")
                 }
             } else if (receiverIsLookup(expression)) {
                 return lookup(expression, arguments, block)
+            } else {
+                return methodExpression.type?.let { topForType(it, expression) }
             }
         } else if (expression is PsiReferenceExpression) {
             val variable = expression.resolve() as? PsiVariable ?: return noMatch()
             if (isUnstableVariable(expression, variable)) {
-                return bottomForType(variable.type, variable)
+                return topForType(variable.type, variable)
+            }
+            // parameters are always top - could be anything
+            if (variable is PsiParameter) {
+                return topForType(variable.type, variable)
             }
             val value = ssaConstruction.readVariable(variable, block)
             return if (value is Holder) {
@@ -337,9 +343,9 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
             "unreflectSetter",
             "unreflectSpecial",
             "unreflectVarHandle"
-                -> noMethodHandle()
+                -> unrelatedType()
 
-            in objectMethods -> noMethodHandle()
+            in objectMethods -> unrelatedType()
             else -> warnUnsupported(expression, "MethodHandles.Lookup")
         }
     }
@@ -353,7 +359,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         return resolver(refc, type)
     }
 
-    private fun noMethodHandle(): MethodHandleType? = null
+    private fun unrelatedType(): TypeLatticeElement<*>? = null
 
     private fun methodHandles(
         expression: PsiMethodCallExpression,
@@ -551,9 +557,9 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
             "lookup",
             "privateLookupIn",
             "publicLookup",
-            "reflectAs" -> noMethodHandle()
+            "reflectAs" -> unrelatedType()
 
-            in objectMethods -> noMethodHandle()
+            in objectMethods -> unrelatedType()
             else -> warnUnsupported(expression, "MethodHandles")
         }
     }
@@ -563,7 +569,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
     }
 
     private inline fun <reified T : TypeLatticeElement<T>> notConstant(): T {
-        return bottomForType<T>()
+        return topForType<T>()
     }
 
     private fun singleParameter(
@@ -638,6 +644,32 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
             methodTypeType(context) -> bottomForType<MethodHandleType>()
             methodHandleType(context) -> bottomForType<MethodHandleType>()
             varHandleType(context) -> bottomForType<VarHandleType>()
+            else -> throw UnsupportedOperationException("${psiType.presentableText} is not supported")
+        }
+    }
+
+    private inline fun <reified T : TypeLatticeElement<*>> topForType(): T {
+        return topForType(T::class)
+    }
+
+    private fun <T : TypeLatticeElement<*>> topForType(clazz: KClass<T>): T {
+        if (clazz == MethodHandleType::class) {
+            return clazz.java.cast(TopMethodHandleType)
+        }
+        if (clazz == VarHandleType::class) {
+            return clazz.java.cast(TopVarHandleType)
+        }
+        if (clazz == Type::class) {
+            return clazz.java.cast(TopType)
+        }
+        throw UnsupportedOperationException("$clazz is not supported")
+    }
+
+    private fun topForType(psiType: PsiType, context: PsiElement): TypeLatticeElement<*> {
+        return when (psiType) {
+            methodTypeType(context) -> topForType<MethodHandleType>()
+            methodHandleType(context) -> topForType<MethodHandleType>()
+            varHandleType(context) -> topForType<VarHandleType>()
             else -> throw UnsupportedOperationException("${psiType.presentableText} is not supported")
         }
     }
