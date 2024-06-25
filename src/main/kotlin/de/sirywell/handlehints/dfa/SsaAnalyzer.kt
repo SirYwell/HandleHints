@@ -1,5 +1,6 @@
 package de.sirywell.handlehints.dfa
 
+import com.intellij.lang.jvm.JvmModifier
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.psi.*
 import com.intellij.psi.controlFlow.ControlFlow
@@ -9,6 +10,7 @@ import de.sirywell.handlehints.*
 import de.sirywell.handlehints.dfa.SsaConstruction.*
 import de.sirywell.handlehints.mhtype.*
 import de.sirywell.handlehints.type.*
+import kotlin.reflect.KClass
 
 class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) {
     companion object {
@@ -39,17 +41,31 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
 
     private fun onRead(instruction: ReadVariableInstruction, index: Int, block: Block) {
         if (isUnrelated(instruction.variable)) return
+        val element = controlFlow.getElement(index)
+        if (element is PsiReferenceExpression && isUnstableVariable(element, instruction.variable)) {
+            typeData[element] = bottomForType(instruction.variable.type, instruction.variable)
+            return
+        }
         val value = ssaConstruction.readVariable(instruction.variable, block)
         if (value is Holder) {
-            typeData[controlFlow.getElement(index)] = value.value
+            typeData[element] = value.value
         } else if (value is Phi) {
             val type = value.blockToValue.values
                 .flatMap { if (it is Holder) listOf(it.value) else resolvePhi(it as Phi) }
                 .reduce { acc, mhType -> join(acc, mhType) }
-            typeData[controlFlow.getElement(index)] = type
+            typeData[element] = type
         } else {
-            typeData[controlFlow.getElement(index)] = typeData[instruction.variable] ?: return
+            typeData[element] = typeData[instruction.variable] ?: return
         }
+    }
+
+    @Suppress("UnstableApiUsage")
+    private fun isUnstableVariable(element: PsiReferenceExpression, variable: PsiVariable): Boolean {
+        // always assume static final variables are stable, no matter how they are referenced
+        return !(variable.hasModifier(JvmModifier.STATIC) && variable.hasModifier(JvmModifier.FINAL))
+                // otherwise, if it has a qualifier, it must be 'this' to be stable
+                && element.qualifierExpression != null
+                && element.qualifierExpression !is PsiThisExpression
     }
 
     private fun join(first: TypeLatticeElement<*>, second: TypeLatticeElement<*>): TypeLatticeElement<*> {
@@ -87,6 +103,13 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         type?.let { typeData[expression] = it }
         ssaConstruction.writeVariable(instruction.variable, block, Holder(type ?: return))
         typeData[controlFlow.getElement(index)] = type
+        // for field writes, we just assume that all writes can be globally relevant
+        @Suppress("UnstableApiUsage")
+        if (instruction.variable is PsiField
+            && instruction.variable.hasModifier(JvmModifier.FINAL)
+        ) {
+            typeData[instruction.variable] = join(typeData[instruction.variable] ?: type, type)
+        }
     }
 
     /**
@@ -106,10 +129,10 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         if (expression.type == null || isUnrelated(expression.type!!, expression)) {
             return noMatch() // unrelated
         }
-        return resolveMhTypePlain(expression, block)
+        return resolveTypePlain(expression, block)
     }
 
-    private fun resolveMhTypePlain(expression: PsiExpression, block: Block): TypeLatticeElement<*>? {
+    private fun resolveTypePlain(expression: PsiExpression, block: Block): TypeLatticeElement<*>? {
         if (expression is PsiLiteralExpression && expression.value == null) return null
         if (expression is PsiMethodCallExpression) {
             val arguments = expression.argumentList.expressions.asList()
@@ -235,6 +258,9 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
             }
         } else if (expression is PsiReferenceExpression) {
             val variable = expression.resolve() as? PsiVariable ?: return noMatch()
+            if (isUnstableVariable(expression, variable)) {
+                return bottomForType(variable.type, variable)
+            }
             val value = ssaConstruction.readVariable(variable, block)
             return if (value is Holder) {
                 value.value
@@ -590,17 +616,30 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         return null
     }
 
-    private inline fun <reified T> bottomForType(): T {
-        if (T::class == MethodHandleType::class) {
-            return T::class.java.cast(BotMethodHandleType)
+    private inline fun <reified T : TypeLatticeElement<*>> bottomForType(): T {
+        return bottomForType(T::class)
+    }
+
+    private fun <T : TypeLatticeElement<*>> bottomForType(clazz: KClass<T>): T {
+        if (clazz == MethodHandleType::class) {
+            return clazz.java.cast(BotMethodHandleType)
         }
-        if (T::class == VarHandleType::class) {
-            return T::class.java.cast(BotVarHandleType)
+        if (clazz == VarHandleType::class) {
+            return clazz.java.cast(BotVarHandleType)
         }
-        if (T::class == Type::class) {
-            return T::class.java.cast(BotType)
+        if (clazz == Type::class) {
+            return clazz.java.cast(BotType)
         }
-        throw UnsupportedOperationException("${T::class} is not supported")
+        throw UnsupportedOperationException("$clazz is not supported")
+    }
+
+    private fun bottomForType(psiType: PsiType, context: PsiElement): TypeLatticeElement<*> {
+        return when (psiType) {
+            methodTypeType(context) -> bottomForType<MethodHandleType>()
+            methodHandleType(context) -> bottomForType<MethodHandleType>()
+            varHandleType(context) -> bottomForType<VarHandleType>()
+            else -> throw UnsupportedOperationException("${psiType.presentableText} is not supported")
+        }
     }
 
 }

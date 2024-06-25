@@ -3,6 +3,7 @@ package de.sirywell.handlehints
 import com.intellij.codeInsight.hints.declarative.InlayTreeSink
 import com.intellij.codeInsight.hints.declarative.InlineInlayPosition
 import com.intellij.codeInsight.hints.declarative.SharedBypassCollector
+import com.intellij.psi.PsiAssignmentExpression
 import com.intellij.psi.PsiDeclarationStatement
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiParameterList
@@ -18,6 +19,7 @@ class MethodTypeInlayHintsCollector : SharedBypassCollector {
             is PsiDeclarationStatement -> (element.getVariable()?.nameIdentifier?.endOffset
                 ?: element.endOffset) to true
 
+            is PsiAssignmentExpression -> (element.lExpression.endOffset) to true
             is PsiReferenceExpression -> {
                 // TODO ????
                 if (element.parent is PsiParameterList) {

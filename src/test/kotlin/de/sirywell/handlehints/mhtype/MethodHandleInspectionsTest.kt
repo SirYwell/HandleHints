@@ -35,6 +35,8 @@ class MethodHandleInspectionsTest : LightJavaCodeInsightFixtureTestCase() {
 
     fun testVoidInConstant() = doInspectionTest()
 
+    fun testFinalFields() = doTypeCheckingTest()
+
     fun testLookupFindConstructor() = doTypeCheckingTest()
 
     fun testLookupFindGetter() = doTypeCheckingTest()
