@@ -37,6 +37,8 @@ class MethodHandleInspectionsTest : LightJavaCodeInsightFixtureTestCase() {
 
     fun testFinalFields() = doTypeCheckingTest()
 
+    fun testInitialTypes() = doTypeCheckingTest()
+
     fun testLookupFindConstructor() = doTypeCheckingTest()
 
     fun testLookupFindGetter() = doTypeCheckingTest()
