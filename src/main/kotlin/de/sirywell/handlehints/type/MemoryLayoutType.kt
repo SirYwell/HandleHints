@@ -6,16 +6,14 @@ import de.sirywell.handlehints.toTriState
 interface MemoryLayoutType : TypeLatticeElement<MemoryLayoutType> {
 }
 
-data object BotMemoryLayoutType : MemoryLayoutType {
-    override fun joinIdentical(other: MemoryLayoutType) = other to TriState.UNKNOWN
-
+data object BotMemoryLayoutType : MemoryLayoutType, BotTypeLatticeElement<MemoryLayoutType> {
     override fun toString(): String {
         return "⊥"
     }
 }
 
-data object TopMemoryLayoutType : MemoryLayoutType {
-    override fun joinIdentical(other: MemoryLayoutType) = this to TriState.UNKNOWN
+data object TopMemoryLayoutType : MemoryLayoutType, TopTypeLatticeElement<MemoryLayoutType> {
+    override fun self() = this
 
     override fun toString(): String {
         return "⊤"
