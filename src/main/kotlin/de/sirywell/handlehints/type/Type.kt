@@ -48,6 +48,20 @@ data class ExactType(val psiType: PsiType) : Type {
         val voidType = ExactType(PsiTypes.voidType())
         @JvmStatic
         val intType = ExactType(PsiTypes.intType())
+        @JvmStatic
+        val booleanType = ExactType(PsiTypes.booleanType())
+        @JvmStatic
+        val byteType = ExactType(PsiTypes.byteType())
+        @JvmStatic
+        val charType = ExactType(PsiTypes.charType())
+        @JvmStatic
+        val doubleType = ExactType(PsiTypes.doubleType())
+        @JvmStatic
+        val floatType = ExactType(PsiTypes.floatType())
+        @JvmStatic
+        val longType = ExactType(PsiTypes.longType())
+        @JvmStatic
+        val shortType = ExactType(PsiTypes.shortType())
     }
 
     override fun joinIdentical(other: Type): Pair<Type, TriState> {

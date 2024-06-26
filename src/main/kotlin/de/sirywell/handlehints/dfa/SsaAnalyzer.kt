@@ -11,6 +11,7 @@ import de.sirywell.handlehints.dfa.SsaConstruction.*
 import de.sirywell.handlehints.mhtype.*
 import de.sirywell.handlehints.type.*
 import kotlin.reflect.KClass
+import kotlin.reflect.full.isSubclassOf
 
 class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) {
     companion object {
@@ -283,11 +284,19 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                 }
             } else if (receiverIsLookup(expression)) {
                 return lookup(expression, arguments, block)
+            } else if (receiverIsMemoryLayout(expression)) {
+                return memoryLayout(expression, arguments, block)
             } else {
                 return methodExpression.type?.let { topForType(it, expression) }
             }
         } else if (expression is PsiReferenceExpression) {
             val variable = expression.resolve() as? PsiVariable ?: return noMatch()
+            if (residesInValueLayout(variable)) {
+                val valueLayoutType = extractValueLayoutType(variable)
+                if (valueLayoutType != null) {
+                    return valueLayoutType
+                }
+            }
             if (isUnstableVariable(expression, variable)) {
                 return topForType(variable.type, variable)
             }
@@ -311,6 +320,47 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         expression.accept(resolver)
         expression.accept(resolver2)
         return resolver.result
+    }
+
+    private fun memoryLayout(
+        expression: PsiMethodCallExpression,
+        arguments: List<PsiExpression>,
+        block: Block
+    ): TypeLatticeElement<*>? {
+        val methodExpression = expression.methodExpression
+        val qualifier = methodExpression.qualifierExpression
+        return when (expression.methodName) {
+            "withName", "withoutName" -> qualifier?.type(block)
+            else -> noMatch()
+        }
+    }
+
+    private fun extractValueLayoutType(variable: PsiVariable): ValueLayoutType? {
+        val name = variable.name ?: return null
+        return when (name) {
+            "ADDRESS" -> ValueLayoutType(ADDRESS_TYPE, null, null)
+            "ADDRESS_UNALIGNED" -> ValueLayoutType(ADDRESS_TYPE, 1, 1)
+            "JAVA_BOOLEAN" -> ValueLayoutType(ExactType.booleanType, 1, 1)
+            "JAVA_BYTE" -> ValueLayoutType(ExactType.byteType, 1, 1)
+            "JAVA_CHAR" -> ValueLayoutType(ExactType.charType, 2, 2)
+            "JAVA_CHAR_UNALIGNED" -> ValueLayoutType(ExactType.charType, 1, 2)
+            "JAVA_DOUBLE" -> ValueLayoutType(ExactType.doubleType, 8, 8)
+            "JAVA_DOUBLE_UNALIGNED" -> ValueLayoutType(ExactType.doubleType, 1, 8)
+            "JAVA_FLOAT" -> ValueLayoutType(ExactType.floatType, 4, 4)
+            "JAVA_FLOAT_UNALIGNED" -> ValueLayoutType(ExactType.floatType, 1, 4)
+            "JAVA_INT" -> ValueLayoutType(ExactType.intType, 4, 4)
+            "JAVA_INT_UNALIGNED" -> ValueLayoutType(ExactType.intType, 1, 4)
+            "JAVA_LONG" -> ValueLayoutType(ExactType.longType, 8, 8)
+            "JAVA_LONG_UNALIGNED" -> ValueLayoutType(ExactType.longType, 1, 8)
+            "JAVA_SHORT" -> ValueLayoutType(ExactType.shortType, 2, 2)
+            "JAVA_SHORT_UNALIGNED" -> ValueLayoutType(ExactType.shortType, 1, 2)
+            else -> null
+        }
+    }
+
+    private fun residesInValueLayout(variable: PsiVariable): Boolean {
+        val clazz = variable.parent as? PsiClass ?: return false
+        return clazz.qualifiedName.equals("java.lang.foreign.ValueLayout")
     }
 
     private fun lookup(
@@ -664,6 +714,9 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         if (clazz == Type::class) {
             return clazz.java.cast(BotType)
         }
+        if (clazz.isSubclassOf(MemoryLayoutType::class)) {
+            return clazz.java.cast(BotMemoryLayoutType)
+        }
         throw UnsupportedOperationException("$clazz is not supported")
     }
 
@@ -672,6 +725,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
             methodTypeType(context) -> bottomForType<MethodHandleType>()
             methodHandleType(context) -> bottomForType<MethodHandleType>()
             varHandleType(context) -> bottomForType<VarHandleType>()
+            in memoryLayoutTypes(context) -> bottomForType<MemoryLayoutType>()
             else -> throw UnsupportedOperationException("${psiType.presentableText} is not supported")
         }
     }
@@ -690,6 +744,9 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         if (clazz == Type::class) {
             return clazz.java.cast(TopType)
         }
+        if (clazz.isSubclassOf(MemoryLayoutType::class)) {
+            return clazz.java.cast(TopMemoryLayoutType)
+        }
         throw UnsupportedOperationException("$clazz is not supported")
     }
 
@@ -698,6 +755,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
             methodTypeType(context) -> topForType<MethodHandleType>()
             methodHandleType(context) -> topForType<MethodHandleType>()
             varHandleType(context) -> topForType<VarHandleType>()
+            in memoryLayoutTypes(context) -> topForType<MemoryLayoutType>()
             else -> throw UnsupportedOperationException("${psiType.presentableText} is not supported")
         }
     }

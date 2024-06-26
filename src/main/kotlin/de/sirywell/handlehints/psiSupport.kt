@@ -5,6 +5,7 @@ import com.intellij.codeInspection.dataFlow.CommonDataflow.DataflowResult
 import com.intellij.psi.*
 import com.intellij.psi.impl.source.resolve.reference.impl.JavaReflectionReferenceUtil
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.psi.util.PsiTypesUtil
 import de.sirywell.handlehints.type.*
 import java.lang.invoke.MethodHandle
 import java.lang.invoke.MethodHandles
@@ -28,6 +29,12 @@ fun receiverIsMethodHandles(element: PsiMethodCallExpression) =
 fun receiverIsMethodType(element: PsiMethodCallExpression) = receiverIsInvokeClass(element, "MethodType")
 
 fun receiverIsLookup(element: PsiMethodCallExpression) = receiverIsInvokeClass(element, "MethodHandles.Lookup")
+
+fun receiverIsMemoryLayout(element: PsiMethodCallExpression): Boolean {
+    val superType = PsiType.getTypeByName("java.lang.foreign.MemoryLayout", element.project, element.resolveScope)
+    val actual = PsiTypesUtil.getClassType(element.resolveMethod()?.containingClass ?: return false)
+    return superType.isAssignableFrom(actual)
+}
 
 fun PsiDeclarationStatement.getVariable(): PsiVariable? {
     if (this.declaredElements.isEmpty()) return null
