@@ -33,7 +33,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         if (handlerParameterTypes is CompleteParameterList && (handlerParameterTypes.size == 0
                     || (exType is ExactType && !handlerParameterTypes[0].canBe(exType.psiType)))
         ) {
-            emitProblem(handlerExpr, message("problem.merging.catchException.missingException", exType))
+            emitProblem<MethodHandleType>(handlerExpr, message("problem.merging.catchException.missingException", exType))
         }
         val returnType = if (target.returnType != handler.returnType) {
             emitIncompatibleReturnTypes(targetExpr, target.returnType, handler.returnType)
@@ -44,7 +44,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         val comparableTypes = handlerParameterTypes.dropFirst(1)
         // TODO calculate common type of parameters
         if (!comparableTypes.effectivelyIdenticalTo(target.parameterList)) {
-            emitProblem(
+            emitProblem<MethodHandleType>(
                 targetExpr,
                 message(
                     "problem.merging.general.effectivelyIdenticalParametersExpected",
@@ -406,13 +406,13 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
             ?: return topType
         for ((index, value) in reorderInts.withIndex()) {
             if (inParams.compareSize(value + 1) == PartialOrder.LT) {
-                emitProblem(
+                emitProblem<MethodHandleType>(
                     reorder[index],
                     message("problem.merging.permute.invalidReorderIndex", 0, inParams.sizeOrNull()!!, value)
                 )
                 resultType[index] = TopType
             } else if (outParams[index] != inParams[value]) {
-                emitProblem(
+                emitProblem<MethodHandleType>(
                     reorder[index],
                     message(
                         "problem.merging.permute.invalidReorderIndexType",
@@ -434,7 +434,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         block: SsaConstruction.Block
     ): MethodHandleType {
         if (targetsExprs.isEmpty()) {
-            emitProblem(fallbackExpr.parent, message("problem.merging.tableSwitch.noCases"))
+            emitProblem<MethodHandleType>(fallbackExpr.parent, message("problem.merging.tableSwitch.noCases"))
         }
         val fallback = ssaAnalyzer.methodHandleType(fallbackExpr, block) ?: bottomType
         var error = checkFirstParameter(fallback.parameterList, fallbackExpr)
@@ -447,7 +447,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         for ((index, case) in cases.withIndex()) {
             val (signature, identical) = prev.joinIdentical(case)
             if (identical == TriState.NO) {
-                emitProblem(targetsExprs[index], message("problem.merging.tableSwitch.notIdentical"))
+                emitProblem<MethodHandleType>(targetsExprs[index], message("problem.merging.tableSwitch.notIdentical"))
                 error = true
             }
             prev = signature
@@ -462,7 +462,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         if (parameterList.compareSize(1) == PartialOrder.LT
             || parameterList[0].match(PsiTypes.intType()) == TriState.NO
         ) {
-            emitProblem(context, message("problem.merging.tableSwitch.leadingInt"))
+            emitProblem<MethodHandleType>(context, message("problem.merging.tableSwitch.leadingInt"))
             return true
         }
         return false
@@ -503,7 +503,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
     fun PsiExpression.nonNegativeInt(): Int? {
         return this.getConstantOfType<Int>()?.let {
             if (it < 0) {
-                emitProblem(this, message("problem.general.position.invalidIndexNegative", it))
+                emitProblem<MethodHandleType>(this, message("problem.general.position.invalidIndexNegative", it))
                 return null
             }
             return it

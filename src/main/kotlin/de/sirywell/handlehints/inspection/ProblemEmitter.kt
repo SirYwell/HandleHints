@@ -11,22 +11,25 @@ import org.jetbrains.annotations.Nls
 
 abstract class ProblemEmitter(protected val typeData: TypeData) {
 
-    protected inline fun <reified T : TypeLatticeElement<*>> emitProblem(element: PsiElement, message: @Nls String): T {
+    protected inline fun <reified T : TypeLatticeElement<T>> emitProblem(element: PsiElement, message: @Nls String): T {
         typeData.reportProblem(element) {
             it.registerProblem(element, message, ProblemHighlightType.GENERIC_ERROR_OR_WARNING)
         }
         return topForType<T>()
     }
 
-    protected fun emitMustNotBeVoid(typeExpr: PsiExpression) {
-        emitProblem(
+    protected inline fun <reified T : TypeLatticeElement<T>> emitMustNotBeVoid(typeExpr: PsiExpression): T {
+        return emitProblem(
             typeExpr,
             message("problem.merging.general.typeMustNotBe", PsiTypes.voidType().presentableText)
         )
     }
 
-    protected fun emitMustBeReferenceType(refc: PsiExpression, referenceClass: Type) {
-        emitProblem(
+    protected inline fun <reified T : TypeLatticeElement<T>> emitMustBeReferenceType(
+        refc: PsiExpression,
+        referenceClass: Type
+    ) {
+        emitProblem<T>(
             refc, message(
                 "problem.merging.general.referenceTypeExpectedReturn",
                 referenceClass,
@@ -34,8 +37,11 @@ abstract class ProblemEmitter(protected val typeData: TypeData) {
         )
     }
 
-    protected fun emitMustBeArrayType(refc: PsiExpression, referenceClass: Type) {
-        emitProblem(
+    protected inline fun <reified T : TypeLatticeElement<T>> emitMustBeArrayType(
+        refc: PsiExpression,
+        referenceClass: Type
+    ): T {
+        return emitProblem(
             refc, message(
                 "problem.merging.general.arrayTypeExpected",
                 referenceClass,
@@ -57,7 +63,7 @@ abstract class ProblemEmitter(protected val typeData: TypeData) {
         )
     }
 
-    protected inline fun <reified T : TypeLatticeElement<*>> emitOutOfBounds(
+    protected inline fun <reified T : TypeLatticeElement<T>> emitOutOfBounds(
         size: Int?,
         targetExpr: PsiExpression,
         pos: Int,
