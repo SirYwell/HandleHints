@@ -6,18 +6,16 @@ import com.intellij.psi.PsiExpression
 import com.intellij.psi.PsiTypes
 import de.sirywell.handlehints.MethodHandleBundle.message
 import de.sirywell.handlehints.TypeData
-import de.sirywell.handlehints.type.MethodHandleType
-import de.sirywell.handlehints.type.TopMethodHandleType
-import de.sirywell.handlehints.type.Type
+import de.sirywell.handlehints.type.*
 import org.jetbrains.annotations.Nls
 
-abstract class ProblemEmitter(private val typeData: TypeData) {
+abstract class ProblemEmitter(protected val typeData: TypeData) {
 
-    protected fun emitProblem(element: PsiElement, message: @Nls String): MethodHandleType {
+    protected inline fun <reified T : TypeLatticeElement<*>> emitProblem(element: PsiElement, message: @Nls String): T {
         typeData.reportProblem(element) {
             it.registerProblem(element, message, ProblemHighlightType.GENERIC_ERROR_OR_WARNING)
         }
-        return TopMethodHandleType
+        return topForType<T>()
     }
 
     protected fun emitMustNotBeVoid(typeExpr: PsiExpression) {
@@ -59,12 +57,12 @@ abstract class ProblemEmitter(private val typeData: TypeData) {
         )
     }
 
-    protected fun emitOutOfBounds(
+    protected inline fun <reified T : TypeLatticeElement<*>> emitOutOfBounds(
         size: Int?,
         targetExpr: PsiExpression,
         pos: Int,
         exclusive: Boolean
-    ) = if (size != null) {
+    ): T = if (size != null) {
         if (exclusive) {
             emitProblem(targetExpr, message("problem.general.position.invalidIndexKnownBoundsExcl", pos, size))
         } else {

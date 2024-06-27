@@ -5,11 +5,15 @@ import de.sirywell.handlehints.TriState
 import de.sirywell.handlehints.toTriState
 
 sealed interface MemoryLayoutType : TypeLatticeElement<MemoryLayoutType> {
-    val byteSize: Int?
-    val byteAlignment: Int?
+    fun withByteAlignment(byteAlignment: Long): MemoryLayoutType
+
+    val byteSize: Long?
+    val byteAlignment: Long?
 }
 
 data object BotMemoryLayoutType : MemoryLayoutType, BotTypeLatticeElement<MemoryLayoutType> {
+    override fun withByteAlignment(byteAlignment: Long) = this
+
     override val byteSize = null
     override val byteAlignment = null
 
@@ -20,6 +24,7 @@ data object BotMemoryLayoutType : MemoryLayoutType, BotTypeLatticeElement<Memory
 
 data object TopMemoryLayoutType : MemoryLayoutType, TopTypeLatticeElement<MemoryLayoutType> {
     override fun self() = this
+    override fun withByteAlignment(byteAlignment: Long) = this
 
     override val byteSize = null
     override val byteAlignment = null
@@ -33,8 +38,8 @@ val ADDRESS_TYPE = ExactType(PsiTypes.nullType())
 
 data class ValueLayoutType(
     val type: Type,
-    override val byteAlignment: Int?,
-    override val byteSize: Int?
+    override val byteAlignment: Long?,
+    override val byteSize: Long?
 ) : MemoryLayoutType {
     override fun joinIdentical(other: MemoryLayoutType): Pair<MemoryLayoutType, TriState> {
         if (other is ValueLayoutType) {
@@ -51,6 +56,8 @@ data class ValueLayoutType(
         }
         return TopMemoryLayoutType to TriState.UNKNOWN
     }
+
+    override fun withByteAlignment(byteAlignment: Long) = ValueLayoutType(type, byteAlignment, byteSize)
 
     override fun toString(): String {
         return (if (byteAlignment != null) "$byteAlignment%" else "") +
