@@ -36,6 +36,50 @@ fun receiverIsMemoryLayout(element: PsiMethodCallExpression): Boolean {
     return superType.isAssignableFrom(actual)
 }
 
+fun methodHandleType(element: PsiElement): PsiClassType {
+    return PsiType.getTypeByName("java.lang.invoke.MethodHandle", element.project, element.resolveScope)
+}
+
+fun varHandleType(element: PsiElement): PsiClassType {
+    return PsiType.getTypeByName("java.lang.invoke.VarHandle", element.project, element.resolveScope)
+}
+
+fun methodTypeType(element: PsiElement): PsiClassType {
+    return PsiType.getTypeByName("java.lang.invoke.MethodType", element.project, element.resolveScope)
+}
+
+fun objectType(element: PsiElement): PsiType {
+    return PsiType.getJavaLangObject(element.manager, element.resolveScope)
+}
+
+fun memoryLayoutTypes(context: PsiElement): Set<PsiType> {
+    // use a cache here
+    return object {
+        // https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/foreign/MemoryLayout-sealed-graph.svg
+        val memoryLayoutTypes = listOf(
+            "java.lang.foreign.MemoryLayout",
+            "java.lang.foreign.SequenceLayout",
+            "java.lang.foreign.GroupLayout",
+            "java.lang.foreign.StructLayout",
+            "java.lang.foreign.UnionLayout",
+            "java.lang.foreign.PaddingLayout",
+            "java.lang.foreign.ValueLayout",
+            "java.lang.foreign.ValueLayout.OfBoolean",
+            "java.lang.foreign.ValueLayout.OfByte",
+            "java.lang.foreign.ValueLayout.OfChar",
+            "java.lang.foreign.ValueLayout.OfShort",
+            "java.lang.foreign.ValueLayout.OfInt",
+            "java.lang.foreign.ValueLayout.OfFloat",
+            "java.lang.foreign.ValueLayout.OfLong",
+            "java.lang.foreign.ValueLayout.OfDouble",
+            "java.lang.foreign.AddressLayout",
+        )
+            .map { PsiType.getTypeByName(it, context.project, context.resolveScope) }
+            .toSet()
+    }.memoryLayoutTypes
+}
+
+
 fun PsiDeclarationStatement.getVariable(): PsiVariable? {
     if (this.declaredElements.isEmpty()) return null
     val element = this.declaredElements[0]

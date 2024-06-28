@@ -6,29 +6,30 @@ import com.intellij.psi.PsiExpression
 import com.intellij.psi.PsiTypes
 import de.sirywell.handlehints.MethodHandleBundle.message
 import de.sirywell.handlehints.TypeData
-import de.sirywell.handlehints.type.MethodHandleType
-import de.sirywell.handlehints.type.TopMethodHandleType
-import de.sirywell.handlehints.type.Type
+import de.sirywell.handlehints.type.*
 import org.jetbrains.annotations.Nls
 
-abstract class ProblemEmitter(private val typeData: TypeData) {
+abstract class ProblemEmitter(protected val typeData: TypeData) {
 
-    protected fun emitProblem(element: PsiElement, message: @Nls String): MethodHandleType {
+    protected inline fun <reified T : TypeLatticeElement<T>> emitProblem(element: PsiElement, message: @Nls String): T {
         typeData.reportProblem(element) {
             it.registerProblem(element, message, ProblemHighlightType.GENERIC_ERROR_OR_WARNING)
         }
-        return TopMethodHandleType
+        return topForType<T>()
     }
 
-    protected fun emitMustNotBeVoid(typeExpr: PsiExpression) {
-        emitProblem(
+    protected inline fun <reified T : TypeLatticeElement<T>> emitMustNotBeVoid(typeExpr: PsiExpression): T {
+        return emitProblem(
             typeExpr,
             message("problem.merging.general.typeMustNotBe", PsiTypes.voidType().presentableText)
         )
     }
 
-    protected fun emitMustBeReferenceType(refc: PsiExpression, referenceClass: Type) {
-        emitProblem(
+    protected inline fun <reified T : TypeLatticeElement<T>> emitMustBeReferenceType(
+        refc: PsiExpression,
+        referenceClass: Type
+    ) {
+        emitProblem<T>(
             refc, message(
                 "problem.merging.general.referenceTypeExpectedReturn",
                 referenceClass,
@@ -36,8 +37,11 @@ abstract class ProblemEmitter(private val typeData: TypeData) {
         )
     }
 
-    protected fun emitMustBeArrayType(refc: PsiExpression, referenceClass: Type) {
-        emitProblem(
+    protected inline fun <reified T : TypeLatticeElement<T>> emitMustBeArrayType(
+        refc: PsiExpression,
+        referenceClass: Type
+    ): T {
+        return emitProblem(
             refc, message(
                 "problem.merging.general.arrayTypeExpected",
                 referenceClass,
@@ -59,12 +63,12 @@ abstract class ProblemEmitter(private val typeData: TypeData) {
         )
     }
 
-    protected fun emitOutOfBounds(
+    protected inline fun <reified T : TypeLatticeElement<T>> emitOutOfBounds(
         size: Int?,
         targetExpr: PsiExpression,
         pos: Int,
         exclusive: Boolean
-    ) = if (size != null) {
+    ): T = if (size != null) {
         if (exclusive) {
             emitProblem(targetExpr, message("problem.general.position.invalidIndexKnownBoundsExcl", pos, size))
         } else {

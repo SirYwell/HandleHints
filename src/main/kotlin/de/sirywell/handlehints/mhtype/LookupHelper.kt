@@ -18,7 +18,7 @@ class LookupHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ssaAna
     fun findConstructor(refc: PsiExpression, typeExpr: PsiExpression, block: SsaConstruction.Block): MethodHandleType {
         val type = ssaAnalyzer.methodHandleType(typeExpr, block) ?: return BotMethodHandleType
         if (!type.returnType.canBe(PsiTypes.voidType())) {
-            emitProblem(
+            return emitProblem(
                 typeExpr,
                 MethodHandleBundle.message(
                     "problem.merging.general.otherReturnTypeExpected",
@@ -101,7 +101,7 @@ class LookupHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ssaAna
     private fun PsiExpression.asReferenceType(): Type {
         val referenceClass = this.asType()
         if (referenceClass.isPrimitive()) {
-            emitMustBeReferenceType(this, referenceClass)
+            emitMustBeReferenceType<Type>(this, referenceClass)
             return TopType
         }
         return referenceClass
@@ -111,7 +111,7 @@ class LookupHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ssaAna
         val nonVoid = this.asType()
         val voidType = ExactType.voidType
         if (nonVoid == voidType) {
-            emitMustNotBeVoid(this)
+            emitMustNotBeVoid<Type>(this)
             return TopType
         }
         return nonVoid

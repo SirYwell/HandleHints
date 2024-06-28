@@ -8,6 +8,7 @@ import com.intellij.psi.controlFlow.ReadVariableInstruction
 import com.intellij.psi.controlFlow.WriteVariableInstruction
 import de.sirywell.handlehints.*
 import de.sirywell.handlehints.dfa.SsaConstruction.*
+import de.sirywell.handlehints.foreign.MemoryLayoutHelper
 import de.sirywell.handlehints.mhtype.*
 import de.sirywell.handlehints.type.*
 import kotlin.reflect.KClass
@@ -35,6 +36,8 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
     private val methodHandleTransformer = MethodHandleTransformer(this)
     private val lookupHelper = LookupHelper(this)
     private val methodTypeHelper = MethodTypeHelper(this)
+
+    private val memoryLayoutHelper = MemoryLayoutHelper(this)
 
     fun doTraversal() {
         ssaConstruction.traverse(::onRead, ::onWrite)
@@ -74,6 +77,9 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
             return first.join(second)
         }
         if (first is VarHandleType && second is VarHandleType) {
+            return first.join(second)
+        }
+        if (first is MemoryLayoutType && second is MemoryLayoutType) {
             return first.join(second)
         }
         throw AssertionError("unexpected join: $first - $second")
@@ -125,33 +131,6 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                 && type != methodHandleType(context)
                 && type != varHandleType(context)
                 && type !in memoryLayoutTypes(context)
-    }
-
-    private fun memoryLayoutTypes(context: PsiElement): Set<PsiType> {
-        // use a cache here
-        return object {
-            // https://docs.oracle.com/en/java/javase/22/docs/api/java.base/java/lang/foreign/MemoryLayout-sealed-graph.svg
-            val memoryLayoutTypes = listOf(
-                "java.lang.foreign.MemoryLayout",
-                "java.lang.foreign.SequenceLayout",
-                "java.lang.foreign.GroupLayout",
-                "java.lang.foreign.StructLayout",
-                "java.lang.foreign.UnionLayout",
-                "java.lang.foreign.PaddingLayout",
-                "java.lang.foreign.ValueLayout",
-                "java.lang.foreign.ValueLayout.OfBoolean",
-                "java.lang.foreign.ValueLayout.OfByte",
-                "java.lang.foreign.ValueLayout.OfChar",
-                "java.lang.foreign.ValueLayout.OfShort",
-                "java.lang.foreign.ValueLayout.OfInt",
-                "java.lang.foreign.ValueLayout.OfFloat",
-                "java.lang.foreign.ValueLayout.OfLong",
-                "java.lang.foreign.ValueLayout.OfDouble",
-                "java.lang.foreign.AddressLayout",
-            )
-                .map { PsiType.getTypeByName(it, context.project, context.resolveScope) }
-                .toSet()
-        }.memoryLayoutTypes
     }
 
     fun resolveType(expression: PsiExpression, block: Block): TypeLatticeElement<*>? {
@@ -330,7 +309,13 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         val methodExpression = expression.methodExpression
         val qualifier = methodExpression.qualifierExpression
         return when (expression.methodName) {
-            "withName", "withoutName" -> qualifier?.type(block)
+            // for now, let's ignore names and order
+            "withName", "withoutName", "withOrder" -> qualifier?.type(block)
+            "withByteAlignment" -> {
+                if (arguments.size != 1) return noMatch()
+                memoryLayoutHelper.withByteAlignment(qualifier ?: return noMatch(), arguments[0], block)
+            }
+
             else -> noMatch()
         }
     }
@@ -672,25 +657,18 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         return type
     }
 
+    @JvmName("memoryLayoutType_extension")
+    private fun PsiExpression.memoryLayoutType(block: Block): MemoryLayoutType? {
+        val type = resolveType(this, block) as? MemoryLayoutType ?: return null
+        typeData[this] = type
+        return type
+    }
+
     fun type(expression: PsiExpression, block: Block) = expression.type(block)
 
     fun methodHandleType(expression: PsiExpression, block: Block) = expression.methodHandleType(block)
 
-    private fun methodHandleType(element: PsiElement): PsiClassType {
-        return PsiType.getTypeByName("java.lang.invoke.MethodHandle", element.project, element.resolveScope)
-    }
-
-    private fun varHandleType(element: PsiElement): PsiClassType {
-        return PsiType.getTypeByName("java.lang.invoke.VarHandle", element.project, element.resolveScope)
-    }
-
-    private fun methodTypeType(element: PsiElement): PsiClassType {
-        return PsiType.getTypeByName("java.lang.invoke.MethodType", element.project, element.resolveScope)
-    }
-
-    private fun objectType(element: PsiElement): PsiType {
-        return PsiType.getJavaLangObject(element.manager, element.resolveScope)
-    }
+    fun memoryLayoutType(expression: PsiExpression, block: Block) = expression.memoryLayoutType(block)
 
     private fun warnUnsupported(
         expression: PsiMethodCallExpression,
@@ -698,66 +676,6 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
     ): TypeLatticeElement<*>? {
         LOG.warnOnce("Unsupported method $className#${expression.methodName}")
         return null
-    }
-
-    private inline fun <reified T : TypeLatticeElement<*>> bottomForType(): T {
-        return bottomForType(T::class)
-    }
-
-    private fun <T : TypeLatticeElement<*>> bottomForType(clazz: KClass<T>): T {
-        if (clazz == MethodHandleType::class) {
-            return clazz.java.cast(BotMethodHandleType)
-        }
-        if (clazz == VarHandleType::class) {
-            return clazz.java.cast(BotVarHandleType)
-        }
-        if (clazz == Type::class) {
-            return clazz.java.cast(BotType)
-        }
-        if (clazz.isSubclassOf(MemoryLayoutType::class)) {
-            return clazz.java.cast(BotMemoryLayoutType)
-        }
-        throw UnsupportedOperationException("$clazz is not supported")
-    }
-
-    private fun bottomForType(psiType: PsiType, context: PsiElement): TypeLatticeElement<*> {
-        return when (psiType) {
-            methodTypeType(context) -> bottomForType<MethodHandleType>()
-            methodHandleType(context) -> bottomForType<MethodHandleType>()
-            varHandleType(context) -> bottomForType<VarHandleType>()
-            in memoryLayoutTypes(context) -> bottomForType<MemoryLayoutType>()
-            else -> throw UnsupportedOperationException("${psiType.presentableText} is not supported")
-        }
-    }
-
-    private inline fun <reified T : TypeLatticeElement<*>> topForType(): T {
-        return topForType(T::class)
-    }
-
-    private fun <T : TypeLatticeElement<*>> topForType(clazz: KClass<T>): T {
-        if (clazz == MethodHandleType::class) {
-            return clazz.java.cast(TopMethodHandleType)
-        }
-        if (clazz == VarHandleType::class) {
-            return clazz.java.cast(TopVarHandleType)
-        }
-        if (clazz == Type::class) {
-            return clazz.java.cast(TopType)
-        }
-        if (clazz.isSubclassOf(MemoryLayoutType::class)) {
-            return clazz.java.cast(TopMemoryLayoutType)
-        }
-        throw UnsupportedOperationException("$clazz is not supported")
-    }
-
-    private fun topForType(psiType: PsiType, context: PsiElement): TypeLatticeElement<*> {
-        return when (psiType) {
-            methodTypeType(context) -> topForType<MethodHandleType>()
-            methodHandleType(context) -> topForType<MethodHandleType>()
-            varHandleType(context) -> topForType<VarHandleType>()
-            in memoryLayoutTypes(context) -> topForType<MemoryLayoutType>()
-            else -> throw UnsupportedOperationException("${psiType.presentableText} is not supported")
-        }
     }
 
 }

@@ -104,8 +104,7 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEm
     private fun PsiExpression.asArrayType(): Type {
         val referenceClass = this.asType()
         if (referenceClass is ExactType && referenceClass.psiType !is PsiArrayType) {
-            emitMustBeArrayType(this, referenceClass)
-            return TopType
+            return emitMustBeArrayType(this, referenceClass)
         }
         return referenceClass
     }
