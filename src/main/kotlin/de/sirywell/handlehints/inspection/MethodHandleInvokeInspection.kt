@@ -46,8 +46,8 @@ class MethodHandleInvokeInspection : LocalInspectionTool() {
             }
         }
 
-        private fun checkArgumentsTypes(parameters: ParameterList, expression: PsiMethodCallExpression) {
-            if (parameters !is CompleteParameterList) return
+        private fun checkArgumentsTypes(parameters: TypeList, expression: PsiMethodCallExpression) {
+            if (parameters !is CompleteTypeList) return
             if (expression.argumentList.expressionTypes.zip(parameters.parameterTypes)
                     .any { !it.second.canBe(it.first) }
             ) {
@@ -129,11 +129,11 @@ class MethodHandleInvokeInspection : LocalInspectionTool() {
         }
 
         private fun checkArgumentsCount(
-            parameters: ParameterList,
+            parameters: TypeList,
             expression: PsiMethodCallExpression
         ) {
             // TODO we might know a lower bound due to IncompleteParameterList
-            if (parameters !is CompleteParameterList) return // no known size
+            if (parameters !is CompleteTypeList) return // no known size
             if (parameters.size != expression.argumentList.expressionCount) {
                 problemsHolder.registerProblem(
                     expression.methodExpression as PsiExpression,

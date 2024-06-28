@@ -131,11 +131,11 @@ fun objectType(manager: PsiManager, scope: GlobalSearchScope): PsiType {
 fun findMethodMatching(methodHandleType: MethodHandleType, methods: Array<PsiMethod>): PsiMethod? {
     if (methodHandleType !is CompleteMethodHandleType) return null
     if (methodHandleType.returnType !is ExactType) return null
-    val parameterList = methodHandleType.parameterList as? CompleteParameterList ?: return null
+    val parameterList = methodHandleType.typeLatticeElementList as? CompleteTypeList ?: return null
     return methods.find { matches(it, methodHandleType.returnType as ExactType, parameterList) }
 }
 
-fun matches(method: PsiMethod, returnType: ExactType, parameterList: CompleteParameterList): Boolean {
+fun matches(method: PsiMethod, returnType: ExactType, parameterList: CompleteTypeList): Boolean {
     if (method.returnType == null) {
         if (returnType.psiType != PsiTypes.voidType()) {
             return false

@@ -8,6 +8,7 @@ import com.intellij.psi.search.GlobalSearchScope
 import de.sirywell.handlehints.TriState
 import de.sirywell.handlehints.objectType
 import de.sirywell.handlehints.toTriState
+import java.util.*
 
 sealed interface Type : TypeLatticeElement<Type> {
 
@@ -91,4 +92,41 @@ data class ExactType(val psiType: PsiType) : Type {
     override fun toString(): String {
         return psiType.presentableText
     }
+}
+
+typealias TypeList = TypeLatticeElementList<Type>
+data object TopTypeList : TopTypeLatticeElementList<Type>() {
+    override fun topList() = TopTypeList
+    override fun botList() = BotTypeList
+    override fun top() = TopType
+    override fun bot() = BotType
+    override fun complete(list: List<Type>) = CompleteTypeList(list)
+    override fun incomplete(list: SortedMap<Int, Type>) = IncompleteTypeList(list)
+
+}
+data object BotTypeList : BotTypeLatticeElementList<Type>() {
+    override fun topList() = TopTypeList
+    override fun botList() = BotTypeList
+    override fun top() = TopType
+    override fun bot() = BotType
+    override fun complete(list: List<Type>) = CompleteTypeList(list)
+    override fun incomplete(list: SortedMap<Int, Type>) = IncompleteTypeList(list)
+}
+
+class CompleteTypeList(list: List<Type>) : CompleteTypeLatticeElementList<Type>(list) {
+    override fun topList() = TopTypeList
+    override fun botList() = BotTypeList
+    override fun top() = TopType
+    override fun bot() = BotType
+    override fun complete(list: List<Type>) = CompleteTypeList(list)
+    override fun incomplete(list: SortedMap<Int, Type>) = IncompleteTypeList(list)
+}
+
+class IncompleteTypeList(knowParameterTypes: SortedMap<Int, Type>) : IncompleteTypeLatticeElementList<Type>(knowParameterTypes) {
+    override fun topList() = TopTypeList
+    override fun botList() = BotTypeList
+    override fun top() = TopType
+    override fun bot() = BotType
+    override fun complete(list: List<Type>) = CompleteTypeList(list)
+    override fun incomplete(list: SortedMap<Int, Type>) = IncompleteTypeList(list)
 }

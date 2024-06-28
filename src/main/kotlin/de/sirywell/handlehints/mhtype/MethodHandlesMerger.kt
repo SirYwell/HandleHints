@@ -29,8 +29,8 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         val exType = exTypeExpr.asType()
         val target = ssaAnalyzer.methodHandleType(targetExpr, block) ?: bottomType
         val handler = ssaAnalyzer.methodHandleType(handlerExpr, block) ?: bottomType
-        val handlerParameterTypes = handler.parameterList
-        if (handlerParameterTypes is CompleteParameterList && (handlerParameterTypes.size == 0
+        val handlerParameterTypes = handler.typeLatticeElementList
+        if (handlerParameterTypes is CompleteTypeLatticeElementList && (handlerParameterTypes.size == 0
                     || (exType is ExactType && !handlerParameterTypes[0].canBe(exType.psiType)))
         ) {
             emitProblem<MethodHandleType>(handlerExpr, message("problem.merging.catchException.missingException", exType))
@@ -43,7 +43,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         }
         val comparableTypes = handlerParameterTypes.dropFirst(1)
         // TODO calculate common type of parameters
-        if (!comparableTypes.effectivelyIdenticalTo(target.parameterList)) {
+        if (!comparableTypes.effectivelyIdenticalTo(target.typeLatticeElementList)) {
             emitProblem<MethodHandleType>(
                 targetExpr,
                 message(
@@ -64,9 +64,9 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
     ): MethodHandleType {
         val target = ssaAnalyzer.methodHandleType(targetExpr, block) ?: return bottomType
         val filter = ssaAnalyzer.methodHandleType(filterExpr, block) ?: return bottomType
-        var parameters = target.parameterList
+        var parameters = target.typeLatticeElementList
         val pos = posExpr.nonNegativeInt() ?: return bottomType
-        if (parameters is CompleteParameterList && pos >= parameters.size) {
+        if (parameters is CompleteTypeLatticeElementList && pos >= parameters.size) {
             return emitProblem(
                 posExpr,
                 message("problem.general.position.invalidIndexKnownBoundsExcl", pos, parameters.size)
@@ -81,7 +81,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
             // the return value of filter will be passed to target at pos
             parameters = parameters.removeAt(pos)
         }
-        val filterParameters = filter.parameterList
+        val filterParameters = filter.typeLatticeElementList
         parameters = parameters.addAllAt(pos, filterParameters)
         return target.withParameterTypes(parameters)
     }
@@ -115,8 +115,8 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
             return topType
         }
         if (body is CompleteMethodHandleType) {
-            val externalParameters: ParameterList
-            val internalParameters = body.parameterList
+            val externalParameters: TypeList
+            val internalParameters = body.typeLatticeElementList
             val returnType = body.returnType
             if (init is CompleteMethodHandleType) {
                 if (returnType != init.returnType) {
@@ -132,7 +132,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
                 externalParameters = if (size != 1) {
                     internalParameters.dropFirst(1)
                 } else {
-                    (iterations as CompleteMethodHandleType).parameterList
+                    (iterations as CompleteMethodHandleType).typeLatticeElementList
                 }
             } else {
                 // (V I A...)
@@ -143,13 +143,13 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
                 externalParameters = if (size != 2) {
                     internalParameters.dropFirst(2)
                 } else {
-                    (iterations as CompleteMethodHandleType).parameterList
+                    (iterations as CompleteMethodHandleType).typeLatticeElementList
                 }
             }
-            if (!(init as CompleteMethodHandleType).parameterList.effectivelyIdenticalTo(externalParameters)) {
+            if (!(init as CompleteMethodHandleType).typeLatticeElementList.effectivelyIdenticalTo(externalParameters)) {
                 return topType
             }
-            if (!(iterations as CompleteMethodHandleType).parameterList.effectivelyIdenticalTo(externalParameters)) {
+            if (!(iterations as CompleteMethodHandleType).typeLatticeElementList.effectivelyIdenticalTo(externalParameters)) {
                 return topType
             }
         }
@@ -175,8 +175,8 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         if (start !is CompleteMethodHandleType || end !is CompleteMethodHandleType) {
             return bottomType // TODO not correct
         }
-        val startParameterList = start.parameterList as? CompleteParameterList ?: return topType
-        val endParameterList = end.parameterList as? CompleteParameterList ?: return topType
+        val startParameterList = start.typeLatticeElementList as? CompleteTypeLatticeElementList ?: return topType
+        val endParameterList = end.typeLatticeElementList as? CompleteTypeLatticeElementList ?: return topType
         if (startParameterList.parameterTypes.effectivelyIdenticalTo(endParameterList.parameterTypes)) {
             return topType
         }
@@ -196,8 +196,8 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         if (!pred.returnType.canBe(PsiTypes.booleanType())) {
             return topType
         }
-        val internalParams = (body as? CompleteMethodHandleType)?.parameterList ?: return body
-        if (internalParams != ((pred as? CompleteMethodHandleType)?.parameterList ?: return pred)) {
+        val internalParams = (body as? CompleteMethodHandleType)?.typeLatticeElementList ?: return body
+        if (internalParams != ((pred as? CompleteMethodHandleType)?.typeLatticeElementList ?: return pred)) {
             return topType
         }
         val returnType = init.returnType.join(body.returnType)
@@ -210,7 +210,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
             if (internalParams.hasSize(0) == TriState.YES) return topType
             if (internalParams[0].join(body.returnType) == TopType) return topType
             if (init !is CompleteMethodHandleType) return init
-            if (init.parameterList != internalParams.dropFirst(1)) return topType
+            if (init.typeLatticeElementList != internalParams.dropFirst(1)) return topType
         }
         // TODO this is not always correct due to effectively identical parameter lists
         return init
@@ -225,10 +225,10 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         val types = valueTypes.mapToTypes()
         val target = ssaAnalyzer.methodHandleType(targetExpr, block) ?: bottomType
         val signature = target
-        if (signature.parameterList.compareSize(pos) == PartialOrder.LT) {
-            return emitOutOfBounds(signature.parameterList.sizeOrNull(), targetExpr, pos, false)
+        if (signature.typeLatticeElementList.compareSize(pos) == PartialOrder.LT) {
+            return emitOutOfBounds(signature.typeLatticeElementList.sizeOrNull(), targetExpr, pos, false)
         }
-        val list = signature.parameterList.addAllAt(pos, CompleteParameterList(types))
+        val list = signature.typeLatticeElementList.addAllAt(pos, CompleteTypeList(types))
         return signature.withParameterTypes(list)
     }
 
@@ -252,10 +252,10 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         val target = ssaAnalyzer.methodHandleType(targetExpr, block) ?: bottomType
         val newType = ssaAnalyzer.methodHandleType(newTypeExpr, block) ?: bottomType
         // TODO proper handling of bottom/top
-        val newTypeParameterList = newType.parameterList
-        if (newTypeParameterList !is CompleteParameterList) return newType // result param types unknown
-        val targetParameterList = target.parameterList
-        if (targetParameterList !is CompleteParameterList) return target // source param types unknown
+        val newTypeParameterList = newType.typeLatticeElementList
+        if (newTypeParameterList !is CompleteTypeLatticeElementList) return newType // result param types unknown
+        val targetParameterList = target.typeLatticeElementList
+        if (targetParameterList !is CompleteTypeLatticeElementList) return target // source param types unknown
         if (targetParameterList.size != newTypeParameterList.size) return topType
         return newType
     }
@@ -265,13 +265,13 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         if (target !is CompleteMethodHandleType) return target
         if (filters.any { it !is CompleteMethodHandleType }) return topType
         val targetSignature = target
-        val targetParameterList = targetSignature.parameterList
+        val targetParameterList = targetSignature.typeLatticeElementList
         if (targetParameterList.sizeMatches { pos + filters.size > it } == TriState.YES) return topType
         val filtersCast = filters.map { it as CompleteMethodHandleType }
         // filters must be unary operators T1 -> T2
-        if (filtersCast.any { it.parameterList.hasSize(1) == TriState.NO }) return topType
+        if (filtersCast.any { it.typeLatticeElementList.hasSize(1) == TriState.NO }) return topType
         // return type of filters[i] must be type of targetParameters[i + pos]
-        val targetParams = (targetParameterList as? CompleteParameterList ?: return topType).parameterTypes
+        val targetParams = (targetParameterList as? CompleteTypeLatticeElementList ?: return topType).parameterTypes
         if (targetParams.subList(pos)
                 .zip(filtersCast)
                 .any { (psiType, mhType) -> psiType.join(mhType.returnType) == TopType }
@@ -279,7 +279,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
             return topType
         // replace parameter types in range of [pos, pos + filters.size)
         val result = targetParams.mapIndexed { index, psiType ->
-            if (index >= pos && index - pos < filters.size) filtersCast[index - pos].parameterList[0]
+            if (index >= pos && index - pos < filters.size) filtersCast[index - pos].typeLatticeElementList[0]
             else psiType
         }
         return targetSignature.withParameterTypes(result)
@@ -295,10 +295,10 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         val target = ssaAnalyzer.methodHandleType(targetExpr, block) ?: bottomType
         val filter = ssaAnalyzer.methodHandleType(filterExpr, block) ?: bottomType
         // TODO proper handling of bottom/top
-        if (filter !is CompleteMethodHandleType || filter.parameterList.hasSize(1) == TriState.NO) {
+        if (filter !is CompleteMethodHandleType || filter.typeLatticeElementList.hasSize(1) == TriState.NO) {
             return topType
         }
-        if (target.returnType.join(filter.parameterList[0]) == TopType) return topType
+        if (target.returnType.join(filter.typeLatticeElementList[0]) == TopType) return topType
         return target.withReturnType(filter.returnType)
     }
 
@@ -308,16 +308,16 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         // TODO proper handling of bottom/top
         val targetSignature = target // (Z..., V, A[N]..., B...)T, where N = |combiner.parameters|
         val combinerSignature = combiner // (A...)V
-        if (targetSignature.parameterList.sizeMatches { pos >= it } == TriState.YES) return topType
+        if (targetSignature.typeLatticeElementList.sizeMatches { pos >= it } == TriState.YES) return topType
         val combinerIsVoid = combinerSignature.returnType.match(PsiTypes.voidType())
-        val combinerParameterList = combinerSignature.parameterList as? CompleteParameterList ?: return topType
+        val combinerParameterList = combinerSignature.typeLatticeElementList as? CompleteTypeLatticeElementList ?: return topType
         val sub: List<Type> = when (combinerIsVoid) {
             TriState.YES -> combinerParameterList.parameterTypes
             TriState.NO -> listOf(combinerSignature.returnType) + combinerParameterList.parameterTypes
-            TriState.UNKNOWN -> return target.withParameterTypes(TopParameterList)
+            TriState.UNKNOWN -> return target.withParameterTypes(TopTypeList)
         }
         // TODO type-check sub with existing list
-        var newParameters = targetSignature.parameterList
+        var newParameters = targetSignature.typeLatticeElementList
         if (combinerIsVoid == TriState.NO) {
             newParameters = newParameters.removeAt(pos)
         }
@@ -339,8 +339,8 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         val fallbackSignature = fallback // (A... B...)T
         if (!testSignature.returnType.canBe(PsiTypes.booleanType())) return topType
         if (targetSignature != fallbackSignature) return topType
-        val testParameterList = testSignature.parameterList as? CompleteParameterList ?: return topType
-        val targetParameterList = targetSignature.parameterList as? CompleteParameterList ?: return topType
+        val testParameterList = testSignature.typeLatticeElementList as? CompleteTypeLatticeElementList ?: return topType
+        val targetParameterList = targetSignature.typeLatticeElementList as? CompleteTypeLatticeElementList ?: return topType
         if (testParameterList.size > targetParameterList.size) return topType
         if (testParameterList.parameterTypes != targetParameterList.parameterTypes.subList(
                 0,
@@ -360,7 +360,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
     ): MethodHandleType {
         val target = ssaAnalyzer.methodHandleType(targetExpr, block) ?: bottomType
         val pos = posExpr.nonNegativeInt() ?: return topType
-        val parameterList = target.parameterList
+        val parameterList = target.typeLatticeElementList
         if (parameterList.compareSize(pos + valueTypes.size) == PartialOrder.LT) {
             // the index of the first value that is out of bounds
             val valueTypesIndex = parameterList.sizeOrNull()?.minus(pos)
@@ -391,8 +391,8 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         if (target.returnType.join(newType.returnType) == TopType) {
             return emitIncompatibleReturnTypes(targetExpr, target.returnType, newType.returnType)
         }
-        val outParams = target.parameterList
-        val inParams = newType.parameterList
+        val outParams = target.typeLatticeElementList
+        val inParams = newType.typeLatticeElementList
         if (outParams.sizeMatches { it != reorder.size } == TriState.YES) {
             return emitProblem(
                 newTypeExpr,
@@ -401,7 +401,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         }
         // if reorder array is unknown, just assume the input is correct
         val reorderInts = reorder.map { it.nonNegativeInt() ?: return newType }
-        val resultType: MutableList<Type> = (newType.parameterList as? CompleteParameterList)
+        val resultType: MutableList<Type> = (newType.typeLatticeElementList as? CompleteTypeLatticeElementList)
             ?.parameterTypes?.toMutableList()
             ?: return topType
         for ((index, value) in reorderInts.withIndex()) {
@@ -437,10 +437,10 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
             emitProblem<MethodHandleType>(fallbackExpr.parent, message("problem.merging.tableSwitch.noCases"))
         }
         val fallback = ssaAnalyzer.methodHandleType(fallbackExpr, block) ?: bottomType
-        var error = checkFirstParameter(fallback.parameterList, fallbackExpr)
+        var error = checkFirstParameter(fallback.typeLatticeElementList, fallbackExpr)
         val targets = targetsExprs.map { ssaAnalyzer.methodHandleType(it, block) ?: bottomType }
         for ((index, target) in targets.withIndex()) {
-            error = error or checkFirstParameter(target.parameterList, targetsExprs[index])
+            error = error or checkFirstParameter(target.typeLatticeElementList, targetsExprs[index])
         }
         val cases = targets.map { it }
         var prev = fallback
@@ -458,9 +458,9 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         return prev
     }
 
-    private fun checkFirstParameter(parameterList: ParameterList, context: PsiExpression): Boolean {
-        if (parameterList.compareSize(1) == PartialOrder.LT
-            || parameterList[0].match(PsiTypes.intType()) == TriState.NO
+    private fun checkFirstParameter(typeList: TypeList, context: PsiExpression): Boolean {
+        if (typeList.compareSize(1) == PartialOrder.LT
+            || typeList[0].match(PsiTypes.intType()) == TriState.NO
         ) {
             emitProblem<MethodHandleType>(context, message("problem.merging.tableSwitch.leadingInt"))
             return true
@@ -482,13 +482,13 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         val leading = when (isVoid) {
             TriState.YES -> 1
             TriState.NO -> 2
-            TriState.UNKNOWN -> return complete(target.returnType, TopParameterList)
+            TriState.UNKNOWN -> return complete(target.returnType, TopTypeList)
         }
-        if (cleanup.parameterList.sizeMatches { it < leading } == TriState.YES) return topType
+        if (cleanup.typeLatticeElementList.sizeMatches { it < leading } == TriState.YES) return topType
         // TODO 0th param must be <= Throwable
-        if (isVoid == TriState.NO && cleanup.parameterList[1] != cleanup.returnType) return topType
-        val aList = cleanup.parameterList.dropFirst(leading) as? CompleteParameterList ?: return topType
-        val targetParameterList = target.parameterList as? CompleteParameterList ?: return topType
+        if (isVoid == TriState.NO && cleanup.typeLatticeElementList[1] != cleanup.returnType) return topType
+        val aList = cleanup.typeLatticeElementList.dropFirst(leading) as? CompleteTypeLatticeElementList ?: return topType
+        val targetParameterList = target.typeLatticeElementList as? CompleteTypeLatticeElementList ?: return topType
         if (!targetParameterList.parameterTypes.startsWith(aList.parameterTypes)) return topType
         return target
     }
@@ -512,8 +512,8 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
 
 }
 
-private fun ParameterList.effectivelyIdenticalTo(other: ParameterList): Boolean {
-    if (this is CompleteParameterList && other is CompleteParameterList) {
+private fun TypeList.effectivelyIdenticalTo(other: TypeList): Boolean {
+    if (this is CompleteTypeList && other is CompleteTypeList) {
         return parameterTypes.effectivelyIdenticalTo(other.parameterTypes)
     }
     return false

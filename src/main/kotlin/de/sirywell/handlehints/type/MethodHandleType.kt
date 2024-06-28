@@ -7,8 +7,8 @@ sealed interface MethodHandleType : TypeLatticeElement<MethodHandleType> {
 
     fun withReturnType(returnType: Type): MethodHandleType
 
-    fun withParameterTypes(parameterTypes: List<Type>) = withParameterTypes(CompleteParameterList(parameterTypes))
-    fun withParameterTypes(parameterTypes: ParameterList): MethodHandleType
+    fun withParameterTypes(parameterTypes: List<Type>) = withParameterTypes(CompleteTypeList(parameterTypes))
+    fun withParameterTypes(parameterTypes: TypeList): MethodHandleType
 
     fun withVarargs(varargs: TriState): MethodHandleType
 
@@ -16,7 +16,7 @@ sealed interface MethodHandleType : TypeLatticeElement<MethodHandleType> {
 
     val returnType: Type
 
-    val parameterList: ParameterList
+    val typeLatticeElementList: TypeList
 
     val varargs: TriState
 }
@@ -24,9 +24,9 @@ sealed interface MethodHandleType : TypeLatticeElement<MethodHandleType> {
 data object BotMethodHandleType : MethodHandleType, BotTypeLatticeElement<MethodHandleType> {
     override fun joinIdentical(other: MethodHandleType) = other to TriState.UNKNOWN
 
-    override fun withReturnType(returnType: Type) = CompleteMethodHandleType(returnType, parameterList, TriState.NO)
+    override fun withReturnType(returnType: Type) = CompleteMethodHandleType(returnType, typeLatticeElementList, TriState.NO)
 
-    override fun withParameterTypes(parameterTypes: ParameterList) =
+    override fun withParameterTypes(parameterTypes: TypeList) =
         CompleteMethodHandleType(returnType, parameterTypes, TriState.NO)
 
     override fun withVarargs(varargs: TriState) = this
@@ -35,7 +35,7 @@ data object BotMethodHandleType : MethodHandleType, BotTypeLatticeElement<Method
 
     override val returnType get() = BotType
 
-    override val parameterList get() = BotParameterList
+    override val typeLatticeElementList get() = BotTypeList
 
     override val varargs get() = TriState.UNKNOWN
 }
@@ -45,7 +45,7 @@ data object TopMethodHandleType : MethodHandleType, TopTypeLatticeElement<Method
 
     override fun withReturnType(returnType: Type) = this
 
-    override fun withParameterTypes(parameterTypes: ParameterList) = this
+    override fun withParameterTypes(parameterTypes: TypeList) = this
 
     override fun withVarargs(varargs: TriState) = this
 
@@ -53,7 +53,7 @@ data object TopMethodHandleType : MethodHandleType, TopTypeLatticeElement<Method
 
     override val returnType get() = TopType
 
-    override val parameterList get() = TopParameterList
+    override val typeLatticeElementList get() = TopTypeList
 
     override val varargs get() = TriState.UNKNOWN
     override fun self() = this
@@ -62,41 +62,41 @@ data object TopMethodHandleType : MethodHandleType, TopTypeLatticeElement<Method
 @JvmRecord
 data class CompleteMethodHandleType(
     override val returnType: Type,
-    override val parameterList: ParameterList,
+    override val typeLatticeElementList: TypeList,
     override val varargs: TriState
 ) : MethodHandleType {
     override fun joinIdentical(other: MethodHandleType): Pair<MethodHandleType, TriState> {
         val (ret, rIdentical) = returnType.joinIdentical(other.returnType)
-        val (params, pIdentical) = parameterList.joinIdentical(other.parameterList)
+        val (params, pIdentical) = typeLatticeElementList.joinIdentical(other.typeLatticeElementList)
         return CompleteMethodHandleType(ret, params, TriState.NO) to rIdentical.sharpenTowardsNo(pIdentical)
     }
 
     override fun withReturnType(returnType: Type): MethodHandleType {
-        return CompleteMethodHandleType(returnType, parameterList, TriState.NO)
+        return CompleteMethodHandleType(returnType, typeLatticeElementList, TriState.NO)
     }
 
-    override fun withParameterTypes(parameterTypes: ParameterList): MethodHandleType {
+    override fun withParameterTypes(parameterTypes: TypeList): MethodHandleType {
         return CompleteMethodHandleType(returnType, parameterTypes, TriState.NO)
     }
 
     override fun withVarargs(varargs: TriState): MethodHandleType {
-        return CompleteMethodHandleType(returnType, parameterList, varargs)
+        return CompleteMethodHandleType(returnType, typeLatticeElementList, varargs)
     }
 
     override fun parameterTypeAt(index: Int): Type {
-        return parameterList[index]
+        return typeLatticeElementList[index]
     }
 
     override fun toString(): String {
-        return parameterList.toString() + returnType
+        return typeLatticeElementList.toString() + returnType
     }
 
 }
 
 fun complete(returnType: Type, parameterTypes: List<Type>): MethodHandleType {
-    return complete(returnType, CompleteParameterList(parameterTypes))
+    return complete(returnType, CompleteTypeList(parameterTypes))
 }
 
-fun complete(returnType: Type, parameterTypes: ParameterList): MethodHandleType {
+fun complete(returnType: Type, parameterTypes: TypeList): MethodHandleType {
     return CompleteMethodHandleType(returnType, parameterTypes, TriState.NO)
 }

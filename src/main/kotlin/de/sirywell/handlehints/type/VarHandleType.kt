@@ -4,32 +4,32 @@ import de.sirywell.handlehints.TriState
 
 interface VarHandleType : TypeLatticeElement<VarHandleType> {
     val variableType: Type
-    val coordinateTypes: ParameterList
+    val coordinateTypes: TypeList
 }
 
 data object BotVarHandleType : VarHandleType, BotTypeLatticeElement<VarHandleType> {
     override val variableType = BotType
-    override val coordinateTypes = BotParameterList
+    override val coordinateTypes = BotTypeList
 }
 
 data object TopVarHandleType : VarHandleType, TopTypeLatticeElement<VarHandleType> {
     override fun self() = this
     override val variableType = TopType
-    override val coordinateTypes = TopParameterList
+    override val coordinateTypes = TopTypeList
 }
 
 data class CompleteVarHandleType(
     override val variableType: Type,
-    override val coordinateTypes: ParameterList
+    override val coordinateTypes: TypeList
 ) : VarHandleType {
     override fun joinIdentical(other: VarHandleType): Pair<VarHandleType, TriState> {
         val (vt, identicalVt) = variableType.joinIdentical(other.variableType)
         val (ct, identicalCt) = coordinateTypes.joinIdentical(other.coordinateTypes)
         val identical = identicalVt.sharpenTowardsNo(identicalCt)
-        if (vt == TopType && ct == TopParameterList) {
+        if (vt == TopType && ct == TopTypeList) {
             return TopVarHandleType to identical
         }
-        if (vt == BotType && ct == BotParameterList) {
+        if (vt == BotType && ct == BotTypeList) {
             return BotVarHandleType to identical
         }
         return CompleteVarHandleType(vt, ct) to identical

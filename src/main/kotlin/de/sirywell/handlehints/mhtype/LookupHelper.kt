@@ -94,7 +94,7 @@ class LookupHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ssaAna
         mhType: MethodHandleType,
         paramType: Type
     ): MethodHandleType {
-        val pt = CompleteParameterList(listOf(paramType)).addAllAt(1, mhType.parameterList)
+        val pt = CompleteTypeList(listOf(paramType)).addAllAt(1, mhType.typeLatticeElementList)
         return mhType.withParameterTypes(pt).withVarargs(mhType.varargs)
     }
 
@@ -135,12 +135,12 @@ class LookupHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ssaAna
     fun findStaticVarHandle(declExpr: PsiExpression, typeExpr: PsiExpression): VarHandleType {
         declExpr.asReferenceType() // problem reporting only, not needed otherwise
         val type = typeExpr.asNonVoidType()
-        return CompleteVarHandleType(type, CompleteParameterList(listOf()))
+        return CompleteVarHandleType(type, CompleteTypeList(listOf()))
     }
 
     fun findVarHandle(recvExpr: PsiExpression, typeExpr: PsiExpression): VarHandleType {
         val recv = recvExpr.asReferenceType()
         val type = typeExpr.asNonVoidType()
-        return CompleteVarHandleType(type, CompleteParameterList(listOf(recv)))
+        return CompleteVarHandleType(type, CompleteTypeList(listOf(recv)))
     }
 }
