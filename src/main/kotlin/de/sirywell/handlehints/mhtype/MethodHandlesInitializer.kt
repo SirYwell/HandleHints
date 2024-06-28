@@ -39,7 +39,7 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEm
     fun arrayElementVarHandle(arrayClass: PsiExpression): VarHandleType {
         val arrayType = arrayClass.asArrayType()
         val componentType = getComponentType(arrayType)
-        return CompleteVarHandleType(componentType, CompleteParameterList(listOf(arrayType, ExactType.intType)))
+        return CompleteVarHandleType(componentType, CompleteTypeList(listOf(arrayType, ExactType.intType)))
     }
 
     private fun getComponentType(arrayType: Type) = if (arrayType !is ExactType) {
@@ -80,13 +80,13 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEm
     }
 
     fun invoker(mhType: MethodHandleType, methodHandleType: PsiType): MethodHandleType {
-        val pt = mhType.parameterList.addAllAt(0, CompleteParameterList(listOf(ExactType(methodHandleType))))
+        val pt = mhType.typeLatticeElementList.addAllAt(0, CompleteTypeList(listOf(ExactType(methodHandleType))))
         return complete(mhType.returnType, pt)
     }
 
     fun spreadInvoker(type: MethodHandleType, leadingArgCount: Int, objectType: PsiType): MethodHandleType {
         if (leadingArgCount < 0) return topType
-        val parameterList = type.parameterList as? CompleteParameterList ?: return topType
+        val parameterList = type.typeLatticeElementList as? CompleteTypeLatticeElementList ?: return topType
         if (leadingArgCount >= parameterList.size) return topType
         val keep = parameterList.parameterTypes.subList(0, leadingArgCount).toMutableList()
         keep.add(ExactType(objectType.createArrayType()))
@@ -136,7 +136,7 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEm
         }
         val varHandleType = PsiType.getTypeByName(VAR_HANDLE_FQN, methodTypeExpr.project, methodTypeExpr.resolveScope)
         return type.withParameterTypes(
-                type.parameterList.addAllAt(0, CompleteParameterList(listOf(ExactType(varHandleType))))
+                type.typeLatticeElementList.addAllAt(0, CompleteTypeList(listOf(ExactType(varHandleType))))
             )
     }
 

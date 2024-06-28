@@ -315,6 +315,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                 if (arguments.size != 1) return noMatch()
                 memoryLayoutHelper.withByteAlignment(qualifier ?: return noMatch(), arguments[0], block)
             }
+            "structLayout" -> memoryLayoutHelper.structLayout(arguments, block)
 
             else -> noMatch()
         }

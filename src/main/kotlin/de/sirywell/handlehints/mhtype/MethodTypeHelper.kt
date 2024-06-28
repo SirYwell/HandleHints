@@ -20,14 +20,14 @@ class MethodTypeHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ss
         // TODO check types for void
         val additionalTypes = ptypesToInsert.mapToTypes()
         if (additionalTypes.isEmpty()) return mhType // no change
-        val parameters = mhType.parameterList as? CompleteParameterList ?: return topType
-        return withParameters(mhType, parameters.addAllAt(parameters.size, CompleteParameterList(additionalTypes)))
+        val parameters = mhType.typeLatticeElementList as? CompleteTypeLatticeElementList ?: return topType
+        return withParameters(mhType, parameters.addAllAt(parameters.size, CompleteTypeList(additionalTypes)))
     }
 
     fun changeParameterType(mhType: MethodHandleType, num: PsiExpression, nptype: PsiExpression): MethodHandleType {
         val type = nptype.asType() // TODO inspection on void
         val pos = num.getConstantOfType<Int>() ?: return BotMethodHandleType
-        val parameters = mhType.parameterList
+        val parameters = mhType.typeLatticeElementList
         if (pos < 0 || parameters.sizeMatches { pos > it } == TriState.YES) return topType // TODO inspection
         return withParameters(mhType, parameters.setAt(pos, type))
     }
@@ -40,10 +40,10 @@ class MethodTypeHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ss
     fun dropParameterTypes(mhType: MethodHandleType, start: PsiExpression, end: PsiExpression): MethodHandleType {
         if (mhType !is CompleteMethodHandleType) return mhType
         val startIndex = start.getConstantOfType<Int>()
-            ?: return complete(mhType.returnType, BotParameterList)
+            ?: return complete(mhType.returnType, TopTypeList)
         val endIndex = end.getConstantOfType<Int>()
-            ?: return complete(mhType.returnType, BotParameterList)
-        val parameters = mhType.parameterList
+            ?: return complete(mhType.returnType, TopTypeList)
+        val parameters = mhType.typeLatticeElementList
         val size = parameters.sizeOrNull() ?: return topType
         if (invalidRange(size, startIndex, endIndex)) return topType // TODO inspection
         return withParameters(mhType, parameters.removeAt(startIndex, endIndex - startIndex))
@@ -51,14 +51,14 @@ class MethodTypeHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ss
 
     fun erase(mhType: MethodHandleType, objectType: PsiExpression): MethodHandleType {
         val ret = mhType.returnType.erase(objectType.manager, objectType.resolveScope)
-        val parameterList = mhType.parameterList as? CompleteParameterList
-            ?: return complete(ret, TopParameterList)
+        val parameterList = mhType.typeLatticeElementList as? CompleteTypeLatticeElementList
+            ?: return complete(ret, TopTypeList)
         val params = parameterList.parameterTypes.map { it.erase(objectType.manager, objectType.resolveScope) }
         return complete(ret, params)
     }
 
     fun generic(mhType: MethodHandleType, objectType: PsiType): MethodHandleType {
-        val size = (mhType.parameterList as? CompleteParameterList)?.size ?: return topType
+        val size = (mhType.typeLatticeElementList as? CompleteTypeLatticeElementList)?.size ?: return topType
         val objType = ExactType(objectType)
         return complete(objType, nCopies(size, objType))
     }
@@ -80,17 +80,17 @@ class MethodTypeHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ss
     ): MethodHandleType {
         val types = ptypesToInsert.mapToTypes()
         // TODO check types for void
-        val parameters = mhType.parameterList
-        val pos = num.getConstantOfType<Int>() ?: return complete(mhType.returnType, BotParameterList)
+        val parameters = mhType.typeLatticeElementList
+        val pos = num.getConstantOfType<Int>() ?: return complete(mhType.returnType, TopTypeList)
         if (pos < 0 || parameters.sizeMatches { pos > it } == TriState.YES) return topType // TODO inspection
         if (types.isEmpty()) return mhType // no change
-        val mutable = parameters.addAllAt(pos, CompleteParameterList(types))
+        val mutable = parameters.addAllAt(pos, CompleteTypeList(types))
         return withParameters(mhType, mutable)
     }
 
     private fun withParameters(
         mhType: MethodHandleType,
-        newParameters: ParameterList
+        newParameters: TypeList
     ) = mhType.withParameterTypes(newParameters)
 
     private fun invalidRange(parametersSize: Int, start: Int, end: Int): Boolean {
@@ -115,8 +115,8 @@ class MethodTypeHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ss
     private fun mapTypes(mhType: MethodHandleType, map: (Type) -> Type): MethodHandleType {
         if (mhType !is CompleteMethodHandleType) return mhType
         val ret = map(mhType.returnType)
-        val parameterList = mhType.parameterList as? CompleteParameterList
-            ?: return complete(ret, TopParameterList)
+        val parameterList = mhType.typeLatticeElementList as? CompleteTypeLatticeElementList
+            ?: return complete(ret, TopTypeList)
         val params = parameterList.parameterTypes.map { map(it) }
         return complete(ret, params)
     }
