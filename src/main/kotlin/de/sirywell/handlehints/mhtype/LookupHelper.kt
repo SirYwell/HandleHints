@@ -94,7 +94,7 @@ class LookupHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ssaAna
         mhType: MethodHandleType,
         paramType: Type
     ): MethodHandleType {
-        val pt = CompleteTypeList(listOf(paramType)).addAllAt(1, mhType.typeLatticeElementList)
+        val pt = CompleteTypeList(listOf(paramType)).addAllAt(1, mhType.parameterTypes)
         return mhType.withParameterTypes(pt).withVarargs(mhType.varargs)
     }
 

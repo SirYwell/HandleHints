@@ -70,8 +70,6 @@ abstract class BotTypeLatticeElementList<T : TypeLatticeElement<T>> : TypeLattic
     }
 
     override fun sizeOrNull() = null
-
-    override fun toString() = "[⊥]"
 }
 
 abstract class TopTypeLatticeElementList<T : TypeLatticeElement<T>> : TypeLatticeElementList<T> {
@@ -89,14 +87,12 @@ abstract class TopTypeLatticeElementList<T : TypeLatticeElement<T>> : TypeLattic
     }
 
     override fun sizeOrNull() = null
-
-    override fun toString() = "[⊤]"
 }
 
-abstract class CompleteTypeLatticeElementList<T : TypeLatticeElement<T>>(val parameterTypes: List<T>) : TypeLatticeElementList<T> {
-    val size get() = parameterTypes.size
+abstract class CompleteTypeLatticeElementList<T : TypeLatticeElement<T>>(val typeList: List<T>) : TypeLatticeElementList<T> {
+    val size get() = typeList.size
     override fun parameterType(index: Int): T {
-        return parameterTypes.getOrElse(index) { top() }
+        return typeList.getOrElse(index) { top() }
     }
 
     override fun joinIdentical(other: TypeLatticeElementList<T>): Pair<TypeLatticeElementList<T>, TriState> {
@@ -107,21 +103,21 @@ abstract class CompleteTypeLatticeElementList<T : TypeLatticeElement<T>>(val par
                 if (size != other.size) {
                     topList() to TriState.NO
                 } else {
-                    val params = parameterTypes.zip(other.parameterTypes).map { (a, b) -> a.joinIdentical(b) }
+                    val params = typeList.zip(other.typeList).map { (a, b) -> a.joinIdentical(b) }
                     val identical = paramsAreIdentical(params)
                     complete(params.map { it.first }) to identical
                 }
             }
 
             is IncompleteTypeLatticeElementList -> {
-                if (size < other.knownParameterTypes.lastKey()) {
+                if (size < other.knownTypes.lastKey()) {
                     // this list is definitely smaller than the other list, therefore incompatible
                     topList() to TriState.NO
                 } else {
                     // join the known types, keep the rest (others would be BotType anyway)
-                    val params = parameterTypes.map { it to TriState.UNKNOWN }.toMutableList()
-                    other.knownParameterTypes.forEach { (index, type) ->
-                        params[index] = parameterTypes[index].joinIdentical(type)
+                    val params = typeList.map { it to TriState.UNKNOWN }.toMutableList()
+                    other.knownTypes.forEach { (index, type) ->
+                        params[index] = typeList[index].joinIdentical(type)
                     }
                     val identical = paramsAreIdentical(params)
                     complete(params.map { it.first }) to identical
@@ -131,13 +127,13 @@ abstract class CompleteTypeLatticeElementList<T : TypeLatticeElement<T>>(val par
     }
 
     override fun dropFirst(n: Int): TypeLatticeElementList<T> {
-        if (parameterTypes.size < n) return topList()
-        return complete(parameterTypes.drop(n))
+        if (typeList.size < n) return topList()
+        return complete(typeList.drop(n))
     }
 
     override fun removeAt(index: Int, n: Int): TypeLatticeElementList<T> {
         if (index < 0 || index + n - 1 > size) return topList()
-        val list = parameterTypes.toMutableList()
+        val list = typeList.toMutableList()
         list.subList(index, index + n).clear()
         return complete(list)
     }
@@ -145,25 +141,25 @@ abstract class CompleteTypeLatticeElementList<T : TypeLatticeElement<T>>(val par
     override fun addAllAt(index: Int, typeLatticeElementList: TypeLatticeElementList<T>): TypeLatticeElementList<T> {
         if (index > size) return topList()
         return when (typeLatticeElementList) {
-            is BotTypeLatticeElementList<T> -> incomplete(parameterTypes.subList(0, index).toIndexedMap())
+            is BotTypeLatticeElementList<T> -> incomplete(typeList.subList(0, index).toIndexedMap())
             is TopTypeLatticeElementList<T> -> topList()
             is CompleteTypeLatticeElementList<T> -> {
-                val list = parameterTypes.toMutableList()
-                list.addAll(index, typeLatticeElementList.parameterTypes)
+                val list = typeList.toMutableList()
+                list.addAll(index, typeLatticeElementList.typeList)
                 complete(list)
             }
 
             is IncompleteTypeLatticeElementList<T> -> {
-                val map = parameterTypes.toIndexedMap().subMap(0, index)
-                val append = typeLatticeElementList.knownParameterTypes.mapKeys { it.key + index }
+                val map = typeList.toIndexedMap().subMap(0, index)
+                val append = typeLatticeElementList.knownTypes.mapKeys { it.key + index }
                 incomplete((map + append).toSortedMap())
             }
         }
     }
 
     override fun setAt(index: Int, type: T): TypeLatticeElementList<T> {
-        if (index < 0 || index > parameterTypes.size) return topList()
-        val list = parameterTypes.toMutableList()
+        if (index < 0 || index > typeList.size) return topList()
+        val list = typeList.toMutableList()
         list[index] = type
         return complete(list)
     }
@@ -175,15 +171,11 @@ abstract class CompleteTypeLatticeElementList<T : TypeLatticeElement<T>>(val par
     override fun compareSize(value: Int) = size.compareTo(value).order()
 
     override fun sizeOrNull() = size
-
-    override fun toString(): String {
-        return parameterTypes.joinToString(separator = ",", prefix = "(", postfix = ")")
-    }
 }
 
-abstract class IncompleteTypeLatticeElementList<T : TypeLatticeElement<T>>(val knownParameterTypes: SortedMap<Int, T>) : TypeLatticeElementList<T> {
+abstract class IncompleteTypeLatticeElementList<T : TypeLatticeElement<T>>(val knownTypes: SortedMap<Int, T>) : TypeLatticeElementList<T> {
     override fun parameterType(index: Int): T {
-        return knownParameterTypes[index] ?: top()
+        return knownTypes[index] ?: top()
     }
 
     override fun joinIdentical(other: TypeLatticeElementList<T>): Pair<TypeLatticeElementList<T>, TriState> {
@@ -192,7 +184,7 @@ abstract class IncompleteTypeLatticeElementList<T : TypeLatticeElement<T>>(val k
             is TopTypeLatticeElementList -> topList() to TriState.UNKNOWN
             is CompleteTypeLatticeElementList -> other.joinIdentical(this) // do not reimplement code here for no reason
             is IncompleteTypeLatticeElementList -> {
-                val new = (knownParameterTypes.entries + (other.knownParameterTypes.entries))
+                val new = (knownTypes.entries + (other.knownTypes.entries))
                     .stream()
                     .collect(Collectors.toMap({ it.key }, { it.value to TriState.UNKNOWN },
                         { (type, _), (o, _) -> type.joinIdentical(o) })
@@ -208,32 +200,32 @@ abstract class IncompleteTypeLatticeElementList<T : TypeLatticeElement<T>>(val k
     }
 
     override fun dropFirst(n: Int): TypeLatticeElementList<T> {
-        val mutableMap = knownParameterTypes.toMutableMap()
+        val mutableMap = knownTypes.toMutableMap()
         (0..<n).forEach { mutableMap.remove(it) }
         return incomplete(mutableMap.mapKeys { it.key - n }.toSortedMap())
     }
 
     override fun removeAt(index: Int, n: Int): TypeLatticeElementList<T> {
-        val mutableMap = knownParameterTypes.toMutableMap()
+        val mutableMap = knownTypes.toMutableMap()
         (0..<n).forEach { mutableMap.remove(index + it) }
         return incomplete(mutableMap.mapKeys { if (it.key >= index + n) it.key - n else it.key }.toSortedMap())
     }
 
     override fun addAllAt(index: Int, typeLatticeElementList: TypeLatticeElementList<T>): TypeLatticeElementList<T> {
         return when (typeLatticeElementList) {
-            is BotTypeLatticeElementList -> incomplete(knownParameterTypes.subMap(0, index))
+            is BotTypeLatticeElementList -> incomplete(knownTypes.subMap(0, index))
             is TopTypeLatticeElementList -> topList()
             is CompleteTypeLatticeElementList -> {
-                val parameterTypes = typeLatticeElementList.parameterTypes
+                val parameterTypes = typeLatticeElementList.typeList
                 val moved = parameterTypes.toIndexedMap().mapKeys { it.key + index }
                 val shifted =
-                    knownParameterTypes.mapKeys { if (it.key >= index) it.key + parameterTypes.size else it.key }
+                    knownTypes.mapKeys { if (it.key >= index) it.key + parameterTypes.size else it.key }
                 incomplete((moved + shifted).toSortedMap())
             }
 
             is IncompleteTypeLatticeElementList -> {
-                val map = knownParameterTypes.subMap(0, index)
-                val append = typeLatticeElementList.knownParameterTypes.mapKeys { it.key + index }
+                val map = knownTypes.subMap(0, index)
+                val append = typeLatticeElementList.knownTypes.mapKeys { it.key + index }
                 incomplete((map + append).toSortedMap())
             }
         }
@@ -242,7 +234,7 @@ abstract class IncompleteTypeLatticeElementList<T : TypeLatticeElement<T>>(val k
 
     override fun setAt(index: Int, type: T): TypeLatticeElementList<T> {
         if (index < 0) return topList()
-        val map = knownParameterTypes.toMutableMap()
+        val map = knownTypes.toMutableMap()
         map[index] = type
         return incomplete(map.toSortedMap())
     }
@@ -250,25 +242,19 @@ abstract class IncompleteTypeLatticeElementList<T : TypeLatticeElement<T>>(val k
     override fun sizeMatches(predicate: (Int) -> Boolean) = TriState.UNKNOWN
     override fun compareSize(value: Int): PartialOrder {
         return if (value < 0) PartialOrder.GT // if value is negative, this is definitely greater
-        else if (value < knownParameterTypes.lastKey()) PartialOrder.GT // at least one parameter is definitely greater
+        else if (value < knownTypes.lastKey()) PartialOrder.GT // at least one parameter is definitely greater
         else PartialOrder.UNORDERED
     }
 
     override fun sizeOrNull() = null
-
-    override fun toString(): String {
-        return "(" +
-                (0..knownParameterTypes.lastKey()).map { parameterType(it) }.joinToString(separator = ",") +
-                ",???)"
-    }
 }
 
 private fun <T : TypeLatticeElement<T>> TypeLatticeElementList<T>.toMap(): SortedMap<Int, T> {
     return when (this) {
         is BotTypeLatticeElementList -> emptySortedMap()
         is TopTypeLatticeElementList -> emptySortedMap()
-        is CompleteTypeLatticeElementList -> parameterTypes.toIndexedMap()
-        is IncompleteTypeLatticeElementList -> knownParameterTypes
+        is CompleteTypeLatticeElementList -> typeList.toIndexedMap()
+        is IncompleteTypeLatticeElementList -> knownTypes
     }
 }
 

@@ -9,6 +9,7 @@ import kotlin.reflect.full.isSubclassOf
 sealed interface TypeLatticeElement<LE: TypeLatticeElement<LE>> {
     fun join(other: LE) = joinIdentical(other).first
     fun joinIdentical(other: LE): Pair<LE, TriState>
+    fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C): R
 }
 
 sealed interface BotTypeLatticeElement<LE: TypeLatticeElement<LE>> : TypeLatticeElement<LE> {

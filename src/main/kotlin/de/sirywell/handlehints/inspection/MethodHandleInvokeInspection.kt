@@ -48,7 +48,7 @@ class MethodHandleInvokeInspection : LocalInspectionTool() {
 
         private fun checkArgumentsTypes(parameters: TypeList, expression: PsiMethodCallExpression) {
             if (parameters !is CompleteTypeList) return
-            if (expression.argumentList.expressionTypes.zip(parameters.parameterTypes)
+            if (expression.argumentList.expressionTypes.zip(parameters.typeList)
                     .any { !it.second.canBe(it.first) }
             ) {
                 problemsHolder.registerProblem(

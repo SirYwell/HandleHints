@@ -24,7 +24,7 @@ class MethodHandleTransformer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmi
     fun bindTo(typeExpr: PsiExpression, objectType: PsiExpression, block: SsaConstruction.Block): MethodHandleType {
         val type = ssaAnalyzer.methodHandleType(typeExpr, block) ?: BotMethodHandleType
         if (type !is CompleteMethodHandleType) return type
-        val parameterTypes = type.typeLatticeElementList
+        val parameterTypes = type.parameterTypes
         val firstParamType =
             // try to extract a first param if it exists
             // - CompleteParameterList has a first param if the size is > 0

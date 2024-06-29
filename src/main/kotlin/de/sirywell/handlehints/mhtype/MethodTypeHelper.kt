@@ -20,14 +20,14 @@ class MethodTypeHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ss
         // TODO check types for void
         val additionalTypes = ptypesToInsert.mapToTypes()
         if (additionalTypes.isEmpty()) return mhType // no change
-        val parameters = mhType.typeLatticeElementList as? CompleteTypeLatticeElementList ?: return topType
+        val parameters = mhType.parameterTypes as? CompleteTypeLatticeElementList ?: return topType
         return withParameters(mhType, parameters.addAllAt(parameters.size, CompleteTypeList(additionalTypes)))
     }
 
     fun changeParameterType(mhType: MethodHandleType, num: PsiExpression, nptype: PsiExpression): MethodHandleType {
         val type = nptype.asType() // TODO inspection on void
         val pos = num.getConstantOfType<Int>() ?: return BotMethodHandleType
-        val parameters = mhType.typeLatticeElementList
+        val parameters = mhType.parameterTypes
         if (pos < 0 || parameters.sizeMatches { pos > it } == TriState.YES) return topType // TODO inspection
         return withParameters(mhType, parameters.setAt(pos, type))
     }
@@ -43,7 +43,7 @@ class MethodTypeHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ss
             ?: return complete(mhType.returnType, TopTypeList)
         val endIndex = end.getConstantOfType<Int>()
             ?: return complete(mhType.returnType, TopTypeList)
-        val parameters = mhType.typeLatticeElementList
+        val parameters = mhType.parameterTypes
         val size = parameters.sizeOrNull() ?: return topType
         if (invalidRange(size, startIndex, endIndex)) return topType // TODO inspection
         return withParameters(mhType, parameters.removeAt(startIndex, endIndex - startIndex))
@@ -51,14 +51,14 @@ class MethodTypeHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ss
 
     fun erase(mhType: MethodHandleType, objectType: PsiExpression): MethodHandleType {
         val ret = mhType.returnType.erase(objectType.manager, objectType.resolveScope)
-        val parameterList = mhType.typeLatticeElementList as? CompleteTypeLatticeElementList
+        val parameterList = mhType.parameterTypes as? CompleteTypeLatticeElementList
             ?: return complete(ret, TopTypeList)
-        val params = parameterList.parameterTypes.map { it.erase(objectType.manager, objectType.resolveScope) }
+        val params = parameterList.typeList.map { it.erase(objectType.manager, objectType.resolveScope) }
         return complete(ret, params)
     }
 
     fun generic(mhType: MethodHandleType, objectType: PsiType): MethodHandleType {
-        val size = (mhType.typeLatticeElementList as? CompleteTypeLatticeElementList)?.size ?: return topType
+        val size = (mhType.parameterTypes as? CompleteTypeLatticeElementList)?.size ?: return topType
         val objType = ExactType(objectType)
         return complete(objType, nCopies(size, objType))
     }
@@ -80,7 +80,7 @@ class MethodTypeHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ss
     ): MethodHandleType {
         val types = ptypesToInsert.mapToTypes()
         // TODO check types for void
-        val parameters = mhType.typeLatticeElementList
+        val parameters = mhType.parameterTypes
         val pos = num.getConstantOfType<Int>() ?: return complete(mhType.returnType, TopTypeList)
         if (pos < 0 || parameters.sizeMatches { pos > it } == TriState.YES) return topType // TODO inspection
         if (types.isEmpty()) return mhType // no change
@@ -115,9 +115,9 @@ class MethodTypeHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ss
     private fun mapTypes(mhType: MethodHandleType, map: (Type) -> Type): MethodHandleType {
         if (mhType !is CompleteMethodHandleType) return mhType
         val ret = map(mhType.returnType)
-        val parameterList = mhType.typeLatticeElementList as? CompleteTypeLatticeElementList
+        val parameterList = mhType.parameterTypes as? CompleteTypeLatticeElementList
             ?: return complete(ret, TopTypeList)
-        val params = parameterList.parameterTypes.map { map(it) }
+        val params = parameterList.typeList.map { map(it) }
         return complete(ret, params)
     }
 
