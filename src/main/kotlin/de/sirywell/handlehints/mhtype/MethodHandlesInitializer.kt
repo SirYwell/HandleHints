@@ -80,15 +80,15 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEm
     }
 
     fun invoker(mhType: MethodHandleType, methodHandleType: PsiType): MethodHandleType {
-        val pt = mhType.typeLatticeElementList.addAllAt(0, CompleteTypeList(listOf(ExactType(methodHandleType))))
+        val pt = mhType.parameterTypes.addAllAt(0, CompleteTypeList(listOf(ExactType(methodHandleType))))
         return complete(mhType.returnType, pt)
     }
 
     fun spreadInvoker(type: MethodHandleType, leadingArgCount: Int, objectType: PsiType): MethodHandleType {
         if (leadingArgCount < 0) return topType
-        val parameterList = type.typeLatticeElementList as? CompleteTypeLatticeElementList ?: return topType
+        val parameterList = type.parameterTypes as? CompleteTypeLatticeElementList ?: return topType
         if (leadingArgCount >= parameterList.size) return topType
-        val keep = parameterList.parameterTypes.subList(0, leadingArgCount).toMutableList()
+        val keep = parameterList.typeList.subList(0, leadingArgCount).toMutableList()
         keep.add(ExactType(objectType.createArrayType()))
         return complete(type.returnType, keep)
     }
@@ -136,7 +136,7 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEm
         }
         val varHandleType = PsiType.getTypeByName(VAR_HANDLE_FQN, methodTypeExpr.project, methodTypeExpr.resolveScope)
         return type.withParameterTypes(
-                type.typeLatticeElementList.addAllAt(0, CompleteTypeList(listOf(ExactType(varHandleType))))
+                type.parameterTypes.addAllAt(0, CompleteTypeList(listOf(ExactType(varHandleType))))
             )
     }
 

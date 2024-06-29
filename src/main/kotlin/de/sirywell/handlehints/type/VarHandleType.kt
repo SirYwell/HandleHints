@@ -10,10 +10,13 @@ interface VarHandleType : TypeLatticeElement<VarHandleType> {
 data object BotVarHandleType : VarHandleType, BotTypeLatticeElement<VarHandleType> {
     override val variableType = BotType
     override val coordinateTypes = BotTypeList
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
 }
 
 data object TopVarHandleType : VarHandleType, TopTypeLatticeElement<VarHandleType> {
     override fun self() = this
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
+
     override val variableType = TopType
     override val coordinateTypes = TopTypeList
 }
@@ -35,9 +38,6 @@ data class CompleteVarHandleType(
         return CompleteVarHandleType(vt, ct) to identical
     }
 
-    override fun toString(): String {
-        return "$coordinateTypes($variableType)"
-    }
-
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
 }
 

@@ -23,22 +23,18 @@ sealed interface Type : TypeLatticeElement<Type> {
 
 data object BotType : Type {
     override fun joinIdentical(other: Type) = other to TriState.UNKNOWN
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
+
     override fun erase(manager: PsiManager, scope: GlobalSearchScope) = this
     override fun match(psiType: PsiType) = TriState.UNKNOWN
-
-    override fun toString(): String {
-        return "⊥"
-    }
 }
 
 data object TopType : Type {
     override fun joinIdentical(other: Type) = this to TriState.UNKNOWN
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
+
     override fun erase(manager: PsiManager, scope: GlobalSearchScope) = this
     override fun match(psiType: PsiType) = TriState.UNKNOWN
-
-    override fun toString(): String {
-        return "⊤"
-    }
 }
 
 @JvmRecord
@@ -77,6 +73,8 @@ data class ExactType(val psiType: PsiType) : Type {
         }
     }
 
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
+
     override fun erase(manager: PsiManager, scope: GlobalSearchScope): Type {
         if (psiType is PsiPrimitiveType) return this
         val objectType = objectType(manager, scope)
@@ -100,6 +98,7 @@ data object TopTypeList : TopTypeLatticeElementList<Type>() {
     override fun botList() = BotTypeList
     override fun top() = TopType
     override fun bot() = BotType
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
     override fun complete(list: List<Type>) = CompleteTypeList(list)
     override fun incomplete(list: SortedMap<Int, Type>) = IncompleteTypeList(list)
 
@@ -109,6 +108,7 @@ data object BotTypeList : BotTypeLatticeElementList<Type>() {
     override fun botList() = BotTypeList
     override fun top() = TopType
     override fun bot() = BotType
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
     override fun complete(list: List<Type>) = CompleteTypeList(list)
     override fun incomplete(list: SortedMap<Int, Type>) = IncompleteTypeList(list)
 }
@@ -118,6 +118,7 @@ class CompleteTypeList(list: List<Type>) : CompleteTypeLatticeElementList<Type>(
     override fun botList() = BotTypeList
     override fun top() = TopType
     override fun bot() = BotType
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
     override fun complete(list: List<Type>) = CompleteTypeList(list)
     override fun incomplete(list: SortedMap<Int, Type>) = IncompleteTypeList(list)
 }
@@ -127,6 +128,7 @@ class IncompleteTypeList(knowParameterTypes: SortedMap<Int, Type>) : IncompleteT
     override fun botList() = BotTypeList
     override fun top() = TopType
     override fun bot() = BotType
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
     override fun complete(list: List<Type>) = CompleteTypeList(list)
     override fun incomplete(list: SortedMap<Int, Type>) = IncompleteTypeList(list)
 }

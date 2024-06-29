@@ -131,7 +131,7 @@ fun objectType(manager: PsiManager, scope: GlobalSearchScope): PsiType {
 fun findMethodMatching(methodHandleType: MethodHandleType, methods: Array<PsiMethod>): PsiMethod? {
     if (methodHandleType !is CompleteMethodHandleType) return null
     if (methodHandleType.returnType !is ExactType) return null
-    val parameterList = methodHandleType.typeLatticeElementList as? CompleteTypeList ?: return null
+    val parameterList = methodHandleType.parameterTypes as? CompleteTypeList ?: return null
     return methods.find { matches(it, methodHandleType.returnType as ExactType, parameterList) }
 }
 
@@ -142,7 +142,7 @@ fun matches(method: PsiMethod, returnType: ExactType, parameterList: CompleteTyp
         }
     } else if (method.returnType != returnType.psiType) return false
     if (parameterList.size != method.parameterList.parametersCount) return false
-    val ps = parameterList.parameterTypes.map { it as? ExactType ?: return false }.map { it.psiType }
+    val ps = parameterList.typeList.map { it as? ExactType ?: return false }.map { it.psiType }
     return method.parameterList.parameters
         .map { if (it.type is PsiEllipsisType) (it.type as PsiEllipsisType).toArrayType() else it.type }
         .foldIndexed(true) { index, acc, param -> acc && ps[index] == param }

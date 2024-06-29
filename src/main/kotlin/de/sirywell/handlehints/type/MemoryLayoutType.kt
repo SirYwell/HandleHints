@@ -17,22 +17,17 @@ data object BotMemoryLayoutType : MemoryLayoutType, BotTypeLatticeElement<Memory
 
     override val byteAlignment = null
     override val byteSize = null
-
-    override fun toString(): String {
-        return "⊥"
-    }
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
 }
 
 data object TopMemoryLayoutType : MemoryLayoutType, TopTypeLatticeElement<MemoryLayoutType> {
     override fun self() = this
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
+
     override fun withByteAlignment(byteAlignment: Long) = this
 
     override val byteAlignment = null
     override val byteSize = null
-
-    override fun toString(): String {
-        return "⊤"
-    }
 }
 
 val ADDRESS_TYPE = ExactType(PsiTypes.nullType())
@@ -57,13 +52,9 @@ data class ValueLayoutType(
         return TopMemoryLayoutType to TriState.UNKNOWN
     }
 
-    override fun withByteAlignment(byteAlignment: Long) = ValueLayoutType(type, byteAlignment, byteSize)
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
 
-    override fun toString(): String {
-        return (if (byteAlignment != null) "$byteAlignment%" else "?") +
-                "$type" +
-                if (byteSize != null) "$byteSize" else "?"
-    }
+    override fun withByteAlignment(byteAlignment: Long) = ValueLayoutType(type, byteAlignment, byteSize)
 }
 
 data class StructLayoutType(
@@ -87,12 +78,7 @@ data class StructLayoutType(
         ) to identical.sharpenTowardsNo(identicalAlignment).sharpenTowardsNo(identicalSize)
     }
 
-    override fun toString(): String {
-        return (if (byteAlignment != null) "$byteAlignment%" else "?") +
-                "$memberLayouts" +
-                if (byteSize != null) "$byteSize" else "?"
-    }
-
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
 }
 
 private fun joinSizeAndAlignment(first: MemoryLayoutType, second: MemoryLayoutType): Pair<TriState, TriState> {
@@ -108,6 +94,7 @@ data object TopMemoryLayoutList : TopTypeLatticeElementList<MemoryLayoutType>() 
     override fun botList() = BotMemoryLayoutList
     override fun top() = TopMemoryLayoutType
     override fun bot() = BotMemoryLayoutType
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
     override fun complete(list: List<MemoryLayoutType>) = CompleteMemoryLayoutList(list)
     override fun incomplete(list: SortedMap<Int, MemoryLayoutType>) = IncompleteMemoryLayoutList(list)
 
@@ -118,6 +105,7 @@ data object BotMemoryLayoutList : BotTypeLatticeElementList<MemoryLayoutType>() 
     override fun botList() = BotMemoryLayoutList
     override fun top() = TopMemoryLayoutType
     override fun bot() = BotMemoryLayoutType
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
     override fun complete(list: List<MemoryLayoutType>) = CompleteMemoryLayoutList(list)
     override fun incomplete(list: SortedMap<Int, MemoryLayoutType>) = IncompleteMemoryLayoutList(list)
 }
@@ -127,6 +115,7 @@ class CompleteMemoryLayoutList(list: List<MemoryLayoutType>) : CompleteTypeLatti
     override fun botList() = BotMemoryLayoutList
     override fun top() = TopMemoryLayoutType
     override fun bot() = BotMemoryLayoutType
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
     override fun complete(list: List<MemoryLayoutType>) = CompleteMemoryLayoutList(list)
     override fun incomplete(list: SortedMap<Int, MemoryLayoutType>) = IncompleteMemoryLayoutList(list)
 }
@@ -137,6 +126,7 @@ class IncompleteMemoryLayoutList(knowParameterTypes: SortedMap<Int, MemoryLayout
     override fun botList() = BotMemoryLayoutList
     override fun top() = TopMemoryLayoutType
     override fun bot() = BotMemoryLayoutType
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
     override fun complete(list: List<MemoryLayoutType>) = CompleteMemoryLayoutList(list)
     override fun incomplete(list: SortedMap<Int, MemoryLayoutType>) = IncompleteMemoryLayoutList(list)
 }

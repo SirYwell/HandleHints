@@ -21,9 +21,12 @@
                          shortName="MhMerge"
                          level="WARNING" enabledByDefault="true" language="JAVA"/>
         <codeInsight.declarativeInlayProvider language="JAVA"
-                                              implementationClass="de.sirywell.handlehints.MethodTypeInlayProvider"
+                                              implementationClass="de.sirywell.handlehints.presentation.TypeInlayProvider"
                                               group="TYPES_GROUP" isEnabledByDefault="true" nameKey="name"
                                               providerId="HandleHints-Java"/>
+        <platform.backend.documentation.psiTargetProvider
+                id="TypeDocumentationTargetProvider"
+                implementation="de.sirywell.handlehints.presentation.TypeDocumentationTargetProvider"/>
     </extensions>
 
     <applicationListeners>
