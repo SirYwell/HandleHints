@@ -63,7 +63,9 @@ class TypePrinter : TypeVisitor<StringBuilder, Unit> {
 
     override fun visit(type: CompleteVarHandleType, context: StringBuilder) {
         type.coordinateTypes.accept(this, context)
+        context.append("(")
         type.variableType.accept(this, context)
+        context.append(")")
     }
 
     override fun visit(type: BotMethodHandleType, context: StringBuilder) {

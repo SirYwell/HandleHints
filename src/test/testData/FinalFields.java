@@ -27,12 +27,12 @@ public class FinalFields {
         <info descr="(CharSequence)int">this.methodType = <info descr="(CharSequence)int">MethodType.methodType(int.class, CharSequence.class)</info></info>;
         <info descr="(CharSequence)int">MethodHandle mn = <info descr="(CharSequence)int">MethodHandles.empty(this.methodType)</info>;</info>
         <info descr="(CharSequence)int">MethodHandle mni = <info descr="(CharSequence)int">MethodHandles.empty(methodType)</info>;</info>
-        <info descr="TopMethodHandleType">MethodHandle o = <info descr="TopMethodHandleType">MethodHandles.empty(other.methodType)</info>;</info>
+        <info descr="⊤">MethodHandle o = <info descr="⊤">MethodHandles.empty(other.methodType)</info>;</info>
         if (Math.random() < 0.5) {
             other = this;
-            <info descr="TopMethodHandleType">MethodHandle oy = <info descr="TopMethodHandleType">MethodHandles.empty(other.methodType)</info>;</info>
+            <info descr="⊤">MethodHandle oy = <info descr="⊤">MethodHandles.empty(other.methodType)</info>;</info>
         }
-        <info descr="TopMethodHandleType">MethodHandle om = <info descr="TopMethodHandleType">MethodHandles.empty(other.methodType)</info>;</info>
+        <info descr="⊤">MethodHandle om = <info descr="⊤">MethodHandles.empty(other.methodType)</info>;</info>
     }
 
     void m() {

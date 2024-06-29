@@ -7,6 +7,7 @@ import com.intellij.psi.JavaElementVisitor
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiElementVisitor
 import de.sirywell.handlehints.TypeData
+import de.sirywell.handlehints.presentation.TypePrinter
 
 /**
  * We (mis)use this inspection to add the type info as highlighting to the source code.
@@ -20,7 +21,7 @@ class MethodHandleTypeHelperInspection(private val elementFilter: (PsiElement) -
             override fun visitElement(element: PsiElement) {
                 if (!elementFilter(element)) return
                 val foundType = TypeData.forFile(element.containingFile)[element] ?: return
-                holder.registerProblem(element, foundType.toString(), ProblemHighlightType.INFORMATION)
+                holder.registerProblem(element, TypePrinter().print(foundType), ProblemHighlightType.INFORMATION)
             }
         }
     }
