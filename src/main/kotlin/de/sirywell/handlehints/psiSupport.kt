@@ -113,6 +113,12 @@ inline fun <reified T> PsiExpression.getConstantOfType(): T? {
         ?.getConstantOfType(T::class.java)
 }
 
+fun PsiExpression.getConstantLong(): Long? {
+    return (getConstantOfType<Int>()
+        ?: getConstantOfType<Long>())?.toLong()
+}
+
+
 fun Collection<PsiExpression>.mapToTypes(): List<Type> {
     return this.map { element -> element.asType() }
 }

@@ -81,6 +81,30 @@ data class StructLayoutType(
     override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
 }
 
+data class PaddingLayoutType(
+    override val byteAlignment: Long?,
+    override val byteSize: Long?
+) : MemoryLayoutType {
+    override fun withByteAlignment(byteAlignment: Long): MemoryLayoutType {
+        return PaddingLayoutType(byteAlignment, byteSize)
+    }
+
+    override fun joinIdentical(other: MemoryLayoutType): Pair<MemoryLayoutType, TriState> {
+        if (other is BotMemoryLayoutType) return this to TriState.UNKNOWN
+        if (other !is PaddingLayoutType) return TopMemoryLayoutType to TriState.UNKNOWN
+        val (identicalAlignment, identicalSize) = joinSizeAndAlignment(this, other)
+        return PaddingLayoutType(
+            if (identicalAlignment == TriState.YES) this.byteAlignment else null,
+            if (identicalSize == TriState.YES) this.byteSize else null
+        ) to identicalAlignment.sharpenTowardsNo(identicalSize)
+    }
+
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C): R {
+        return visitor.visit(this, context)
+    }
+
+}
+
 private fun joinSizeAndAlignment(first: MemoryLayoutType, second: MemoryLayoutType): Pair<TriState, TriState> {
     val identicalAlignment = (first.byteAlignment?.equals(second.byteAlignment)).toTriState()
     val identicalSize = (first.byteSize?.equals(second.byteSize)).toTriState()

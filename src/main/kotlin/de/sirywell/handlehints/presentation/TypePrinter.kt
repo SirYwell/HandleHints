@@ -104,6 +104,10 @@ class TypePrinter : TypeVisitor<StringBuilder, Unit> {
         type.memberLayouts.accept(this, context)
     }
 
+    override fun visit(type: PaddingLayoutType, context: StringBuilder) {
+        context.append("x").append(type.byteSize ?: "?")
+    }
+
     override fun visit(type: TopMemoryLayoutList, context: StringBuilder) {
         context.append("[{⊤}]")
     }

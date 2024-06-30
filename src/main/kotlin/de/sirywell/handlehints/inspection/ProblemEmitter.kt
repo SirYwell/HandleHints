@@ -1,5 +1,6 @@
 package de.sirywell.handlehints.inspection
 
+import com.intellij.codeInspection.LocalQuickFix
 import com.intellij.codeInspection.ProblemHighlightType
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiExpression
@@ -14,6 +15,17 @@ abstract class ProblemEmitter(protected val typeData: TypeData) {
     protected inline fun <reified T : TypeLatticeElement<T>> emitProblem(element: PsiElement, message: @Nls String): T {
         typeData.reportProblem(element) {
             it.registerProblem(element, message, ProblemHighlightType.GENERIC_ERROR_OR_WARNING)
+        }
+        return topForType<T>()
+    }
+
+    protected inline fun <reified T : TypeLatticeElement<T>> emitProblem(
+        element: PsiElement,
+        message: @Nls String,
+        vararg quickFixes: LocalQuickFix
+    ): T {
+        typeData.reportProblem(element) {
+            it.registerProblem(element, message, ProblemHighlightType.GENERIC_ERROR_OR_WARNING, *quickFixes)
         }
         return topForType<T>()
     }
