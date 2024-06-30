@@ -11,6 +11,7 @@ import com.intellij.psi.util.parentOfType
 import com.siyeh.ig.PsiReplacementUtil
 import com.siyeh.ig.psiutils.CommentTracker
 import de.sirywell.handlehints.MethodHandleBundle
+import de.sirywell.handlehints.getConstantLong
 import de.sirywell.handlehints.methodName
 
 @Suppress("UnstableApiUsage")
@@ -28,7 +29,16 @@ class AdjustPaddingFix(expression: PsiExpression, private val requiredPadding: L
                 val call = arguments.expressions[index - 1] as PsiMethodCallExpression
                 val arg = call.argumentList.expressions[0]
                 val commentTracker = CommentTracker()
-                PsiReplacementUtil.replaceExpression(arg, "$requiredPadding", commentTracker)
+                val c = arg.getConstantLong()
+                if (c != null) {
+                    PsiReplacementUtil.replaceExpression(arg, "${c + requiredPadding}", commentTracker)
+                } else {
+                    PsiReplacementUtil.replaceExpression(
+                        arg,
+                        "${commentTracker.text(arg)} + $requiredPadding",
+                        commentTracker
+                    )
+                }
                 return
             }
         }

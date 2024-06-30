@@ -10,6 +10,7 @@ import com.siyeh.ig.psiutils.CommentTracker
 import de.sirywell.handlehints.MethodHandleBundle
 import de.sirywell.handlehints.methodName
 
+@Suppress("UnstableApiUsage")
 class AdjustAlignmentFix(expression: PsiExpression, private val requiredAlignment: Long) :
     PsiUpdateModCommandAction<PsiExpression>(expression) {
     override fun getFamilyName(): String {
