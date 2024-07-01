@@ -1,12 +1,11 @@
 package de.sirywell.handlehints.foreign
 
-import com.intellij.codeInspection.LocalQuickFix
+import com.intellij.codeInspection.LocalQuickFix.from
 import com.intellij.psi.PsiExpression
 import de.sirywell.handlehints.MethodHandleBundle.message
 import de.sirywell.handlehints.dfa.SsaAnalyzer
 import de.sirywell.handlehints.dfa.SsaConstruction
 import de.sirywell.handlehints.getConstantLong
-import de.sirywell.handlehints.getConstantOfType
 import de.sirywell.handlehints.inspection.AdjustAlignmentFix
 import de.sirywell.handlehints.inspection.AdjustPaddingFix
 import de.sirywell.handlehints.inspection.ProblemEmitter
@@ -24,6 +23,12 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
             return emitProblem(byteAlignmentExpr, message("problem.general.argument.notAPowerOfTwo", byteAlignment))
         }
         val target = ssaAnalyzer.memoryLayoutType(qualifier, block) ?: TopMemoryLayoutType
+        if (target is StructLayoutType && target.memberLayouts.anyKnownMatches {
+                (it.byteAlignment ?: 1) > byteAlignment // 1 is smallest alignment anyway, so that's a good fallback
+            }
+        ) {
+            return emitProblem(byteAlignmentExpr, message("problem.foreign.memory.invalidAlignment", byteAlignment))
+        }
         return target.withByteAlignment(byteAlignment)
     }
 
@@ -41,13 +46,22 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
             members.forEachIndexed { index, type ->
                 val byteAlignment = type.byteAlignment
                 if (byteAlignment != null && t % byteAlignment != 0L) {
+                    // be careful here, alignment of other layouts depends on inner layouts
+                    // e.g. [j8i4].withByteAlignment(4) fails
+                    val padding = byteAlignment - t % byteAlignment
+                    val fixes = if (type is ValueLayoutType)
+                        arrayOf(
+                            from(AdjustPaddingFix(arguments[index], padding))!!,
+                            from(AdjustAlignmentFix(arguments[index], requiredAlignment(t, byteAlignment)))!!
+                        )
+                    else
+                        arrayOf(from(AdjustPaddingFix(arguments[index], padding))!!)
                     return emitProblem(
                         arguments[index], message(
                             "problem.foreign.memory.layoutMismatch",
                             byteAlignment, t
                         ),
-                        LocalQuickFix.from(AdjustPaddingFix(arguments[index],  type.byteSize!! - t % byteAlignment))!!,
-                        LocalQuickFix.from(AdjustAlignmentFix(arguments[index], requiredAlignment(t, byteAlignment)))!!
+                        *fixes
                     )
                 }
                 t += type.byteSize!! // size is not null, so all elements have non-null byteSize
