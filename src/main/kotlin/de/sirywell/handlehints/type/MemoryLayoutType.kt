@@ -81,6 +81,31 @@ data class StructLayoutType(
     override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
 }
 
+data class UnionLayoutType(
+    val memberLayouts: MemoryLayoutList,
+    override val byteAlignment: Long?,
+    override val byteSize: Long?
+) : MemoryLayoutType {
+    override fun withByteAlignment(byteAlignment: Long): MemoryLayoutType {
+        return UnionLayoutType(this.memberLayouts, byteSize, byteAlignment)
+    }
+
+    override fun joinIdentical(other: MemoryLayoutType): Pair<MemoryLayoutType, TriState> {
+        if (other is BotMemoryLayoutType) return this to TriState.UNKNOWN
+        if (other !is UnionLayoutType) return TopMemoryLayoutType to TriState.UNKNOWN
+        // TODO it might make sense to ignore order here?
+        val (members, identical) = this.memberLayouts.joinIdentical(other.memberLayouts)
+        val (identicalAlignment, identicalSize) = joinSizeAndAlignment(this, other)
+        return UnionLayoutType(
+            members,
+            if (identicalAlignment == TriState.YES) this.byteAlignment else null,
+            if (identicalSize == TriState.YES) this.byteSize else null
+        ) to identical.sharpenTowardsNo(identicalAlignment).sharpenTowardsNo(identicalSize)
+    }
+
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
+}
+
 data class PaddingLayoutType(
     override val byteAlignment: Long?,
     override val byteSize: Long?

@@ -70,6 +70,13 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
         return StructLayoutType(CompleteMemoryLayoutList(members), alignment, size)
     }
 
+    fun unionLayout(arguments: List<PsiExpression>, block: SsaConstruction.Block): MemoryLayoutType {
+        val members = arguments.map { ssaAnalyzer.memoryLayoutType(it, block) ?: TopMemoryLayoutType }
+        val size = maxSize(members)
+        val alignment = maxAlignment(members)
+        return UnionLayoutType(CompleteMemoryLayoutList(members), alignment, size)
+    }
+
     private fun requiredAlignment(t: Long, byteAlignment: Long): Long {
         var ba = byteAlignment
         while ((t % ba).countOneBits() != 1) {
@@ -90,6 +97,12 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
         return list
             .map { it.byteSize ?: return null }
             .sum()
+    }
+
+    private fun maxSize(list: List<MemoryLayoutType>): Long? {
+        return list
+            .map { it.byteSize ?: return null }
+            .max()
     }
 
     private fun maxAlignment(list: List<MemoryLayoutType>): Long? {

@@ -8,6 +8,8 @@ class MemoryLayoutTypeTest : TypeAnalysisTestBase() {
 
     fun testMemoryLayoutPaddingLayout() = doTypeCheckingTest()
 
+    fun testMemoryLayoutUnionLayout() = doTypeCheckingTest()
+
 
     fun testMemoryLayoutStructLayoutInspection() = doInspectionTest()
 }
