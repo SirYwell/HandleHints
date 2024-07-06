@@ -106,6 +106,35 @@ data class UnionLayoutType(
     override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
 }
 
+data class SequenceLayoutType(
+    val elementLayout: MemoryLayoutType,
+    val elementCount: Long?,
+    override val byteAlignment: Long?
+) : MemoryLayoutType {
+    override fun withByteAlignment(byteAlignment: Long): MemoryLayoutType {
+        return SequenceLayoutType(this.elementLayout, this.elementCount, byteAlignment)
+    }
+
+    override val byteSize = elementCount?.let { elementLayout.byteSize?.times(it) }
+
+    override fun joinIdentical(other: MemoryLayoutType): Pair<MemoryLayoutType, TriState> {
+        if (other is BotMemoryLayoutType) return this to TriState.UNKNOWN
+        if (other !is SequenceLayoutType) return TopMemoryLayoutType to TriState.UNKNOWN
+        val (element, identical) = this.elementLayout.joinIdentical(other.elementLayout)
+        val (identicalAlignment, identicalSize) = joinElementCountAndAlignment(this, other)
+        return SequenceLayoutType(
+            element,
+            if (identicalSize == TriState.YES) this.byteSize else null,
+            if (identicalAlignment == TriState.YES) this.byteAlignment else null
+        ) to identical.sharpenTowardsNo(identicalAlignment).sharpenTowardsNo(identicalSize)
+    }
+
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C): R {
+        return visitor.visit(this, context)
+    }
+
+}
+
 data class PaddingLayoutType(
     override val byteAlignment: Long?,
     override val byteSize: Long?
@@ -134,6 +163,15 @@ private fun joinSizeAndAlignment(first: MemoryLayoutType, second: MemoryLayoutTy
     val identicalAlignment = (first.byteAlignment?.equals(second.byteAlignment)).toTriState()
     val identicalSize = (first.byteSize?.equals(second.byteSize)).toTriState()
     return identicalAlignment to identicalSize
+}
+
+private fun joinElementCountAndAlignment(
+    first: SequenceLayoutType,
+    second: SequenceLayoutType
+): Pair<TriState, TriState> {
+    val identicalAlignment = (first.byteAlignment?.equals(second.byteAlignment)).toTriState()
+    val identicalElementCount = (first.elementCount?.equals(second.elementCount)).toTriState()
+    return identicalAlignment to identicalElementCount
 }
 
 typealias MemoryLayoutList = TypeLatticeElementList<MemoryLayoutType>

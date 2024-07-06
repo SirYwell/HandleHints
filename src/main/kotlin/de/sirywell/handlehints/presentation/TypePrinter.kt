@@ -126,6 +126,13 @@ class TypePrinter : TypeVisitor<TypePrinter.PrintContext, Unit> {
         type.memberLayouts.accept(this, context.copy(memoryLayoutSeparator = "|"))
     }
 
+    override fun visit(type: SequenceLayoutType, context: PrintContext) {
+        context.append("[")
+        context.append(type.elementCount ?: "?").append(":")
+        type.elementLayout.accept(this, context)
+        context.append("]")
+    }
+
     override fun visit(type: PaddingLayoutType, context: PrintContext) {
         context.append("x")
         context.append(type.byteSize ?: "?")

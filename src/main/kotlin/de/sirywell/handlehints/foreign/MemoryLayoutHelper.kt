@@ -85,6 +85,46 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
         return t % ba
     }
 
+    fun sequenceLayout(
+        elementCountExpr: PsiExpression,
+        elementLayoutExpr: PsiExpression,
+        block: SsaConstruction.Block
+    ): MemoryLayoutType {
+        val elementCount = elementCountExpr.asLong()
+        val elementLayout = ssaAnalyzer.memoryLayoutType(elementLayoutExpr, block) ?: TopMemoryLayoutType
+        if (elementCount != null) {
+            if (elementCount < 0) {
+                return emitProblem(
+                    elementCountExpr,
+                    message("problem.general.argument.numericConditionMismatch", ">= 0", elementCount)
+                )
+            }
+
+            // 0 is a sane fallback for this check as it is conservative
+            try {
+                Math.multiplyExact(elementLayout.byteSize ?: 0, elementCount)
+            } catch (_: ArithmeticException) {
+                return emitProblem(
+                    elementCountExpr,
+                    message("problem.foreign.memory.layoutSizeOverflow")
+                )
+
+            }
+        }
+        // if one is null, the result is 0
+        if ((elementLayout.byteSize ?: 0) % (elementLayout.byteAlignment ?: 1) != 0L) {
+            return emitProblem(
+                elementLayoutExpr,
+                message(
+                    "problem.foreign.memory.alignmentMismatch",
+                    elementLayout.byteSize!!,
+                    elementLayout.byteAlignment!!
+                )
+            )
+        }
+        return SequenceLayoutType(elementLayout, elementCount, elementLayout.byteAlignment)
+    }
+
     fun paddingLayout(byteSizeExpr: PsiExpression): MemoryLayoutType {
         val size = byteSizeExpr.asLong() ?: return PaddingLayoutType(1, null)
         if (size <= 0) {
