@@ -20,6 +20,7 @@ interface TypeVisitor<C, R> {
     fun visit(type: ValueLayoutType, context: C): R
     fun visit(type: StructLayoutType, context: C): R
     fun visit(type: UnionLayoutType, context: C): R
+    fun visit(type: SequenceLayoutType, context: C): R
     fun visit(type: PaddingLayoutType, context: C): R
     fun visit(type: TopMemoryLayoutList, context: C): R
     fun visit(type: BotMemoryLayoutList, context: C): R

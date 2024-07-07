@@ -11,8 +11,6 @@ import de.sirywell.handlehints.dfa.SsaConstruction.*
 import de.sirywell.handlehints.foreign.MemoryLayoutHelper
 import de.sirywell.handlehints.mhtype.*
 import de.sirywell.handlehints.type.*
-import kotlin.reflect.KClass
-import kotlin.reflect.full.isSubclassOf
 
 class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) {
     companion object {
@@ -317,6 +315,10 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
             }
             "structLayout" -> memoryLayoutHelper.structLayout(arguments, block)
             "unionLayout" -> memoryLayoutHelper.unionLayout(arguments, block)
+            "sequenceLayout" -> {
+                if (arguments.size != 2) return noMatch()
+                memoryLayoutHelper.sequenceLayout(arguments[0], arguments[1], block)
+            }
             "paddingLayout" -> {
                 if (arguments.size != 1) return noMatch()
                 memoryLayoutHelper.paddingLayout(arguments[0])
