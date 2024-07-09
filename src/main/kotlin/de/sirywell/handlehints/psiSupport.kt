@@ -153,3 +153,17 @@ fun matches(method: PsiMethod, returnType: ExactType, parameterList: CompleteTyp
         .map { if (it.type is PsiEllipsisType) (it.type as PsiEllipsisType).toArrayType() else it.type }
         .foldIndexed(true) { index, acc, param -> acc && ps[index] == param }
 }
+
+/**
+ * Returns true if the variable type has no [MethodHandleType]
+ */
+fun isUnrelated(variable: PsiVariable): Boolean {
+    return isUnrelated(variable.type, variable)
+}
+
+fun isUnrelated(type: PsiType, context: PsiElement): Boolean {
+    return type != methodTypeType(context)
+            && type != methodHandleType(context)
+            && type != varHandleType(context)
+            && type !in memoryLayoutTypes(context)
+}
