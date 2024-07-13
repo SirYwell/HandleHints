@@ -6,11 +6,15 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiIdentifier
 import com.intellij.psi.PsiReferenceExpression
 import com.intellij.psi.PsiVariable
+import de.sirywell.handlehints.isUnrelated
 
 class TypeDocumentationTargetProvider : PsiDocumentationTargetProvider {
 
     override fun documentationTarget(element: PsiElement, originalElement: PsiElement?): DocumentationTarget? {
-        if (originalElement is PsiIdentifier && isVariableName(originalElement)) {
+        if (element is PsiVariable
+            && element.containingFile == originalElement?.containingFile
+            && !isUnrelated(element)
+            && originalElement is PsiIdentifier && isVariableName(originalElement)) {
             return TypeDocumentationTarget(originalElement, element)
         }
         return null

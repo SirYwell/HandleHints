@@ -117,20 +117,6 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         }
     }
 
-    /**
-     * Returns true if the variable type has no [MethodHandleType]
-     */
-    private fun isUnrelated(variable: PsiVariable): Boolean {
-        return isUnrelated(variable.type, variable)
-    }
-
-    private fun isUnrelated(type: PsiType, context: PsiElement): Boolean {
-        return type != methodTypeType(context)
-                && type != methodHandleType(context)
-                && type != varHandleType(context)
-                && type !in memoryLayoutTypes(context)
-    }
-
     fun resolveType(expression: PsiExpression, block: Block): TypeLatticeElement<*>? {
         if (expression.type == null || isUnrelated(expression.type!!, expression)) {
             return noMatch() // unrelated
