@@ -110,6 +110,7 @@ class TypePrinter : TypeVisitor<TypePrinter.PrintContext, Unit> {
         }
         type.type.accept(this, context)
         context.append(type.byteSize ?: "?")
+        type.name.accept(this, context)
     }
 
     override fun visit(type: StructLayoutType, context: PrintContext) {
@@ -117,6 +118,7 @@ class TypePrinter : TypeVisitor<TypePrinter.PrintContext, Unit> {
             context.append(type.byteAlignment ?: "?").append("%")
         }
         type.memberLayouts.accept(this, context)
+        type.name.accept(this, context)
     }
 
     override fun visit(type: UnionLayoutType, context: PrintContext) {
@@ -124,6 +126,7 @@ class TypePrinter : TypeVisitor<TypePrinter.PrintContext, Unit> {
             context.append(type.byteAlignment ?: "?").append("%")
         }
         type.memberLayouts.accept(this, context.copy(memoryLayoutSeparator = "|"))
+        type.name.accept(this, context)
     }
 
     override fun visit(type: SequenceLayoutType, context: PrintContext) {
@@ -131,11 +134,13 @@ class TypePrinter : TypeVisitor<TypePrinter.PrintContext, Unit> {
         context.append(type.elementCount ?: "?").append(":")
         type.elementLayout.accept(this, context)
         context.append("]")
+        type.name.accept(this, context)
     }
 
     override fun visit(type: PaddingLayoutType, context: PrintContext) {
         context.append("x")
         context.append(type.byteSize ?: "?")
+        type.name.accept(this, context)
     }
 
     override fun visit(type: TopMemoryLayoutList, context: PrintContext) {
@@ -168,6 +173,20 @@ class TypePrinter : TypeVisitor<TypePrinter.PrintContext, Unit> {
             type.parameterType(it).accept(this, cleanContext)
         }
         context.append("]")
+    }
+
+    override fun visit(type: ExactLayoutName, context: PrintContext) {
+        if (type.name != null) {
+            context.append("(").append(type.name).append(")")
+        }
+    }
+
+    override fun visit(type: TopLayoutName, context: PrintContext) {
+        context.append("({⊤})")
+    }
+
+    override fun visit(type: BotLayoutName, context: PrintContext) {
+        context.append("({⊥})")
     }
 
 }

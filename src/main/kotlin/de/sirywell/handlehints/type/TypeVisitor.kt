@@ -26,4 +26,7 @@ interface TypeVisitor<C, R> {
     fun visit(type: BotMemoryLayoutList, context: C): R
     fun visit(type: CompleteMemoryLayoutList, context: C): R
     fun visit(type: IncompleteMemoryLayoutList, context: C): R
+    fun visit(type: ExactLayoutName, context: C): R
+    fun visit(type: TopLayoutName, context: C): R
+    fun visit(type: BotLayoutName, context: C): R
 }
