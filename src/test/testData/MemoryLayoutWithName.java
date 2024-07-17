@@ -17,5 +17,9 @@ class MemoryLayoutWithName {
 
         // stripping the name again...
         <info descr="1%[1%int4(jiu)|boolean1(jb)]">UnionLayout ul1 = <info descr="1%[1%int4(jiu)|boolean1(jb)]">ul0.withoutName()</info>;</info>
+
+        // unknown names
+        <info descr="long8({⊤})">ValueLayout vl2 = <info descr="long8({⊤})">ValueLayout.JAVA_LONG.withName(<error descr="Cannot resolve symbol 'unknown'">unknown</error>)</info>;</info>
+        <info descr="long8">ValueLayout vl3 = <info descr="long8">vl2.withoutName()</info>;</info>
     }
 }
