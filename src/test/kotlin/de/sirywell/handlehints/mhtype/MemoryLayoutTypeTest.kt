@@ -12,6 +12,8 @@ class MemoryLayoutTypeTest : TypeAnalysisTestBase() {
 
     fun testMemoryLayoutSequenceLayout() = doTypeCheckingTest()
 
+    fun testMemoryLayoutWithName() = doTypeCheckingTest()
+
 
     fun testMemoryLayoutStructLayoutInspection() = doInspectionTest()
 }

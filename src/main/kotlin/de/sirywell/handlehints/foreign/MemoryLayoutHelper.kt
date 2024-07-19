@@ -6,6 +6,7 @@ import de.sirywell.handlehints.MethodHandleBundle.message
 import de.sirywell.handlehints.dfa.SsaAnalyzer
 import de.sirywell.handlehints.dfa.SsaConstruction
 import de.sirywell.handlehints.getConstantLong
+import de.sirywell.handlehints.getConstantOfType
 import de.sirywell.handlehints.inspection.AdjustAlignmentFix
 import de.sirywell.handlehints.inspection.AdjustPaddingFix
 import de.sirywell.handlehints.inspection.ProblemEmitter
@@ -67,14 +68,14 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
                 t += type.byteSize!! // size is not null, so all elements have non-null byteSize
             }
         }
-        return StructLayoutType(CompleteMemoryLayoutList(members), alignment, size)
+        return StructLayoutType(CompleteMemoryLayoutList(members), alignment, size, WITHOUT_NAME)
     }
 
     fun unionLayout(arguments: List<PsiExpression>, block: SsaConstruction.Block): MemoryLayoutType {
         val members = arguments.map { ssaAnalyzer.memoryLayoutType(it, block) ?: TopMemoryLayoutType }
         val size = maxSize(members)
         val alignment = maxAlignment(members)
-        return UnionLayoutType(CompleteMemoryLayoutList(members), alignment, size)
+        return UnionLayoutType(CompleteMemoryLayoutList(members), alignment, size, WITHOUT_NAME)
     }
 
     private fun requiredAlignment(t: Long, byteAlignment: Long): Long {
@@ -122,15 +123,21 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
                 )
             )
         }
-        return SequenceLayoutType(elementLayout, elementCount, elementLayout.byteAlignment)
+        return SequenceLayoutType(elementLayout, elementCount, elementLayout.byteAlignment, WITHOUT_NAME)
     }
 
     fun paddingLayout(byteSizeExpr: PsiExpression): MemoryLayoutType {
-        val size = byteSizeExpr.asLong() ?: return PaddingLayoutType(1, null)
+        val size = byteSizeExpr.asLong() ?: return PaddingLayoutType(1, null, WITHOUT_NAME)
         if (size <= 0) {
             return emitProblem(byteSizeExpr, message("problem.general.argument.numericConditionMismatch", "> 0", size))
         }
-        return PaddingLayoutType(1, size)
+        return PaddingLayoutType(1, size, WITHOUT_NAME)
+    }
+
+    fun withName(qualifier: PsiExpression, nameExpr: PsiExpression, block: SsaConstruction.Block): MemoryLayoutType {
+        val layoutType = ssaAnalyzer.memoryLayoutType(qualifier, block) ?: TopMemoryLayoutType
+        val name = nameExpr.getConstantOfType<String>()?.let { ExactLayoutName(it) } ?: TopLayoutName
+        return layoutType.withName(name)
     }
 
     private fun sumSize(list: List<MemoryLayoutType>): Long? {
