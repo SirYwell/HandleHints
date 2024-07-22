@@ -226,7 +226,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         val target = ssaAnalyzer.methodHandleType(targetExpr, block) ?: bottomType
         val signature = target
         if (signature.parameterTypes.compareSize(pos) == PartialOrder.LT) {
-            return emitOutOfBounds(signature.parameterTypes.sizeOrNull(), targetExpr, pos, false)
+            return emitOutOfBounds(signature.parameterTypes.sizeOrNull()?.toLong(), targetExpr, pos.toLong(), false)
         }
         val list = signature.parameterTypes.addAllAt(pos, CompleteTypeList(types))
         return signature.withParameterTypes(list)
@@ -368,7 +368,7 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
             if (expr != null) {
                 return emitProblem(expr, message("problem.general.position.invalidIndexOffset", valueTypesIndex + pos))
             }
-            return emitOutOfBounds(parameterList.sizeOrNull(), posExpr, pos, false)
+            return emitOutOfBounds(parameterList.sizeOrNull()?.toLong(), posExpr, pos.toLong(), false)
         }
         val new = parameterList.removeAt(pos, valueTypes.size)
         return target.withParameterTypes(new)

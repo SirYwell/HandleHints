@@ -9,6 +9,7 @@ import com.intellij.psi.controlFlow.WriteVariableInstruction
 import de.sirywell.handlehints.*
 import de.sirywell.handlehints.dfa.SsaConstruction.*
 import de.sirywell.handlehints.foreign.MemoryLayoutHelper
+import de.sirywell.handlehints.foreign.PathElementHelper
 import de.sirywell.handlehints.mhtype.*
 import de.sirywell.handlehints.type.*
 
@@ -36,6 +37,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
     private val methodTypeHelper = MethodTypeHelper(this)
 
     private val memoryLayoutHelper = MemoryLayoutHelper(this)
+    private val pathElementHelper = PathElementHelper(this)
 
     fun doTraversal() {
         ssaConstruction.traverse(::onRead, ::onWrite)
@@ -249,6 +251,8 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                 return lookup(expression, arguments, block)
             } else if (receiverIsMemoryLayout(expression)) {
                 return memoryLayout(expression, arguments, block)
+            } else if (receiverIsPathElement(expression)) {
+                return pathElement(expression, arguments, block)
             } else {
                 return methodExpression.type?.let { topForType(it, expression) }
             }
@@ -285,6 +289,26 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         return resolver.result
     }
 
+    private fun pathElement(
+        expression: PsiMethodCallExpression,
+        arguments: List<PsiExpression>,
+        block: Block
+    ): PathElementType? {
+        return when (expression.methodName) {
+            "sequenceElement" -> {
+                if (arguments.isEmpty()) pathElementHelper.sequenceElement()
+                else if (arguments.size == 1) pathElementHelper.sequenceElement(arguments[0])
+                else if (arguments.size == 2) pathElementHelper.sequenceElement(arguments[0], arguments[1])
+                else noMatch()
+            }
+            "groupElement" -> {
+                if (arguments.size != 1) noMatch()
+                else pathElementHelper.groupElement(arguments[0])
+            }
+            else -> noMatch()
+        }
+    }
+
     private fun memoryLayout(
         expression: PsiMethodCallExpression,
         arguments: List<PsiExpression>,
@@ -313,6 +337,10 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
             "paddingLayout" -> {
                 if (arguments.size != 1) return noMatch()
                 memoryLayoutHelper.paddingLayout(arguments[0])
+            }
+            "varHandle" -> {
+                if (qualifier == null) return noMatch()
+                memoryLayoutHelper.varHandle(qualifier, arguments, methodExpression, block)
             }
 
             else -> noMatch()
@@ -663,11 +691,20 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         return type
     }
 
+    @JvmName("pathElementType_extension")
+    private fun PsiExpression.pathElementType(block: Block): PathElementType? {
+        val type = resolveType(this, block) as? PathElementType ?: return null
+        typeData[this] = type
+        return type
+    }
+
     fun type(expression: PsiExpression, block: Block) = expression.type(block)
 
     fun methodHandleType(expression: PsiExpression, block: Block) = expression.methodHandleType(block)
 
     fun memoryLayoutType(expression: PsiExpression, block: Block) = expression.memoryLayoutType(block)
+
+    fun pathElementType(expression: PsiExpression, block: Block) = expression.pathElementType(block)
 
     private fun warnUnsupported(
         expression: PsiMethodCallExpression,

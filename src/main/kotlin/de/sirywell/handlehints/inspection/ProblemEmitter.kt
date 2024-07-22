@@ -76,9 +76,9 @@ abstract class ProblemEmitter(protected val typeData: TypeData) {
     }
 
     protected inline fun <reified T : TypeLatticeElement<T>> emitOutOfBounds(
-        size: Int?,
+        size: Long?,
         targetExpr: PsiExpression,
-        pos: Int,
+        pos: Long,
         exclusive: Boolean
     ): T = if (size != null) {
         if (exclusive) {

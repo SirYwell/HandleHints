@@ -5,6 +5,7 @@ import de.sirywell.handlehints.TriState
 import de.sirywell.handlehints.toTriState
 import java.util.*
 
+@TypeInfo(TopMemoryLayoutType::class)
 sealed interface MemoryLayoutType : TypeLatticeElement<MemoryLayoutType> {
     fun withByteAlignment(byteAlignment: Long): MemoryLayoutType
     fun withName(name: LayoutName): MemoryLayoutType
@@ -147,6 +148,7 @@ data class SequenceLayoutType(
     override fun withByteAlignment(byteAlignment: Long): MemoryLayoutType {
         return SequenceLayoutType(this.elementLayout, this.elementCount, byteAlignment, name)
     }
+
     override fun withName(name: LayoutName) = SequenceLayoutType(elementLayout, elementCount, byteAlignment, name)
 
     override val byteSize = elementCount?.let { elementLayout.byteSize?.times(it) }
@@ -263,11 +265,12 @@ class IncompleteMemoryLayoutList(knowParameterTypes: SortedMap<Int, MemoryLayout
     override fun incomplete(list: SortedMap<Int, MemoryLayoutType>) = IncompleteMemoryLayoutList(list)
 }
 
+@TypeInfo(TopLayoutName::class)
 sealed interface LayoutName : TypeLatticeElement<LayoutName>
 
 val WITHOUT_NAME = ExactLayoutName(null)
 
-data class ExactLayoutName(val name: String?): LayoutName {
+data class ExactLayoutName(val name: String?) : LayoutName {
     override fun joinIdentical(other: LayoutName): Pair<LayoutName, TriState> {
         if (other is ExactLayoutName && this.name == other.name) {
             return this to TriState.YES
@@ -280,23 +283,156 @@ data class ExactLayoutName(val name: String?): LayoutName {
     override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
 }
 
-data object TopLayoutName : LayoutName {
-    override fun joinIdentical(other: LayoutName): Pair<LayoutName, TriState> {
-        return this to TriState.UNKNOWN
+data object TopLayoutName : LayoutName, TopTypeLatticeElement<LayoutName> {
+    override fun self() = this
+
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
+}
+
+data object BotLayoutName : LayoutName, BotTypeLatticeElement<LayoutName> {
+
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
+}
+
+@TypeInfo(TopPathElementType::class)
+sealed interface PathElementType : TypeLatticeElement<PathElementType>
+
+sealed interface SequenceElementVariant {
+    fun isEqualTo(other: SequenceElementVariant): TriState
+}
+
+// sequenceElement()
+data object OpenSequenceElementVariant : SequenceElementVariant {
+    override fun isEqualTo(other: SequenceElementVariant) = (this == other).toTriState()
+}
+
+// sequenceElement(index)
+data class SelectingSequenceElementVariant(val index: Long?) : SequenceElementVariant {
+    override fun isEqualTo(other: SequenceElementVariant): TriState {
+        if (other !is SelectingSequenceElementVariant) return TriState.NO
+        if (index == null || other.index == null) return TriState.UNKNOWN
+        return (index == other.index).toTriState()
+    }
+}
+
+// sequenceElement(start, step)
+data class SelectingOpenSequenceElementVariant(val start: Long?, val step: Long?) : SequenceElementVariant {
+    override fun isEqualTo(other: SequenceElementVariant): TriState {
+        if (other !is SelectingOpenSequenceElementVariant) return TriState.NO
+        if (start == null || step == null || other.start == null || other.step == null) return TriState.UNKNOWN
+        return (start == other.start && step == other.step).toTriState()
+    }
+}
+
+data class SequenceElementType(val variant: SequenceElementVariant) : PathElementType {
+    override fun joinIdentical(other: PathElementType): Pair<PathElementType, TriState> {
+        return when (other) {
+            TopPathElementType -> other to TriState.UNKNOWN
+            BotPathElementType -> this to TriState.UNKNOWN
+            is SequenceElementType -> {
+                if (variant.isEqualTo(other.variant) == TriState.NO) return this to TriState.YES
+                return TopPathElementType to TriState.NO
+            }
+
+            is GroupElementType -> TopPathElementType to TriState.NO
+        }
     }
 
     override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
 }
 
-data object BotLayoutName: LayoutName {
-    override fun joinIdentical(other: LayoutName): Pair<LayoutName, TriState> {
+sealed interface GroupElementVariant {
+    fun isEqualTo(other: GroupElementVariant): TriState
+}
+
+// groupElement(index)
+data class IndexGroupElementVariant(val index: Long?) : GroupElementVariant {
+    override fun isEqualTo(other: GroupElementVariant): TriState {
+        if (other !is IndexGroupElementVariant) return TriState.NO
+        if (index == null || other.index == null) return TriState.UNKNOWN
+        return (index == other.index).toTriState()
+    }
+}
+
+// groupElement(name)
+data class NameGroupElementVariant(val name: String?) : GroupElementVariant {
+    override fun isEqualTo(other: GroupElementVariant): TriState {
+        if (other !is NameGroupElementVariant) return TriState.NO
+        if (name == null || other.name == null) return TriState.UNKNOWN
+        return (name == other.name).toTriState()
+    }
+}
+
+data class GroupElementType(val variant: GroupElementVariant) : PathElementType {
+    override fun joinIdentical(other: PathElementType): Pair<PathElementType, TriState> {
         return when (other) {
-            BotLayoutName -> this to TriState.UNKNOWN
-            TopLayoutName -> other to TriState.UNKNOWN
-            is ExactLayoutName -> other to TriState.UNKNOWN
+            TopPathElementType -> other to TriState.UNKNOWN
+            BotPathElementType -> this to TriState.UNKNOWN
+            is GroupElementType -> {
+                if (variant.isEqualTo(other.variant) == TriState.NO) return this to TriState.YES
+                return TopPathElementType to TriState.NO
+            }
+
+            is SequenceElementType -> TopPathElementType to TriState.NO
         }
+
     }
 
-    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C): R {
+        return visitor.visit(this, context)
+    }
+}
 
+data object TopPathElementType : PathElementType, TopTypeLatticeElement<PathElementType> {
+    override fun self() = this
+
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
+}
+
+data object BotPathElementType : PathElementType, BotTypeLatticeElement<PathElementType> {
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
+}
+
+typealias PathElementList = TypeLatticeElementList<PathElementType>
+
+data object TopPathElementList : TopTypeLatticeElementList<PathElementType>() {
+    override fun topList() = TopPathElementList
+    override fun botList() = BotPathElementList
+    override fun top() = TopPathElementType
+    override fun bot() = BotPathElementType
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
+    override fun complete(list: List<PathElementType>) = CompletePathElementList(list)
+    override fun incomplete(list: SortedMap<Int, PathElementType>) = IncompletePathElementList(list)
+
+}
+
+data object BotPathElementList : BotTypeLatticeElementList<PathElementType>() {
+    override fun topList() = TopPathElementList
+    override fun botList() = BotPathElementList
+    override fun top() = TopPathElementType
+    override fun bot() = BotPathElementType
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
+    override fun complete(list: List<PathElementType>) = CompletePathElementList(list)
+    override fun incomplete(list: SortedMap<Int, PathElementType>) = IncompletePathElementList(list)
+}
+
+class CompletePathElementList(list: List<PathElementType>) : CompleteTypeLatticeElementList<PathElementType>(list) {
+    override fun topList() = TopPathElementList
+    override fun botList() = BotPathElementList
+    override fun top() = TopPathElementType
+    override fun bot() = BotPathElementType
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
+    override fun complete(list: List<PathElementType>) = CompletePathElementList(list)
+    override fun incomplete(list: SortedMap<Int, PathElementType>) = IncompletePathElementList(list)
+}
+
+class IncompletePathElementList(knowParameterTypes: SortedMap<Int, PathElementType>) :
+    IncompleteTypeLatticeElementList<PathElementType>(knowParameterTypes) {
+    override fun topList() = TopPathElementList
+    override fun botList() = BotPathElementList
+    override fun top() = TopPathElementType
+    override fun bot() = BotPathElementType
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
+    override fun complete(list: List<PathElementType>) = CompletePathElementList(list)
+    override fun incomplete(list: SortedMap<Int, PathElementType>) = IncompletePathElementList(list)
 }

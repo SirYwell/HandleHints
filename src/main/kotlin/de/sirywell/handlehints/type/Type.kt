@@ -10,6 +10,7 @@ import de.sirywell.handlehints.objectType
 import de.sirywell.handlehints.toTriState
 import java.util.*
 
+@TypeInfo(TopType::class)
 sealed interface Type : TypeLatticeElement<Type> {
 
     fun erase(manager: PsiManager, scope: GlobalSearchScope): Type
@@ -21,16 +22,16 @@ sealed interface Type : TypeLatticeElement<Type> {
     fun isPrimitive() = false
 }
 
-data object BotType : Type {
-    override fun joinIdentical(other: Type) = other to TriState.UNKNOWN
+data object BotType : Type, BotTypeLatticeElement<Type> {
     override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
 
     override fun erase(manager: PsiManager, scope: GlobalSearchScope) = this
     override fun match(psiType: PsiType) = TriState.UNKNOWN
 }
 
-data object TopType : Type {
-    override fun joinIdentical(other: Type) = this to TriState.UNKNOWN
+data object TopType : Type, TopTypeLatticeElement<Type> {
+    override fun self() = this
+
     override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
 
     override fun erase(manager: PsiManager, scope: GlobalSearchScope) = this

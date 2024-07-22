@@ -2,8 +2,8 @@ package de.sirywell.handlehints.type
 
 import de.sirywell.handlehints.TriState
 
+@TypeInfo(TopMethodHandleType::class)
 sealed interface MethodHandleType : TypeLatticeElement<MethodHandleType> {
-
 
     fun withReturnType(returnType: Type): MethodHandleType
 

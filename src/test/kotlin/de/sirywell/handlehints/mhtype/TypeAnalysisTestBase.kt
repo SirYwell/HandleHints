@@ -6,6 +6,12 @@ import de.sirywell.handlehints.inspection.MethodHandleEditInspection
 
 abstract class TypeAnalysisTestBase : LightJavaCodeInsightFixtureTestCase() {
 
+    protected fun doInspectionAndTypeCheckingTest() {
+        myFixture.enableInspections(MethodHandleEditInspection())
+        myFixture.enableInspections(MethodHandleTypeHelperInspection { true })
+        myFixture.testHighlighting(true, true, true, getTestName(false) + ".java")
+    }
+
     protected fun doInspectionTest() {
         myFixture.enableInspections(MethodHandleEditInspection())
         myFixture.testHighlighting(true, false, true, getTestName(false) + ".java")
