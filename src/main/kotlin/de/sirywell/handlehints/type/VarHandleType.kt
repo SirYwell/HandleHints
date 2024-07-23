@@ -2,6 +2,7 @@ package de.sirywell.handlehints.type
 
 import de.sirywell.handlehints.TriState
 
+@TypeInfo(TopVarHandleType::class)
 interface VarHandleType : TypeLatticeElement<VarHandleType> {
     val variableType: Type
     val coordinateTypes: TypeList

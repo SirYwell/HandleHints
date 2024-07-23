@@ -36,6 +36,10 @@ fun receiverIsMemoryLayout(element: PsiMethodCallExpression): Boolean {
     return superType.isAssignableFrom(actual)
 }
 
+fun receiverIsPathElement(element: PsiMethodCallExpression): Boolean {
+    return element.resolveMethod()?.containingClass?.qualifiedName == "java.lang.foreign.MemoryLayout.PathElement"
+}
+
 fun methodHandleType(element: PsiElement): PsiClassType {
     return PsiType.getTypeByName("java.lang.invoke.MethodHandle", element.project, element.resolveScope)
 }
@@ -46,6 +50,10 @@ fun varHandleType(element: PsiElement): PsiClassType {
 
 fun methodTypeType(element: PsiElement): PsiClassType {
     return PsiType.getTypeByName("java.lang.invoke.MethodType", element.project, element.resolveScope)
+}
+
+fun pathElementType(element: PsiElement): PsiClassType {
+    return PsiType.getTypeByName("java.lang.foreign.MemoryLayout.PathElement", element.project, element.resolveScope)
 }
 
 fun objectType(element: PsiElement): PsiType {
@@ -165,5 +173,6 @@ fun isUnrelated(type: PsiType, context: PsiElement): Boolean {
     return type != methodTypeType(context)
             && type != methodHandleType(context)
             && type != varHandleType(context)
+            && type != pathElementType(context)
             && type !in memoryLayoutTypes(context)
 }

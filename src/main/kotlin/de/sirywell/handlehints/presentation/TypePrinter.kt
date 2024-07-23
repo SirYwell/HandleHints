@@ -189,4 +189,59 @@ class TypePrinter : TypeVisitor<TypePrinter.PrintContext, Unit> {
         context.append("({⊥})")
     }
 
+    override fun visit(type: SequenceElementType, context: PrintContext) {
+        when (type.variant) {
+            OpenSequenceElementVariant -> context.append("sequenceElement()")
+            is SelectingOpenSequenceElementVariant -> context.append("sequenceElement(")
+                .append((type.variant.start ?: "?").toString())
+                .append(", ")
+                .append((type.variant.step ?: "?").toString())
+                .append(")")
+            is SelectingSequenceElementVariant -> context.append("sequenceElement(")
+                .append((type.variant.index ?: "?").toString())
+                .append(")")
+        }
+    }
+
+    override fun visit(type: TopPathElementType, context: PrintContext) {
+        context.append("{⊤}")
+    }
+
+    override fun visit(type: BotPathElementType, context: PrintContext) {
+        context.append("{⊥}")
+    }
+
+    override fun visit(type: TopPathElementList, context: PrintContext) {
+        context.append("{⊤...}")
+    }
+
+    override fun visit(type: BotPathElementList, context: PrintContext) {
+        context.append("{⊥...}")
+    }
+
+    override fun visit(type: CompletePathElementList, context: PrintContext) {
+        context.append(type.typeList.joinToString(separator = "->"))
+    }
+
+    override fun visit(type: IncompletePathElementList, context: PrintContext) {
+        (0..type.knownTypes.lastKey()).map {
+            type.parameterType(it).accept(this, context)
+            context.append("->")
+        }
+        context.append("...")
+    }
+
+    override fun visit(type: GroupElementType, context: PrintContext) {
+        when (type.variant) {
+            is IndexGroupElementVariant -> context.append("groupElement(")
+                .append((type.variant.index ?: "index?").toString())
+                .append(")")
+
+            is NameGroupElementVariant -> context.append("groupElement(")
+                .append((type.variant.name ?: "name?").toString())
+                .append(")")
+
+        }
+    }
+
 }

@@ -42,6 +42,12 @@ sealed interface TypeLatticeElementList<T : TypeLatticeElement<T>> : TypeLattice
 
     fun anyKnownMatches(predicate: (T) -> Boolean): Boolean
 
+    /**
+     * @return a list that contains all known elements, and unknown elements below the maximum known index
+     * represented by [top]
+     */
+    fun partialList(): List<T>
+
     fun topList(): TopTypeLatticeElementList<T>
     fun botList(): BotTypeLatticeElementList<T>
     fun top(): T
@@ -74,6 +80,8 @@ abstract class BotTypeLatticeElementList<T : TypeLatticeElement<T>> : TypeLattic
     override fun sizeOrNull() = null
 
     override fun anyKnownMatches(predicate: (T) -> Boolean) = false
+
+    override fun partialList(): List<T> = listOf()
 }
 
 abstract class TopTypeLatticeElementList<T : TypeLatticeElement<T>> : TypeLatticeElementList<T> {
@@ -93,6 +101,8 @@ abstract class TopTypeLatticeElementList<T : TypeLatticeElement<T>> : TypeLattic
     override fun sizeOrNull() = null
 
     override fun anyKnownMatches(predicate: (T) -> Boolean) = false
+
+    override fun partialList(): List<T> = listOf()
 }
 
 abstract class CompleteTypeLatticeElementList<T : TypeLatticeElement<T>>(val typeList: List<T>) : TypeLatticeElementList<T> {
@@ -179,6 +189,8 @@ abstract class CompleteTypeLatticeElementList<T : TypeLatticeElement<T>>(val typ
     override fun sizeOrNull() = size
 
     override fun anyKnownMatches(predicate: (T) -> Boolean) = typeList.any(predicate)
+
+    override fun partialList() = typeList
 }
 
 abstract class IncompleteTypeLatticeElementList<T : TypeLatticeElement<T>>(val knownTypes: SortedMap<Int, T>) : TypeLatticeElementList<T> {
@@ -257,6 +269,10 @@ abstract class IncompleteTypeLatticeElementList<T : TypeLatticeElement<T>>(val k
     override fun sizeOrNull() = null
 
     override fun anyKnownMatches(predicate: (T) -> Boolean) = knownTypes.values.any(predicate)
+
+    override fun partialList(): List<T> {
+        return (0..knownTypes.lastKey()).map { knownTypes.getOrDefault(it, top()) }
+    }
 }
 
 private fun <T : TypeLatticeElement<T>> TypeLatticeElementList<T>.toMap(): SortedMap<Int, T> {
