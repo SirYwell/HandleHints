@@ -75,12 +75,16 @@ data class ValueLayoutType(
     override fun withName(name: LayoutName) = ValueLayoutType(type, byteAlignment, byteSize, name)
 }
 
+sealed interface GroupLayoutType : MemoryLayoutType {
+    val memberLayouts: MemoryLayoutList
+}
+
 data class StructLayoutType(
-    val memberLayouts: MemoryLayoutList,
+    override val memberLayouts: MemoryLayoutList,
     override val byteAlignment: Long?,
     override val byteSize: Long?,
     override val name: LayoutName
-) : MemoryLayoutType {
+) : GroupLayoutType {
     override fun withByteAlignment(byteAlignment: Long) =
         StructLayoutType(this.memberLayouts, byteSize, byteAlignment, name)
 
@@ -107,11 +111,11 @@ data class StructLayoutType(
 }
 
 data class UnionLayoutType(
-    val memberLayouts: MemoryLayoutList,
+    override val memberLayouts: MemoryLayoutList,
     override val byteAlignment: Long?,
     override val byteSize: Long?,
     override val name: LayoutName
-) : MemoryLayoutType {
+) : GroupLayoutType {
     override fun withByteAlignment(byteAlignment: Long): MemoryLayoutType {
         return UnionLayoutType(this.memberLayouts, byteSize, byteAlignment, name)
     }
