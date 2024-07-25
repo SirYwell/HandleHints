@@ -27,6 +27,8 @@
         <platform.backend.documentation.psiTargetProvider
                 id="TypeDocumentationTargetProvider"
                 implementation="de.sirywell.handlehints.presentation.TypeDocumentationTargetProvider"/>
+        <completion.contributor language="JAVA"
+                                implementationClass="de.sirywell.handlehints.lookup.HandleHintsReferenceContributor"/>
     </extensions>
 
     <applicationListeners>

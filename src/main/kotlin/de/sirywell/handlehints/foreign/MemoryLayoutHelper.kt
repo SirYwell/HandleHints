@@ -3,8 +3,8 @@ package de.sirywell.handlehints.foreign
 import com.intellij.codeInspection.LocalQuickFix.from
 import com.intellij.psi.PsiExpression
 import com.intellij.psi.PsiType
-import com.intellij.util.containers.headTail
 import de.sirywell.handlehints.MethodHandleBundle.message
+import de.sirywell.handlehints.TypeData
 import de.sirywell.handlehints.dfa.SsaAnalyzer
 import de.sirywell.handlehints.dfa.SsaConstruction
 import de.sirywell.handlehints.getConstantLong
@@ -13,6 +13,7 @@ import de.sirywell.handlehints.inspection.AdjustAlignmentFix
 import de.sirywell.handlehints.inspection.AdjustPaddingFix
 import de.sirywell.handlehints.inspection.ProblemEmitter
 import de.sirywell.handlehints.type.*
+import kotlin.reflect.KClass
 
 class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ssaAnalyzer.typeData) {
 
@@ -170,157 +171,99 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
         val path = toPath(arguments, block)
         val memorySegmentType =
             PsiType.getTypeByName("java.lang.foreign.MemorySegment", qualifier.project, qualifier.resolveScope)
-        return resolvePath(path, layoutType, mutableListOf(ExactType(memorySegmentType))) {
+        return VarHandlePathTraverser(typeData) {
             if (it == -1) methodExpr
             else arguments[it]
-        }
-    }
-
-    private tailrec fun resolvePath(
-        path: List<IndexedValue<PathElementType>>,
-        layoutType: MemoryLayoutType,
-        coords: MutableList<Type>,
-        contextElement: (Int) -> PsiExpression
-    ): VarHandleType {
-        if (layoutType == BotMemoryLayoutType) return BotVarHandleType
-        else if (layoutType == TopMemoryLayoutType) return TopVarHandleType
-        if (path.isEmpty()) {
-            return when (layoutType) {
-                is ValueLayoutType -> CompleteVarHandleType(layoutType.type, CompleteTypeList(coords))
-                else -> emitProblem(contextElement(-1), message("problem.foreign.memory.pathTargetNotValueLayout"))
-            }
-        }
-        val (head, tail) = path.headTail()
-        val resolvedLayout = when (head.value) {
-            BotPathElementType -> return BotVarHandleType // TODO does that make sense?
-            TopPathElementType -> return TopVarHandleType
-            is SequenceElementType -> sequenceElement(
-                layoutType,
-                // what is wrong with the Kotlin type system?
-                IndexedValue(head.index, head.value as SequenceElementType),
-                coords,
-                contextElement
-            )
-
-            is GroupElementType -> groupElement(
-                layoutType,
-                IndexedValue(head.index, head.value as GroupElementType),
-                contextElement
-            )
-        }
-        return resolvePath(tail, resolvedLayout, coords, contextElement)
-    }
-
-    private fun groupElement(
-        layoutType: MemoryLayoutType,
-        head: IndexedValue<GroupElementType>,
-        contextElement: (Int) -> PsiExpression
-    ): MemoryLayoutType {
-        return when (layoutType) {
-            BotMemoryLayoutType -> return BotMemoryLayoutType
-            TopMemoryLayoutType -> return TopMemoryLayoutType
-            is StructLayoutType -> findByElementType(head, layoutType.memberLayouts, contextElement)
-            is UnionLayoutType -> findByElementType(head, layoutType.memberLayouts, contextElement)
-            is SequenceLayoutType,
-            is PaddingLayoutType,
-            is ValueLayoutType -> {
-                return emitProblem(
-                    contextElement(head.index),
-                    message(
-                        "problem.foreign.memory.pathElementMismatch",
-                        "group",
-                        layoutType::class.simpleName!!.replace("Type", "")
-                    )
-                )
-            }
-        }
-    }
-
-    private fun findByElementType(
-        elementType: IndexedValue<GroupElementType>,
-        memberLayouts: MemoryLayoutList,
-        contextElement: (Int) -> PsiExpression
-    ): MemoryLayoutType {
-        return when (elementType.value.variant) {
-            is IndexGroupElementVariant -> {
-                val index = (elementType.value.variant as IndexGroupElementVariant).index
-                if (index == null || index >= Int.MAX_VALUE) TopMemoryLayoutType
-                else if (memberLayouts.compareSize((index + 1).toInt()) == PartialOrder.LT) {
-                    // known index out of bounds
-                    emitProblem(
-                        contextElement(elementType.index),
-                        message("problem.foreign.memory.pathGroupElementOutOfBounds", 0, index, memberLayouts.sizeOrNull()!!)
-                    )
-                } else memberLayouts[index.toInt()]
-            }
-
-            is NameGroupElementVariant -> {
-                val name = (elementType.value.variant as NameGroupElementVariant).name
-                if (name == null) TopMemoryLayoutType
-                // we need to be conservative here: multiple memberLayouts can have the same name
-                // so we must abort as soon as we find a layout with an unknown name
-                else {
-                    for (type in memberLayouts.partialList()) {
-                        if (type.name !is ExactLayoutName) return TopMemoryLayoutType
-                        else if ((type.name as ExactLayoutName).name == name) return type
-
-                    }
-                    return emitProblem(
-                        contextElement(elementType.index),
-                        message("problem.foreign.memory.pathGroupElementUnknownName", name)
-                    )
-                }
-            }
-        }
-    }
-
-    private fun sequenceElement(
-        layoutType: MemoryLayoutType,
-        head: IndexedValue<SequenceElementType>,
-        coords: MutableList<Type>,
-        contextElement: (Int) -> PsiExpression
-    ): MemoryLayoutType {
-        val inner = when (layoutType) {
-            BotMemoryLayoutType -> return BotMemoryLayoutType
-            TopMemoryLayoutType -> return TopMemoryLayoutType
-            is SequenceLayoutType -> layoutType.elementLayout
-            is PaddingLayoutType,
-            is StructLayoutType,
-            is UnionLayoutType,
-            is ValueLayoutType -> {
-                return emitProblem(
-                    contextElement(head.index),
-                    message(
-                        "problem.foreign.memory.pathElementMismatch",
-                        "sequence",
-                        layoutType::class.simpleName!!.replace("Type", "")
-                    )
-                )
-            }
-        }
-        val headVal = head.value
-        when (headVal.variant) {
-            OpenSequenceElementVariant -> coords.add(ExactType.longType)
-            is SelectingOpenSequenceElementVariant -> coords.add(ExactType.longType)
-            is SelectingSequenceElementVariant -> {
-                headVal.variant.index?.let {
-                    val c = layoutType.elementCount ?: Long.MAX_VALUE
-                    if (it > c) {
-                        return emitOutOfBounds(layoutType.elementCount, contextElement(head.index), it, true)
-                    }
-                }
-            }
-        }
-        return inner
+        }.traverse(path, layoutType, mutableListOf(ExactType(memorySegmentType)))
     }
 
     private fun toPath(
         arguments: List<PsiExpression>,
         block: SsaConstruction.Block
-    ): List<IndexedValue<PathElementType>> {
+    ): List<PathElementType> {
         return arguments
             .map { ssaAnalyzer.pathElementType(it, block) ?: TopPathElementType }
-            .withIndex()
-            .toList()
+    }
+
+    class VarHandlePathTraverser(typeData: TypeData, private val contextElement: (Int) -> PsiExpression) :
+        ProblemEmitter(typeData), PathTraverser<VarHandleType> {
+        override fun onPathEmpty(layoutType: MemoryLayoutType, coords: MutableList<Type>): VarHandleType {
+            return when (layoutType) {
+                is ValueLayoutType -> onComplete(layoutType, coords)
+                else -> emitProblem(contextElement(-1), message("problem.foreign.memory.pathTargetNotValueLayout"))
+            }
+        }
+
+        override fun onTopPathElement(
+            path: List<IndexedValue<PathElementType>>,
+            coords: MutableList<Type>,
+            layoutType: MemoryLayoutType
+        ) = TopVarHandleType
+
+        override fun onBottomPathElement(
+            path: List<IndexedValue<PathElementType>>,
+            coords: MutableList<Type>,
+            layoutType: MemoryLayoutType
+        ) = BotVarHandleType // TODO does that make sense?
+
+        override fun onTopLayout(path: List<IndexedValue<PathElementType>>, coords: MutableList<Type>) =
+            TopVarHandleType
+
+        override fun onBottomLayout(
+            path: List<IndexedValue<PathElementType>>,
+            coords: MutableList<Type>
+        ) = BotVarHandleType // TODO does that make sense?
+
+        override fun pathElementAndLayoutTypeMismatch(
+            head: IndexedValue<PathElementType>,
+            memoryLayoutType: KClass<out MemoryLayoutType>,
+            pathElementType: KClass<out PathElementType>
+        ): MemoryLayoutType {
+            return emitProblem(
+                contextElement(head.index),
+                message(
+                    "problem.foreign.memory.pathElementMismatch",
+                    pathElementType.simpleName!!.replace("ElementType", "").lowercase(),
+                    memoryLayoutType.simpleName!!.replace("Type", "")
+                )
+            )
+        }
+
+        override fun onGroupElementNameNotFound(
+            elementType: IndexedValue<GroupElementType>,
+            name: String
+        ): MemoryLayoutType {
+            return emitProblem(
+                contextElement(elementType.index),
+                message("problem.foreign.memory.pathGroupElementUnknownName", name)
+            )
+        }
+
+        override fun onGroupElementIndexOutOfBounds(
+            elementType: IndexedValue<GroupElementType>,
+            index: Long,
+            memberLayouts: MemoryLayoutList
+        ): MemoryLayoutType {
+            return emitProblem(
+                contextElement(elementType.index),
+                message("problem.foreign.memory.pathGroupElementOutOfBounds", 0, index, memberLayouts.sizeOrNull()!!)
+            )
+        }
+
+        override fun onSequenceElementIndexOutOfBounds(
+            layoutType: SequenceLayoutType,
+            index: Long,
+            head: IndexedValue<SequenceElementType>
+        ): MemoryLayoutType {
+            return emitOutOfBounds(layoutType.elementCount, contextElement(head.index), index, true)
+        }
+
+        override fun onComplete(
+            layoutType: ValueLayoutType,
+            coords: MutableList<Type>
+        ): CompleteVarHandleType {
+            return CompleteVarHandleType(layoutType.type, CompleteTypeList(coords))
+        }
+
     }
 }

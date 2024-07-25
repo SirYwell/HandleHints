@@ -37,6 +37,9 @@ class TypeInlayHintsCollector : SharedBypassCollector {
         if (type is TopTypeLatticeElement || type is BotTypeLatticeElement) {
             return
         }
+        if (type is PathElementType) {
+            return // don't print path elements for now
+        }
         sink.addPresentation(InlineInlayPosition(pos, belongsToBefore), hasBackground = true) {
             text(TypePrinter().print(type))
         }
