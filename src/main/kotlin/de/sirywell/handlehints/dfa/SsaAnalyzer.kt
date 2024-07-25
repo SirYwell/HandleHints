@@ -338,6 +338,14 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                 if (arguments.size != 1) return noMatch()
                 memoryLayoutHelper.paddingLayout(arguments[0])
             }
+            "scaleHandle" -> {
+                if (arguments.isNotEmpty()) return noMatch()
+                memoryLayoutHelper.scaleHandle()
+            }
+            "arrayElementVarHandle" -> {
+                if (qualifier == null) return noMatch()
+                memoryLayoutHelper.arrayElementVarHandle(qualifier, arguments, block)
+            }
             "varHandle" -> {
                 if (qualifier == null) return noMatch()
                 memoryLayoutHelper.varHandle(qualifier, arguments, methodExpression, block)

@@ -294,5 +294,5 @@ private fun <T> paramsAreIdentical(params: Iterable<Pair<T, TriState>>) =
     }
 
 
-private fun <E> List<E>.toIndexedMap() = this.mapIndexed { index, e -> index to e }.toMap().toSortedMap()
+fun <E> List<E>.toIndexedMap() = this.mapIndexed { index, e -> index to e }.toMap().toSortedMap()
 private fun <K, V> emptySortedMap() = Collections.emptySortedMap<K, V>()
