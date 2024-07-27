@@ -53,7 +53,7 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
                     // be careful here, alignment of other layouts depends on inner layouts
                     // e.g. [j8i4].withByteAlignment(4) fails
                     val padding = byteAlignment - t % byteAlignment
-                    val fixes = if (type is ValueLayoutType)
+                    val fixes = if (type is NormalValueLayoutType)
                         arrayOf(
                             from(AdjustPaddingFix(arguments[index], padding))!!,
                             from(AdjustAlignmentFix(arguments[index], requiredAlignment(t, byteAlignment)))!!
@@ -143,6 +143,19 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
         return layoutType.withName(name)
     }
 
+    fun withoutTargetLayout(qualifier: PsiExpression, block: SsaConstruction.Block): MemoryLayoutType {
+        val layoutType =
+            ssaAnalyzer.memoryLayoutType(qualifier, block) as? AddressLayoutType ?: return TopMemoryLayoutType
+        return layoutType.withTargetLayout(null)
+    }
+
+    fun withTargetLayout(qualifier: PsiExpression, layoutExpr: PsiExpression, block: SsaConstruction.Block): MemoryLayoutType {
+        val layoutType =
+            ssaAnalyzer.memoryLayoutType(qualifier, block) as? AddressLayoutType ?: return TopMemoryLayoutType
+        val layout = ssaAnalyzer.memoryLayoutType(layoutExpr, block) ?: TopMemoryLayoutType
+        return layoutType.withTargetLayout(layout)
+    }
+
     private fun sumSize(list: List<MemoryLayoutType>): Long? {
         return list
             .map { it.byteSize ?: return null }
@@ -189,7 +202,7 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
         ProblemEmitter(typeData), PathTraverser<VarHandleType> {
         override fun onPathEmpty(layoutType: MemoryLayoutType, coords: MutableList<Type>): VarHandleType {
             return when (layoutType) {
-                is ValueLayoutType -> onComplete(layoutType, coords)
+                is NormalValueLayoutType -> onComplete(layoutType, coords)
                 else -> emitProblem(contextElement(-1), message("problem.foreign.memory.pathTargetNotValueLayout"))
             }
         }
@@ -225,6 +238,7 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
                     "problem.foreign.memory.pathElementMismatch",
                     pathElementType.simpleName!!.replace("ElementType", "").lowercase(),
                     memoryLayoutType.simpleName!!.replace("Type", "")
+                        .replace("Normal", "") // for NormalValueLayoutType
                 )
             )
         }
@@ -262,7 +276,13 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
             layoutType: ValueLayoutType,
             coords: MutableList<Type>
         ): CompleteVarHandleType {
-            return CompleteVarHandleType(layoutType.type, CompleteTypeList(coords))
+            if (layoutType is NormalValueLayoutType) {
+                return CompleteVarHandleType(layoutType.type, CompleteTypeList(coords))
+            } else {
+                val ctx = contextElement(-1) // good enough for us
+                val type = PsiType.getTypeByName("java.lang.foreign.MemorySegment", ctx.project, ctx.resolveScope)
+                return CompleteVarHandleType(ExactType(type), CompleteTypeList(coords))
+            }
         }
 
     }

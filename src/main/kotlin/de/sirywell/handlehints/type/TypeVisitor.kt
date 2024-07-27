@@ -17,7 +17,8 @@ interface TypeVisitor<C, R> {
     fun visit(type: CompleteMethodHandleType, context: C): R
     fun visit(type: BotMemoryLayoutType, context: C): R
     fun visit(type: TopMemoryLayoutType, context: C): R
-    fun visit(type: ValueLayoutType, context: C): R
+    fun visit(type: AddressLayoutType, context: C): R
+    fun visit(type: NormalValueLayoutType, context: C): R
     fun visit(type: StructLayoutType, context: C): R
     fun visit(type: UnionLayoutType, context: C): R
     fun visit(type: SequenceLayoutType, context: C): R

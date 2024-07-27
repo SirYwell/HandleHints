@@ -343,29 +343,39 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                 memoryLayoutHelper.varHandle(qualifier, arguments, methodExpression, block)
             }
 
+            // AddressLayout specifics
+            "withoutTargetLayout" -> {
+                if (qualifier == null) return noMatch()
+                memoryLayoutHelper.withoutTargetLayout(qualifier, block)
+            }
+            "withTargetLayout" -> {
+                if (qualifier == null || arguments.size != 1) return noMatch()
+                memoryLayoutHelper.withTargetLayout(qualifier, arguments[0], block)
+            }
+
             else -> noMatch()
         }
     }
 
-    private fun extractValueLayoutType(variable: PsiVariable): ValueLayoutType? {
+    private fun extractValueLayoutType(variable: PsiVariable): MemoryLayoutType? {
         val name = variable.name ?: return null
         return when (name) {
-            "ADDRESS" -> ValueLayoutType(ADDRESS_TYPE, null, null)
-            "ADDRESS_UNALIGNED" -> ValueLayoutType(ADDRESS_TYPE, 1, 1)
-            "JAVA_BOOLEAN" -> ValueLayoutType(ExactType.booleanType, 1, 1)
-            "JAVA_BYTE" -> ValueLayoutType(ExactType.byteType, 1, 1)
-            "JAVA_CHAR" -> ValueLayoutType(ExactType.charType, 2, 2)
-            "JAVA_CHAR_UNALIGNED" -> ValueLayoutType(ExactType.charType, 1, 2)
-            "JAVA_DOUBLE" -> ValueLayoutType(ExactType.doubleType, 8, 8)
-            "JAVA_DOUBLE_UNALIGNED" -> ValueLayoutType(ExactType.doubleType, 1, 8)
-            "JAVA_FLOAT" -> ValueLayoutType(ExactType.floatType, 4, 4)
-            "JAVA_FLOAT_UNALIGNED" -> ValueLayoutType(ExactType.floatType, 1, 4)
-            "JAVA_INT" -> ValueLayoutType(ExactType.intType, 4, 4)
-            "JAVA_INT_UNALIGNED" -> ValueLayoutType(ExactType.intType, 1, 4)
-            "JAVA_LONG" -> ValueLayoutType(ExactType.longType, 8, 8)
-            "JAVA_LONG_UNALIGNED" -> ValueLayoutType(ExactType.longType, 1, 8)
-            "JAVA_SHORT" -> ValueLayoutType(ExactType.shortType, 2, 2)
-            "JAVA_SHORT_UNALIGNED" -> ValueLayoutType(ExactType.shortType, 1, 2)
+            "ADDRESS" -> AddressLayoutType(null, null)
+            "ADDRESS_UNALIGNED" -> AddressLayoutType(1, 1)
+            "JAVA_BOOLEAN" -> NormalValueLayoutType(ExactType.booleanType, 1, 1)
+            "JAVA_BYTE" -> NormalValueLayoutType(ExactType.byteType, 1, 1)
+            "JAVA_CHAR" -> NormalValueLayoutType(ExactType.charType, 2, 2)
+            "JAVA_CHAR_UNALIGNED" -> NormalValueLayoutType(ExactType.charType, 1, 2)
+            "JAVA_DOUBLE" -> NormalValueLayoutType(ExactType.doubleType, 8, 8)
+            "JAVA_DOUBLE_UNALIGNED" -> NormalValueLayoutType(ExactType.doubleType, 1, 8)
+            "JAVA_FLOAT" -> NormalValueLayoutType(ExactType.floatType, 4, 4)
+            "JAVA_FLOAT_UNALIGNED" -> NormalValueLayoutType(ExactType.floatType, 1, 4)
+            "JAVA_INT" -> NormalValueLayoutType(ExactType.intType, 4, 4)
+            "JAVA_INT_UNALIGNED" -> NormalValueLayoutType(ExactType.intType, 1, 4)
+            "JAVA_LONG" -> NormalValueLayoutType(ExactType.longType, 8, 8)
+            "JAVA_LONG_UNALIGNED" -> NormalValueLayoutType(ExactType.longType, 1, 8)
+            "JAVA_SHORT" -> NormalValueLayoutType(ExactType.shortType, 2, 2)
+            "JAVA_SHORT_UNALIGNED" -> NormalValueLayoutType(ExactType.shortType, 1, 2)
             else -> null
         }
     }
