@@ -4,6 +4,7 @@ import com.intellij.codeInspection.LocalQuickFix.from
 import com.intellij.psi.PsiExpression
 import com.intellij.psi.PsiType
 import de.sirywell.handlehints.MethodHandleBundle.message
+import de.sirywell.handlehints.TriState
 import de.sirywell.handlehints.TypeData
 import de.sirywell.handlehints.dfa.SsaAnalyzer
 import de.sirywell.handlehints.dfa.SsaConstruction
@@ -185,6 +186,9 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
             .map { ssaAnalyzer.pathElementType(it, block) ?: TopPathElementType }
     }
 
+    /**
+     * Emits a warning if the last path element does not result in a ValueLayout
+     */
     class VarHandlePathTraverser(typeData: TypeData, private val contextElement: (Int) -> PsiExpression) :
         ProblemEmitter(typeData), PathTraverser<VarHandleType> {
         override fun onPathEmpty(layoutType: MemoryLayoutType, coords: MutableList<Type>): VarHandleType {
@@ -206,8 +210,9 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
             layoutType: MemoryLayoutType
         ) = BotVarHandleType // TODO does that make sense?
 
-        override fun onTopLayout(path: List<IndexedValue<PathElementType>>, coords: MutableList<Type>) =
-            TopVarHandleType
+        override fun onTopLayout(path: List<IndexedValue<PathElementType>>, coords: MutableList<Type>): VarHandleType {
+            return CompleteVarHandleType(TopType, IncompleteTypeList(coords.toIndexedMap()))
+        }
 
         override fun onBottomLayout(
             path: List<IndexedValue<PathElementType>>,
@@ -264,6 +269,24 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
         ): CompleteVarHandleType {
             return CompleteVarHandleType(layoutType.type, CompleteTypeList(coords))
         }
+    }
+
+    fun arrayElementVarHandle(qualifier: PsiExpression, arguments: List<PsiExpression>, block: SsaConstruction.Block): VarHandleType {
+        val layoutType = ssaAnalyzer.memoryLayoutType(qualifier, block) ?: TopMemoryLayoutType
+        val memorySegmentType =
+            PsiType.getTypeByName("java.lang.foreign.MemorySegment", qualifier.project, qualifier.resolveScope)
+        val coords = mutableListOf(ExactType(memorySegmentType), *SCALE_HANDLE_PARAMETERS.typeList.toTypedArray())
+        val path = toPath(arguments, block)
+        return VarHandlePathTraverser(typeData) {
+            if (it == -1) qualifier
+            else arguments[it]
+        }.traverse(path, layoutType, coords)
 
     }
+
+    fun scaleHandle(): MethodHandleType {
+        return SCALE_HANDLE
+    }
 }
+private val SCALE_HANDLE_PARAMETERS = CompleteTypeList(listOf(ExactType.longType, ExactType.longType))
+private val SCALE_HANDLE = CompleteMethodHandleType(ExactType.longType, SCALE_HANDLE_PARAMETERS, TriState.NO)

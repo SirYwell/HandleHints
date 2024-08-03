@@ -14,6 +14,10 @@ class MemoryLayoutTypeTest : TypeAnalysisTestBase() {
 
     fun testMemoryLayoutVarHandle() = doInspectionAndTypeCheckingTest()
 
+    // Java 22 not supported on 2023.3, but arrayElementVarHandle/scaleHandle methods are Java 22+
+    // fun testMemoryLayoutScaleHandle() = doTypeCheckingTest()
+    // fun testMemoryLayoutArrayElementVarHandle() = doTypeCheckingTest()
+
     fun testMemoryLayoutWithName() = doTypeCheckingTest()
 
 
