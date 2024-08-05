@@ -7,13 +7,12 @@ import de.sirywell.handlehints.type.TypeLatticeElement
 import kotlin.reflect.KClass
 import kotlin.reflect.cast
 
-class HandleTypeResolver<T : TypeLatticeElement<T>>(
+class TypeElementResolver<T : TypeLatticeElement<T>>(
     private val ssaAnalyzer: SsaAnalyzer,
     private val block: SsaConstruction.Block,
     private val bot: T,
     private val clazz: KClass<T>
-) :
-    JavaRecursiveElementVisitor() {
+) : JavaRecursiveElementVisitor() {
 
     var result: T? = null
         private set

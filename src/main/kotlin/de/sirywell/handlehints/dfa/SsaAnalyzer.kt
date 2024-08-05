@@ -12,6 +12,7 @@ import de.sirywell.handlehints.foreign.MemoryLayoutHelper
 import de.sirywell.handlehints.foreign.PathElementHelper
 import de.sirywell.handlehints.mhtype.*
 import de.sirywell.handlehints.type.*
+import kotlin.reflect.KClass
 
 class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) {
     companion object {
@@ -281,11 +282,22 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                 noMatch()
             }
         }
-        // TODO is there a better way for this?
-        val resolver = HandleTypeResolver(this, block, BotMethodHandleType, MethodHandleType::class)
-        val resolver2 = HandleTypeResolver(this, block, BotVarHandleType, VarHandleType::class)
+        return withResolver(expression, block)
+    }
+
+    private fun withResolver(expression: PsiExpression, block: Block): TypeLatticeElement<*>? {
+        fun <T : TypeLatticeElement<T>> ter(block: Block, t: T, clazz: KClass<T>): TypeElementResolver<T> {
+            return TypeElementResolver(this, block, t, clazz)
+        }
+        val resolver = (when (expression.type) {
+            methodHandleType(expression) -> ter(block, BotMethodHandleType, MethodHandleType::class)
+            varHandleType(expression) -> ter(block, BotVarHandleType, VarHandleType::class)
+            pathElementType(expression) -> ter(block, BotPathElementType, PathElementType::class)
+            in memoryLayoutTypes(expression) -> ter(block, BotMemoryLayoutType, MemoryLayoutType::class)
+
+            else -> return noMatch()
+        })
         expression.accept(resolver)
-        expression.accept(resolver2)
         return resolver.result
     }
 
@@ -301,10 +313,12 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                 else if (arguments.size == 2) pathElementHelper.sequenceElement(arguments[0], arguments[1])
                 else noMatch()
             }
+
             "groupElement" -> {
                 if (arguments.size != 1) noMatch()
                 else pathElementHelper.groupElement(arguments[0])
             }
+
             else -> noMatch()
         }
     }
@@ -323,29 +337,35 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                 if (arguments.size != 1 || qualifier == null) return noMatch()
                 memoryLayoutHelper.withName(qualifier, arguments[0], block)
             }
+
             "withOrder" -> qualifier?.type(block)
             "withByteAlignment" -> {
                 if (arguments.size != 1 || qualifier == null) return noMatch()
                 memoryLayoutHelper.withByteAlignment(qualifier, arguments[0], block)
             }
+
             "structLayout" -> memoryLayoutHelper.structLayout(arguments, block)
             "unionLayout" -> memoryLayoutHelper.unionLayout(arguments, block)
             "sequenceLayout" -> {
                 if (arguments.size != 2) return noMatch()
                 memoryLayoutHelper.sequenceLayout(arguments[0], arguments[1], block)
             }
+
             "paddingLayout" -> {
                 if (arguments.size != 1) return noMatch()
                 memoryLayoutHelper.paddingLayout(arguments[0])
             }
+
             "scaleHandle" -> {
                 if (arguments.isNotEmpty()) return noMatch()
                 memoryLayoutHelper.scaleHandle()
             }
+
             "arrayElementVarHandle" -> {
                 if (qualifier == null) return noMatch()
                 memoryLayoutHelper.arrayElementVarHandle(qualifier, arguments, block)
             }
+
             "varHandle" -> {
                 if (qualifier == null) return noMatch()
                 memoryLayoutHelper.varHandle(qualifier, arguments, methodExpression, block)
