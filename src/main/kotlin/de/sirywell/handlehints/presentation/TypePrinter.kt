@@ -104,7 +104,15 @@ class TypePrinter : TypeVisitor<TypePrinter.PrintContext, Unit> {
         context.append("⊤")
     }
 
-    override fun visit(type: ValueLayoutType, context: PrintContext) {
+    override fun visit(type: AddressLayoutType, context: PrintContext) {
+        context.append("a?")
+        if (type.targetLayout != null) {
+            context.append(":")
+            type.targetLayout.accept(this, context)
+        }
+    }
+
+    override fun visit(type: NormalValueLayoutType, context: PrintContext) {
         if (type.byteSize == null || type.byteSize != type.byteAlignment) {
             context.append(type.byteAlignment ?: "?").append("%")
         }

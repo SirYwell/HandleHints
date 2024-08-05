@@ -1,8 +1,8 @@
 package de.sirywell.handlehints.type
 
-import com.intellij.psi.PsiTypes
 import de.sirywell.handlehints.TriState
 import de.sirywell.handlehints.toTriState
+import org.jetbrains.uast.util.isInstanceOf
 import java.util.*
 
 @TypeInfo(TopMemoryLayoutType::class)
@@ -38,23 +38,74 @@ data object TopMemoryLayoutType : MemoryLayoutType, TopTypeLatticeElement<Memory
     override val name = TopLayoutName
 }
 
-val ADDRESS_TYPE = ExactType(PsiTypes.nullType())
+sealed interface ValueLayoutType : MemoryLayoutType
 
-data class ValueLayoutType(
+data class AddressLayoutType(
+    val targetLayout: MemoryLayoutType?, // null denotes EXPLICITLY no target layout
+    override val byteAlignment: Long?,
+    override val byteSize: Long?,
+    override val name: LayoutName
+) : ValueLayoutType {
+
+    constructor(byteAlignment: Long?, byteSize: Long?) : this(null, byteAlignment, byteSize, WITHOUT_NAME)
+
+    override fun withByteAlignment(byteAlignment: Long): MemoryLayoutType {
+        return AddressLayoutType(targetLayout, byteAlignment, byteSize, name)
+    }
+
+    override fun withName(name: LayoutName): MemoryLayoutType {
+        return AddressLayoutType(targetLayout, byteAlignment, byteSize, name)
+    }
+
+    fun withTargetLayout(targetLayout: MemoryLayoutType?): AddressLayoutType {
+        return AddressLayoutType(targetLayout, byteAlignment, byteSize, name)
+    }
+
+    override fun joinIdentical(other: MemoryLayoutType): Pair<MemoryLayoutType, TriState> {
+        if (other is AddressLayoutType) {
+            val (targetLayout, identicalTargetLayout) = other.targetLayout?.let { this.targetLayout?.joinIdentical(it) }
+                // if both are null, they are the same in this aspect
+                ?: if (other.targetLayout == null && this.targetLayout == null) null to TriState.YES
+                // if only one is null, they are definitely not the same
+                else TopMemoryLayoutType to TriState.NO
+            val (identicalAlignment, identicalSize) = joinSizeAndAlignment(this, other)
+            val (name, identicalName) = name.joinIdentical(other.name)
+            return AddressLayoutType(
+                targetLayout,
+                if (identicalAlignment == TriState.YES) this.byteAlignment else null,
+                if (identicalSize == TriState.YES) this.byteSize else null,
+                name
+            ) to identicalTargetLayout
+                .sharpenTowardsNo(identicalAlignment)
+                .sharpenTowardsNo(identicalSize)
+                .sharpenTowardsNo(identicalName)
+        } else if (other is BotMemoryLayoutType) {
+            return this to TriState.UNKNOWN
+        }
+        return TopMemoryLayoutType to TriState.UNKNOWN
+
+    }
+
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C): R {
+        return visitor.visit(this, context)
+    }
+}
+
+data class NormalValueLayoutType(
     val type: Type,
     override val byteAlignment: Long?,
     override val byteSize: Long?,
     override val name: LayoutName
-) : MemoryLayoutType {
+) : ValueLayoutType {
 
     constructor(type: Type, byteAlignment: Long?, byteSize: Long?) : this(type, byteAlignment, byteSize, WITHOUT_NAME)
 
     override fun joinIdentical(other: MemoryLayoutType): Pair<MemoryLayoutType, TriState> {
-        if (other is ValueLayoutType) {
+        if (other is NormalValueLayoutType) {
             val (new, identical) = this.type.joinIdentical(other.type)
             val (identicalAlignment, identicalSize) = joinSizeAndAlignment(this, other)
             val (name, identicalName) = name.joinIdentical(other.name)
-            return ValueLayoutType(
+            return NormalValueLayoutType(
                 new,
                 if (identicalAlignment == TriState.YES) this.byteAlignment else null,
                 if (identicalSize == TriState.YES) this.byteSize else null,
@@ -71,8 +122,8 @@ data class ValueLayoutType(
 
     override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
 
-    override fun withByteAlignment(byteAlignment: Long) = ValueLayoutType(type, byteAlignment, byteSize, name)
-    override fun withName(name: LayoutName) = ValueLayoutType(type, byteAlignment, byteSize, name)
+    override fun withByteAlignment(byteAlignment: Long) = NormalValueLayoutType(type, byteAlignment, byteSize, name)
+    override fun withName(name: LayoutName) = NormalValueLayoutType(type, byteAlignment, byteSize, name)
 }
 
 sealed interface GroupLayoutType : MemoryLayoutType {
