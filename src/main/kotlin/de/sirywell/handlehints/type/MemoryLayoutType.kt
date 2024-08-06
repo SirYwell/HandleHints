@@ -64,7 +64,7 @@ data class AddressLayoutType(
     override fun joinIdentical(other: MemoryLayoutType): Pair<MemoryLayoutType, TriState> {
         if (other is AddressLayoutType) {
             val (targetLayout, identicalTargetLayout) = other.targetLayout?.let { this.targetLayout?.joinIdentical(it) }
-                // if both are null, they are the same in this aspect
+            // if both are null, they are the same in this aspect
                 ?: if (other.targetLayout == null && this.targetLayout == null) null to TriState.YES
                 // if only one is null, they are definitely not the same
                 else TopMemoryLayoutType to TriState.NO
@@ -392,7 +392,8 @@ data class SequenceElementType(val variant: SequenceElementVariant) : PathElemen
                 return TopPathElementType to TriState.NO
             }
 
-            is GroupElementType -> TopPathElementType to TriState.NO
+            is GroupElementType,
+            DereferenceElementType -> TopPathElementType to TriState.NO
         }
     }
 
@@ -431,14 +432,29 @@ data class GroupElementType(val variant: GroupElementVariant) : PathElementType 
                 return TopPathElementType to TriState.NO
             }
 
-            is SequenceElementType -> TopPathElementType to TriState.NO
+            is SequenceElementType,
+            DereferenceElementType -> TopPathElementType to TriState.NO
         }
-
     }
 
-    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C): R {
-        return visitor.visit(this, context)
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
+}
+
+data object DereferenceElementType : PathElementType {
+    override fun joinIdentical(other: PathElementType): Pair<PathElementType, TriState> {
+        return when (other) {
+            TopPathElementType -> other to TriState.UNKNOWN
+            BotPathElementType -> this to TriState.UNKNOWN
+            DereferenceElementType -> {
+                return this to TriState.YES
+            }
+
+            is SequenceElementType,
+            is GroupElementType -> TopPathElementType to TriState.NO
+        }
     }
+
+    override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
 }
 
 data object TopPathElementType : PathElementType, TopTypeLatticeElement<PathElementType> {

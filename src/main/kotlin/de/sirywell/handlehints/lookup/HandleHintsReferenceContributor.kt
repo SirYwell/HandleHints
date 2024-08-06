@@ -68,8 +68,15 @@ class HandleHintsReferenceContributor : CompletionContributor() {
             val expression = factory.createExpressionFromText(expressionText, qualifier)
             val lookupElement = lookupExpression(expression, icon, short, true, short, method, short, med)
             result.consume(lookupElement)
+        } else if (targeted is AddressLayoutType && targeted.targetLayout != null) {
+            val method = "dereferenceElement()"
+            val short = "PathElement.$method"
+            val med = "MemoryLayout.$short"
+            val expressionText = "java.lang.foreign.$med"
+            val expression = factory.createExpressionFromText(expressionText, qualifier)
+            val lookupElement = lookupExpression(expression, icon, short, false, short, method, short, med)
+            result.consume(lookupElement)
         }
-        // TODO AddressLayout/dereferenceElement support
     }
 
     private fun toPath(
@@ -146,6 +153,8 @@ private fun methodPattern(vararg methodNames: String): PsiMethodPattern {
 }
 
 private class ReturningPathTraverser : PathTraverser<MemoryLayoutType?> {
+    override fun invalidAddressDereference(head: IndexedValue<DereferenceElementType>) = TopMemoryLayoutType
+
     override fun pathElementAndLayoutTypeMismatch(
         head: IndexedValue<PathElementType>,
         memoryLayoutType: KClass<out MemoryLayoutType>,
