@@ -327,8 +327,11 @@ val WITHOUT_NAME = ExactLayoutName(null)
 
 data class ExactLayoutName(val name: String?) : LayoutName {
     override fun joinIdentical(other: LayoutName): Pair<LayoutName, TriState> {
-        if (other is ExactLayoutName && this.name == other.name) {
-            return this to TriState.YES
+        if (other is ExactLayoutName) {
+            if (this.name == other.name) {
+                return this to TriState.YES
+            }
+            return TopLayoutName to TriState.NO
         }
         if (other is TopLayoutName) return TopLayoutName to TriState.UNKNOWN
         // BotLayoutName
