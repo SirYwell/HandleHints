@@ -3,20 +3,11 @@ package de.sirywell.handlehints.type
 import de.sirywell.handlehints.TriState
 
 @TypeInfo(TopMethodHandleType::class)
-sealed interface MethodHandleType : TypeLatticeElement<MethodHandleType> {
+sealed interface MethodHandleType : FunctionType<MethodHandleType, Type> {
 
-    fun withReturnType(returnType: Type): MethodHandleType
-
-    fun withParameterTypes(parameterTypes: List<Type>) = withParameterTypes(CompleteTypeList(parameterTypes))
-    fun withParameterTypes(parameterTypes: TypeList): MethodHandleType
+    override fun withParameterTypes(parameterTypes: List<Type>) = withParameterTypes(CompleteTypeList(parameterTypes))
 
     fun withVarargs(varargs: TriState): MethodHandleType
-
-    fun parameterTypeAt(index: Int): Type
-
-    val returnType: Type
-
-    val parameterTypes: TypeList
 
     val varargs: TriState
 }
@@ -69,29 +60,16 @@ data class CompleteMethodHandleType(
     override val returnType: Type,
     override val parameterTypes: TypeList,
     override val varargs: TriState
-) : MethodHandleType {
-    override fun joinIdentical(other: MethodHandleType): Pair<MethodHandleType, TriState> {
-        val (ret, rIdentical) = returnType.joinIdentical(other.returnType)
-        val (params, pIdentical) = parameterTypes.joinIdentical(other.parameterTypes)
-        return CompleteMethodHandleType(ret, params, TriState.NO) to rIdentical.sharpenTowardsNo(pIdentical)
+) : MethodHandleType, CompleteFunctionType<MethodHandleType, Type> {
+
+    override fun copy(returnType: Type, parameterTypes: TypeLatticeElementList<Type>): MethodHandleType {
+        return complete(returnType, parameterTypes)
     }
 
     override fun <C, R> accept(visitor: TypeVisitor<C, R>, context: C) = visitor.visit(this, context)
 
-    override fun withReturnType(returnType: Type): MethodHandleType {
-        return CompleteMethodHandleType(returnType, parameterTypes, TriState.NO)
-    }
-
-    override fun withParameterTypes(parameterTypes: TypeList): MethodHandleType {
-        return CompleteMethodHandleType(returnType, parameterTypes, TriState.NO)
-    }
-
     override fun withVarargs(varargs: TriState): MethodHandleType {
         return CompleteMethodHandleType(returnType, parameterTypes, varargs)
-    }
-
-    override fun parameterTypeAt(index: Int): Type {
-        return parameterTypes[index]
     }
 
     override fun toString(): String {
