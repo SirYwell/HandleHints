@@ -4,7 +4,16 @@ import de.sirywell.handlehints.type.*
 
 class TypePrinter : TypeVisitor<TypePrinter.PrintContext, Unit> {
 
-    data class PrintContext(private val builder: StringBuilder, private val memoryLayoutSeparator: String) :
+    enum class ListEnclosing(val open: String, val close: String) {
+        PARENTHESES("(", ")"),
+        BRACKETS("[", "]"),
+    }
+
+    data class PrintContext(
+        private val builder: StringBuilder,
+        private val memoryLayoutSeparator: String,
+        val listEnclosing: ListEnclosing
+    ) :
         Appendable by builder,
         CharSequence by builder {
 
@@ -21,7 +30,7 @@ class TypePrinter : TypeVisitor<TypePrinter.PrintContext, Unit> {
 
     fun print(type: TypeLatticeElement<*>): String {
         val stringBuilder = StringBuilder()
-        type.accept(this, PrintContext(stringBuilder, ""))
+        type.accept(this, PrintContext(stringBuilder, "", ListEnclosing.BRACKETS))
         return stringBuilder.toString()
     }
 
@@ -113,6 +122,7 @@ class TypePrinter : TypeVisitor<TypePrinter.PrintContext, Unit> {
     }
 
     override fun visit(type: NormalValueLayoutType, context: PrintContext) {
+        if (type == VOID_RETURN_TYPE) return // not an actual value layout
         if (type.byteSize == null || type.byteSize != type.byteAlignment) {
             context.append(type.byteAlignment ?: "?").append("%")
         }
@@ -152,35 +162,39 @@ class TypePrinter : TypeVisitor<TypePrinter.PrintContext, Unit> {
     }
 
     override fun visit(type: TopMemoryLayoutList, context: PrintContext) {
-        context.append("[{⊤}]")
+        context.append(context.listEnclosing.open)
+        context.append("{⊤}")
+        context.append(context.listEnclosing.close)
     }
 
     override fun visit(type: BotMemoryLayoutList, context: PrintContext) {
-        context.append("[{⊥}]")
+        context.append(context.listEnclosing.open)
+        context.append("{⊥}")
+        context.append(context.listEnclosing.close)
     }
 
     override fun visit(type: CompleteMemoryLayoutList, context: PrintContext) {
-        context.append("[")
-        val cleanContext = context.copy(memoryLayoutSeparator = "")
+        context.append(context.listEnclosing.open)
+        val cleanContext = context.copy(memoryLayoutSeparator = "", listEnclosing = ListEnclosing.BRACKETS)
         type.typeList.forEachIndexed { index, t ->
             if (index > 0) {
                 context.emitMemoryLayoutSeparator()
             }
             t.accept(this, cleanContext)
         }
-        context.append("]")
+        context.append(context.listEnclosing.close)
     }
 
     override fun visit(type: IncompleteMemoryLayoutList, context: PrintContext) {
-        context.append("[")
-        val cleanContext = context.copy(memoryLayoutSeparator = "")
+        context.append(context.listEnclosing.open)
+        val cleanContext = context.copy(memoryLayoutSeparator = "", listEnclosing = ListEnclosing.BRACKETS)
         (0..type.knownTypes.lastKey()).map {
             if (it > 0) {
                 context.emitMemoryLayoutSeparator()
             }
             type.parameterType(it).accept(this, cleanContext)
         }
-        context.append("]")
+        context.append(context.listEnclosing.close)
     }
 
     override fun visit(type: ExactLayoutName, context: PrintContext) {
@@ -205,6 +219,7 @@ class TypePrinter : TypeVisitor<TypePrinter.PrintContext, Unit> {
                 .append(", ")
                 .append((type.variant.step ?: "?").toString())
                 .append(")")
+
             is SelectingSequenceElementVariant -> context.append("sequenceElement(")
                 .append((type.variant.index ?: "?").toString())
                 .append(")")
@@ -254,6 +269,22 @@ class TypePrinter : TypeVisitor<TypePrinter.PrintContext, Unit> {
             context.append("->")
         }
         context.append("...")
+    }
+
+    override fun visit(type: CompleteFunctionDescriptorType, context: PrintContext) {
+        type.parameterTypes.accept(
+            this,
+            context.copy(memoryLayoutSeparator = "", listEnclosing = ListEnclosing.PARENTHESES)
+        )
+        type.returnType.accept(this, context)
+    }
+
+    override fun visit(type: TopFunctionDescriptorType, context: PrintContext) {
+        context.append("⊤")
+    }
+
+    override fun visit(type: BotFunctionDescriptorType, context: PrintContext) {
+        context.append("⊥")
     }
 
 }

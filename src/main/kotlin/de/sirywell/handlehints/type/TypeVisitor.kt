@@ -39,4 +39,7 @@ interface TypeVisitor<C, R> {
     fun visit(type: BotPathElementList, context: C): R
     fun visit(type: CompletePathElementList, context: C): R
     fun visit(type: IncompletePathElementList, context: C): R
+    fun visit(type: CompleteFunctionDescriptorType, context: C): R
+    fun visit(type: TopFunctionDescriptorType, context: C): R
+    fun visit(type: BotFunctionDescriptorType, context: C): R
 }
