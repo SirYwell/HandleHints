@@ -1,3 +1,4 @@
+import java.lang.foreign.AddressLayout;
 import java.lang.foreign.MemoryLayout;
 import java.lang.foreign.PaddingLayout;
 import java.lang.foreign.SequenceLayout;
@@ -19,6 +20,11 @@ class MemoryLayoutVarHandle {
         <info descr="[int4(a)|boolean1(a)]">UnionLayout ul3 = <info descr="[int4(a)|boolean1(a)]">MemoryLayout.unionLayout(<info descr="int4(a)">ValueLayout.JAVA_INT.withName("a")</info>, <info descr="boolean1(a)">ValueLayout.JAVA_BOOLEAN.withName("a")</info>)</info>;</info>
         <info descr="[int4({⊤})|boolean1(a)]">UnionLayout ul4 = <info descr="[int4({⊤})|boolean1(a)]">MemoryLayout.unionLayout(<info descr="int4({⊤})">ValueLayout.JAVA_INT.withName(unknown)</info>, <info descr="boolean1(a)">ValueLayout.JAVA_BOOLEAN.withName("a")</info>)</info>;</info>
         <info descr="[int4(a)|boolean1({⊤})]">UnionLayout ul5 = <info descr="[int4(a)|boolean1({⊤})]">MemoryLayout.unionLayout(<info descr="int4(a)">ValueLayout.JAVA_INT.withName("a")</info>, <info descr="boolean1({⊤})">ValueLayout.JAVA_BOOLEAN.withName(unknown)</info>)</info>;</info>
+        <info descr="4%[[int4(s00)](s0)[int4(s10)](s1)]">StructLayout sl3 = <info descr="4%[[int4(s00)](s0)[int4(s10)](s1)]">MemoryLayout.structLayout(
+                <info descr="[int4(s00)](s0)"><info descr="[int4(s00)]">MemoryLayout.structLayout(<info descr="int4(s00)">ValueLayout.JAVA_INT.withName("s00")</info>)</info>.withName("s0")</info>,
+                <info descr="[int4(s10)](s1)"><info descr="[int4(s10)]">MemoryLayout.structLayout(<info descr="int4(s10)">ValueLayout.JAVA_INT.withName("s10")</info>)</info>.withName("s1")</info>
+        )</info>;</info>
+        <info descr="a?:[int4(a)|boolean1(b)]">AddressLayout al0 = <info descr="a?:[int4(a)|boolean1(b)]">ValueLayout.ADDRESS.withTargetLayout(ul2)</info>;</info>
         // invalid - not a value layout
         <info descr="⊤">VarHandle vh1 = <info descr="⊤"><warning descr="The layout targeted by the given path is not a 'ValueLayout'.">sl0.varHandle</warning>()</info>;</info>
         // valid
@@ -66,5 +72,9 @@ class MemoryLayoutVarHandle {
         <info descr="(0=MemorySegment)(⊤)">VarHandle vh26 = <info descr="(0=MemorySegment)(⊤)">ul2.varHandle(<warning descr="Group layout does not have a member layout with name x."><info descr="groupElement(x)">MemoryLayout.PathElement.groupElement("x")</info></warning>)</info>;</info>
         // with an unknown name, it might exist though
         <info descr="(0=MemorySegment)(⊤)">VarHandle vh27 = <info descr="(0=MemorySegment)(⊤)">ul5.varHandle(<info descr="groupElement(x)">MemoryLayout.PathElement.groupElement("x")</info>)</info>;</info>
+        // nested
+        <info descr="(MemorySegment)(int)">VarHandle vh28 = <info descr="(MemorySegment)(int)">sl3.varHandle(<info descr="groupElement(1)">MemoryLayout.PathElement.groupElement(1)</info>, <info descr="groupElement(0)">MemoryLayout.PathElement.groupElement(0)</info>)</info>;</info>
+        // dereference
+        <info descr="(MemorySegment)(int)">VarHandle vh29 = <info descr="(MemorySegment)(int)">al0.varHandle(<info descr="dereferenceElement()">MemoryLayout.PathElement.dereferenceElement()</info>, <info descr="groupElement(a)">MemoryLayout.PathElement.groupElement("a")</info>)</info>;</info>
     }
 }

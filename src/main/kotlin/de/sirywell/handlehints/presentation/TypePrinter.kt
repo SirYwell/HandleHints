@@ -211,6 +211,23 @@ class TypePrinter : TypeVisitor<TypePrinter.PrintContext, Unit> {
         }
     }
 
+    override fun visit(type: GroupElementType, context: PrintContext) {
+        when (type.variant) {
+            is IndexGroupElementVariant -> context.append("groupElement(")
+                .append((type.variant.index ?: "index?").toString())
+                .append(")")
+
+            is NameGroupElementVariant -> context.append("groupElement(")
+                .append((type.variant.name ?: "name?").toString())
+                .append(")")
+
+        }
+    }
+
+    override fun visit(type: DereferenceElementType, context: PrintContext) {
+        context.append("dereferenceElement()")
+    }
+
     override fun visit(type: TopPathElementType, context: PrintContext) {
         context.append("{⊤}")
     }
@@ -237,19 +254,6 @@ class TypePrinter : TypeVisitor<TypePrinter.PrintContext, Unit> {
             context.append("->")
         }
         context.append("...")
-    }
-
-    override fun visit(type: GroupElementType, context: PrintContext) {
-        when (type.variant) {
-            is IndexGroupElementVariant -> context.append("groupElement(")
-                .append((type.variant.index ?: "index?").toString())
-                .append(")")
-
-            is NameGroupElementVariant -> context.append("groupElement(")
-                .append((type.variant.name ?: "name?").toString())
-                .append(")")
-
-        }
     }
 
 }

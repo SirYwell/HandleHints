@@ -32,6 +32,7 @@ interface TypeVisitor<C, R> {
     fun visit(type: BotLayoutName, context: C): R
     fun visit(type: SequenceElementType, context: C): R
     fun visit(type: GroupElementType, context: C): R
+    fun visit(type: DereferenceElementType, context: C): R
     fun visit(type: TopPathElementType, context: C): R
     fun visit(type: BotPathElementType, context: C): R
     fun visit(type: TopPathElementList, context: C): R

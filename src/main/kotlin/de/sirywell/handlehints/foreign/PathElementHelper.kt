@@ -60,4 +60,8 @@ class PathElementHelper(ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ssaAnalyzer.t
         }
         return TopPathElementType
     }
+
+    fun dereferenceElement(): PathElementType {
+        return DereferenceElementType
+    }
 }

@@ -36,9 +36,34 @@ interface PathTraverser<T> {
                 layoutType,
                 IndexedValue(head.index, head.value as GroupElementType)
             )
+
+            DereferenceElementType -> dereferenceElement(layoutType, IndexedValue(head.index, DereferenceElementType))
         }
         return resolvePath(tail, resolvedLayout, coords)
     }
+
+    fun dereferenceElement(
+        layoutType: MemoryLayoutType,
+        head: IndexedValue<DereferenceElementType>
+    ): MemoryLayoutType {
+        return when (layoutType) {
+            BotMemoryLayoutType -> return BotMemoryLayoutType
+            TopMemoryLayoutType -> return TopMemoryLayoutType
+            is AddressLayoutType -> {
+                layoutType.targetLayout ?: // knowingly no target layout present
+                return invalidAddressDereference(head)
+            }
+            is StructLayoutType,
+            is UnionLayoutType,
+            is PaddingLayoutType,
+            is SequenceLayoutType,
+            is NormalValueLayoutType -> {
+                return pathElementAndLayoutTypeMismatch(head, layoutType::class, DereferenceElementType::class)
+            }
+        }
+    }
+
+    fun invalidAddressDereference(head: IndexedValue<DereferenceElementType>): MemoryLayoutType
 
     private fun sequenceElement(
         layoutType: MemoryLayoutType,
