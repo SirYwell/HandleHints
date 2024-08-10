@@ -232,6 +232,10 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
             coords: MutableList<Type>
         ) = BotVarHandleType // TODO does that make sense?
 
+        override fun invalidAddressDereference(head: IndexedValue<DereferenceElementType>): MemoryLayoutType {
+            return emitProblem(contextElement(head.index), message("problem.foreign.memory.dereferenceElementInvalid"))
+        }
+
         override fun pathElementAndLayoutTypeMismatch(
             head: IndexedValue<PathElementType>,
             memoryLayoutType: KClass<out MemoryLayoutType>,

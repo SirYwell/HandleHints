@@ -318,7 +318,10 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                 if (arguments.size != 1) noMatch()
                 else pathElementHelper.groupElement(arguments[0])
             }
-
+            "dereferenceElement" -> {
+                if (arguments.isNotEmpty()) return noMatch()
+                else pathElementHelper.dereferenceElement()
+            }
             else -> noMatch()
         }
     }
