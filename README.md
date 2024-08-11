@@ -16,7 +16,9 @@
 -->
 
 <!-- Plugin description -->
-This IntelliJ plugin adds inspections and tools to make working with Java MethodHandles easier.
+This IntelliJ plugin helps when working with `MethodHandle`s, `VarHandle`s, 
+and the [Foreign Function & Memory API](https://openjdk.org/jeps/454) by contributing type hints,
+inspections, and enhanced auto completions.
 
 ### Features
 
@@ -25,9 +27,13 @@ This IntelliJ plugin adds inspections and tools to make working with Java Method
 - Support for methods from the `MethodHandles.Lookup` class
 - Support for methods from the `MethodType` class
 - Support for methods from the `MethodHandle` class
+- Support for methods from `MemoryLayout` classes (type tracking for memory layouts)
+- Support for methods from the `PathElement` class
 - Precise type tracking for parameters and return types separately
 - Inspections for supported creation/transformation/combination methods
 - Inspections for `invoke` and `invokeExact` arguments and return type checks
+- Inspections for invalid layout paths
+- Inspections for misaligned struct layouts, with quick fixes for padding/alignment adjustment
 - Inlay type hints
 <!-- Plugin description end -->
 
