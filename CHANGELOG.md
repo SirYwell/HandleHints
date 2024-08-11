@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2024-08-11
+
 ### Added
 
 - Support a wide range of `MemoryLayout` related methods 
@@ -18,5 +20,6 @@
 
 - Initial scaffold created from [IntelliJ Platform Plugin Template](https://github.com/JetBrains/intellij-platform-plugin-template)
 
-[Unreleased]: https://github.com/SirYwell/HandleHints/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/SirYwell/HandleHints/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/SirYwell/HandleHints/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/SirYwell/HandleHints/commits/v0.1.0
