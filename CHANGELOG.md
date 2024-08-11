@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- Support a wide range of `MemoryLayout` related methods 
+- Contribute type information as documentation on variables
+- Inspections for `PaddingLayout` and alignment issues
+- Support for methods with `PathElement` parameters
+- Contribute completions for methods with `PathElement` parameters
+
 ## [0.1.0] - 2024-06-25
 
 ### Added
