@@ -13,8 +13,7 @@ import com.intellij.psi.PsiMethodCallExpression
 import com.intellij.psi.codeStyle.JavaCodeStyleManager
 import com.intellij.psi.util.PsiUtilCore
 import com.intellij.psi.util.parentOfType
-import com.intellij.ui.IconManager
-import com.intellij.ui.PlatformIcons
+import com.intellij.util.PlatformIcons
 import de.sirywell.handlehints.TypeData
 import de.sirywell.handlehints.foreign.PathTraverser
 import de.sirywell.handlehints.type.*
@@ -46,7 +45,7 @@ class HandleHintsReferenceContributor : CompletionContributor() {
         val qualifierMemoryLayoutType = TypeData.forFile(pos.containingFile)<MemoryLayoutType>(qualifier) ?: return
         val targeted = followPath(qualifierMemoryLayoutType, directCall.argumentList.expressions, index) ?: return
         val factory = JavaPsiFacade.getElementFactory(qualifier.project)
-        val icon = IconManager.getInstance().getPlatformIcon(PlatformIcons.Method)
+        val icon = PlatformIcons.METHOD_ICON
         if (targeted is GroupLayoutType) {
             targeted.memberLayouts.partialList().map { it.name }
                 .filterIsInstance<ExactLayoutName>()

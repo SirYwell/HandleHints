@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Avoid usage of internal API for method icons
+
 ## [0.2.0] - 2024-08-11
 
 ### Added
