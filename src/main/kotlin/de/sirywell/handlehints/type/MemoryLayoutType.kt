@@ -91,6 +91,9 @@ data class AddressLayoutType(
     }
 }
 
+val WITHOUT_NAME = ExactLayoutName(null)
+val VOID_RETURN_TYPE = NormalValueLayoutType(ExactType.voidType, null, null, WITHOUT_NAME)
+
 data class NormalValueLayoutType(
     val type: Type,
     override val byteAlignment: Long?,
@@ -322,8 +325,6 @@ class IncompleteMemoryLayoutList(knowParameterTypes: SortedMap<Int, MemoryLayout
 
 @TypeInfo(TopLayoutName::class)
 sealed interface LayoutName : TypeLatticeElement<LayoutName>
-
-val WITHOUT_NAME = ExactLayoutName(null)
 
 data class ExactLayoutName(val name: String?) : LayoutName {
     override fun joinIdentical(other: LayoutName): Pair<LayoutName, TriState> {

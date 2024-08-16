@@ -8,6 +8,7 @@ import com.intellij.psi.controlFlow.ReadVariableInstruction
 import com.intellij.psi.controlFlow.WriteVariableInstruction
 import de.sirywell.handlehints.*
 import de.sirywell.handlehints.dfa.SsaConstruction.*
+import de.sirywell.handlehints.foreign.FunctionDescriptorHelper
 import de.sirywell.handlehints.foreign.MemoryLayoutHelper
 import de.sirywell.handlehints.foreign.PathElementHelper
 import de.sirywell.handlehints.mhtype.*
@@ -39,6 +40,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
 
     private val memoryLayoutHelper = MemoryLayoutHelper(this)
     private val pathElementHelper = PathElementHelper(this)
+    private val functionDescriptorHelper = FunctionDescriptorHelper(this)
 
     fun doTraversal() {
         ssaConstruction.traverse(::onRead, ::onWrite)
@@ -254,6 +256,8 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                 return memoryLayout(expression, arguments, block)
             } else if (receiverIsPathElement(expression)) {
                 return pathElement(expression, arguments, block)
+            } else if (receiverIsFunctionDescriptor(expression)) {
+                return functionDescriptor(expression, arguments, block)
             } else {
                 return methodExpression.type?.let { topForType(it, expression) }
             }
@@ -299,6 +303,43 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         })
         expression.accept(resolver)
         return resolver.result
+    }
+
+    private fun functionDescriptor(
+        expression: PsiMethodCallExpression,
+        arguments: List<PsiExpression>,
+        block: Block
+    ): TypeLatticeElement<*>? {
+        return when (expression.methodName) {
+            "of" -> {
+                if (arguments.isEmpty()) noMatch()
+                else functionDescriptorHelper.of(arguments[0], arguments.subList(1), block)
+            }
+            "ofVoid" -> functionDescriptorHelper.ofVoid(arguments, block)
+            "dropReturnLayout" -> {
+                val qualifier = expression.methodExpression.qualifierExpression ?: return noMatch()
+                functionDescriptorHelper.dropReturnLayout(qualifier, block)
+            }
+            "appendArgumentLayouts" -> {
+                val qualifier = expression.methodExpression.qualifierExpression ?: return noMatch()
+                functionDescriptorHelper.appendArgumentLayouts(qualifier, arguments, block)
+            }
+            "changeReturnLayout" -> {
+                if (arguments.size != 1) return noMatch()
+                val qualifier = expression.methodExpression.qualifierExpression ?: return noMatch()
+                functionDescriptorHelper.changeReturnLayout(qualifier, arguments[0], block)
+            }
+            "insertArgumentLayouts" -> {
+                if (arguments.isEmpty()) return noMatch()
+                val qualifier = expression.methodExpression.qualifierExpression ?: return noMatch()
+                functionDescriptorHelper.insertArgumentLayouts(qualifier, arguments[0], arguments.subList(1), block)
+            }
+            "toMethodType" -> {
+                val qualifier = expression.methodExpression.qualifierExpression ?: return noMatch()
+                functionDescriptorHelper.toMethodType(qualifier, block)
+            }
+            else -> noMatch()
+        }
     }
 
     private fun pathElement(
@@ -739,6 +780,13 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         return type
     }
 
+    @JvmName("functionDescriptorType_extension")
+    private fun PsiExpression.functionDescriptorType(block: Block): FunctionDescriptorType? {
+        val type = resolveType(this, block) as? FunctionDescriptorType ?: return null
+        typeData[this] = type
+        return type
+    }
+
     fun type(expression: PsiExpression, block: Block) = expression.type(block)
 
     fun methodHandleType(expression: PsiExpression, block: Block) = expression.methodHandleType(block)
@@ -746,6 +794,8 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
     fun memoryLayoutType(expression: PsiExpression, block: Block) = expression.memoryLayoutType(block)
 
     fun pathElementType(expression: PsiExpression, block: Block) = expression.pathElementType(block)
+
+    fun functionDescriptorType(expression: PsiExpression, block: Block) = expression.functionDescriptorType(block)
 
     private fun warnUnsupported(
         expression: PsiMethodCallExpression,

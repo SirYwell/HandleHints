@@ -47,6 +47,7 @@ fun topForType(psiType: PsiType, context: PsiElement): TypeLatticeElement<*> {
         methodHandleType(context) -> topForType<MethodHandleType>()
         varHandleType(context) -> topForType<VarHandleType>()
         pathElementType(context) -> topForType<PathElementType>()
+        functionDescriptorType(context) -> topForType<FunctionDescriptorType>()
         in memoryLayoutTypes(context) -> topForType<MemoryLayoutType>()
         else -> throw UnsupportedOperationException("${psiType.presentableText} is not supported")
     }
