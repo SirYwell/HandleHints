@@ -54,6 +54,7 @@ sealed interface TypeLatticeElementList<T : TypeLatticeElement<T>> : TypeLattice
     fun bot(): T
     fun complete(list: List<T>): CompleteTypeLatticeElementList<T>
     fun incomplete(list: SortedMap<Int, T>): IncompleteTypeLatticeElementList<T>
+    fun lastOrNull(): T?
 
 }
 
@@ -82,6 +83,8 @@ abstract class BotTypeLatticeElementList<T : TypeLatticeElement<T>> : TypeLattic
     override fun anyKnownMatches(predicate: (T) -> Boolean) = false
 
     override fun partialList(): List<T> = listOf()
+
+    override fun lastOrNull() = null
 }
 
 abstract class TopTypeLatticeElementList<T : TypeLatticeElement<T>> : TypeLatticeElementList<T> {
@@ -103,6 +106,8 @@ abstract class TopTypeLatticeElementList<T : TypeLatticeElement<T>> : TypeLattic
     override fun anyKnownMatches(predicate: (T) -> Boolean) = false
 
     override fun partialList(): List<T> = listOf()
+
+    override fun lastOrNull() = null
 }
 
 abstract class CompleteTypeLatticeElementList<T : TypeLatticeElement<T>>(val typeList: List<T>) : TypeLatticeElementList<T> {
@@ -191,6 +196,10 @@ abstract class CompleteTypeLatticeElementList<T : TypeLatticeElement<T>>(val typ
     override fun anyKnownMatches(predicate: (T) -> Boolean) = typeList.any(predicate)
 
     override fun partialList() = typeList
+
+    override fun lastOrNull(): T? {
+        return typeList.lastOrNull()
+    }
 }
 
 abstract class IncompleteTypeLatticeElementList<T : TypeLatticeElement<T>>(val knownTypes: SortedMap<Int, T>) : TypeLatticeElementList<T> {
@@ -273,6 +282,8 @@ abstract class IncompleteTypeLatticeElementList<T : TypeLatticeElement<T>>(val k
     override fun partialList(): List<T> {
         return (0..knownTypes.lastKey()).map { knownTypes.getOrDefault(it, top()) }
     }
+
+    override fun lastOrNull() = null
 }
 
 private fun <T : TypeLatticeElement<T>> TypeLatticeElementList<T>.toMap(): SortedMap<Int, T> {

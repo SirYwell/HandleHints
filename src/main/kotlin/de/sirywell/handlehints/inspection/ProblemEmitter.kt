@@ -89,4 +89,11 @@ abstract class ProblemEmitter(protected val typeData: TypeData) {
     } else {
         emitProblem(targetExpr, message("problem.general.position.invalidIndex", pos))
     }
+
+    protected fun emitRedundant(element: PsiElement, message: String, vararg quickFixes: LocalQuickFix) {
+        typeData.reportProblem(element) {
+            it.registerProblem(element, message, ProblemHighlightType.LIKE_UNUSED_SYMBOL, *quickFixes)
+        }
+
+    }
 }

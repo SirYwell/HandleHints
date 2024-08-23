@@ -1,11 +1,16 @@
 package de.sirywell.handlehints.mhtype
 
 import com.intellij.psi.PsiExpression
+import com.intellij.psi.PsiMethodCallExpression
+import com.intellij.psi.util.parentOfType
 import de.sirywell.handlehints.MethodHandleBundle.message
 import de.sirywell.handlehints.TriState
 import de.sirywell.handlehints.dfa.SsaAnalyzer
 import de.sirywell.handlehints.dfa.SsaConstruction
+import de.sirywell.handlehints.getConstantOfType
 import de.sirywell.handlehints.inspection.ProblemEmitter
+import de.sirywell.handlehints.inspection.RedundantInvocationFix
+import de.sirywell.handlehints.toTriState
 import de.sirywell.handlehints.type.*
 
 class MethodHandleTransformer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ssaAnalyzer.typeData) {
@@ -60,6 +65,30 @@ class MethodHandleTransformer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmi
         return type.withParameterTypes(parameterTypes.dropFirst(1))
     }
 
-    // fun withVarargs()
+    fun withVarargs(
+        qualifierExpr: PsiExpression,
+        makeVarargsExpr: PsiExpression,
+        block: SsaConstruction.Block
+    ): MethodHandleType {
+        val qualifier = ssaAnalyzer.methodHandleType(qualifierExpr, block) ?: TopMethodHandleType
+        val makeVarargs = makeVarargsExpr.getConstantOfType<Boolean>()
+        val methodExpr = makeVarargsExpr.parentOfType<PsiMethodCallExpression>()!!
+        if (makeVarargs == true) {
+            if (qualifier.parameterTypes.compareSize(0) == PartialOrder.EQ) {
+                return emitProblem(qualifierExpr, message("problem.merging.withVarargs.noParameters"))
+            } else {
+                val last = qualifier.parameterTypes.lastOrNull() ?: return TopMethodHandleType
+                if (last is ExactType && last.psiType.arrayDimensions == 0) {
+                    return emitProblem(qualifierExpr, message("problem.merging.withVarargs.arrayTypeExpected", last))
+                }
+            }
+            if (qualifier.varargs == TriState.YES) {
+                emitRedundant(methodExpr, message("problem.general.invocation.redundant"), RedundantInvocationFix())
+            }
+        } else if (makeVarargs == false && qualifier.varargs == TriState.NO) {
+            emitRedundant(methodExpr, message("problem.general.invocation.redundant"), RedundantInvocationFix())
+        }
+        return qualifier.withVarargs(makeVarargs.toTriState())
+    }
 
 }
