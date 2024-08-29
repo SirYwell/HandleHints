@@ -238,7 +238,11 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                         methodHandleTransformer.bindTo(target, arguments[0], block)
                     }
 
-                    "withVarargs" -> TODO()
+                    "withVarargs" -> {
+                        if (arguments.size != 1) return noMatch()
+                        val target = qualifier ?: return noMatch()
+                        methodHandleTransformer.withVarargs(target, arguments[0], block)
+                    }
                     "describeConstable",
                     "invoke",
                     "invokeExact",
