@@ -92,7 +92,7 @@ abstract class ProblemEmitter(protected val typeData: TypeData) {
 
     protected fun emitRedundant(element: PsiElement, message: String, vararg quickFixes: LocalQuickFix) {
         typeData.reportProblem(element) {
-            it.registerProblem(element, message, ProblemHighlightType.LIKE_UNUSED_SYMBOL, *quickFixes)
+            it.registerProblem(element, message, ProblemHighlightType.GENERIC_ERROR_OR_WARNING, *quickFixes)
         }
 
     }
