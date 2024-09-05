@@ -46,6 +46,8 @@ class MethodHandleInspectionsTest : TypeAnalysisTestBase() {
 
     fun testMethodHandlesCollectArguments() = doTypeCheckingTest(true)
 
+    fun testMethodHandlesConstantWithZero() = doInspectionTest()
+
     fun testMethodHandlesDropArguments() = doTypeCheckingTest()
 
     fun testMethodHandlesDropReturn() = doTypeCheckingTest()

@@ -2,6 +2,7 @@ package de.sirywell.handlehints
 
 import com.intellij.codeInspection.dataFlow.CommonDataflow
 import com.intellij.codeInspection.dataFlow.CommonDataflow.DataflowResult
+import com.intellij.codeInspection.dataFlow.types.DfType
 import com.intellij.psi.*
 import com.intellij.psi.impl.source.resolve.reference.impl.JavaReflectionReferenceUtil
 import com.intellij.psi.search.GlobalSearchScope
@@ -122,11 +123,14 @@ val getDataflowResult: MethodHandle = run {
     }
 }
 
-@Suppress("UnstableApiUsage")
 inline fun <reified T> PsiExpression.getConstantOfType(): T? {
+    return getDfType()?.getConstantOfType(T::class.java)
+}
+
+@Suppress("UnstableApiUsage")
+fun PsiExpression.getDfType(): DfType? {
     return (getDataflowResult(this) as DataflowResult?)
         ?.getDfType(this)
-        ?.getConstantOfType(T::class.java)
 }
 
 fun PsiExpression.getConstantLong(): Long? {

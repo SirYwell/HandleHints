@@ -182,32 +182,44 @@
 // Modifications:
 // - move to own package
 // - Suppress warnings
+// - adaption to work with PsiMethodCallExpression elements
+// - adaption to allow adjusting argument list
 
 // Copyright 2000-2023 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 @file:Suppress("UnstableApiUsage", "MemberVisibilityCanBePrivate")
 
 package de.sirywell.intellij
 
+import com.intellij.codeInsight.intention.FileModifier.SafeFieldForPreview
 import com.intellij.codeInspection.CommonQuickFixBundle
 import com.intellij.codeInspection.LocalQuickFix
 import com.intellij.codeInspection.ProblemDescriptor
 import com.intellij.openapi.project.Project
+import com.intellij.psi.PsiMethodCallExpression
 import org.jetbrains.uast.UCallExpression
+import org.jetbrains.uast.UExpression
 import org.jetbrains.uast.generate.getUastElementFactory
 import org.jetbrains.uast.generate.replace
 import org.jetbrains.uast.getQualifiedParentOrThis
 import org.jetbrains.uast.getUastParentOfType
 
-class ReplaceMethodCallFix(val methodName: String) : LocalQuickFix {
-  override fun getFamilyName(): String = CommonQuickFixBundle.message("fix.replace.with.x", "$methodName()")
+class ReplaceMethodCallFix(
+    val methodName: String,
+    @SafeFieldForPreview private val argsFilter: (List<UExpression>) -> List<UExpression> = { it }
+) : LocalQuickFix {
+    override fun getFamilyName(): String = CommonQuickFixBundle.message("fix.replace.with.x", "$methodName()")
 
-  override fun applyFix(project: Project, descriptor: ProblemDescriptor) {
-    val uCall = descriptor.psiElement.getUastParentOfType<UCallExpression>() ?: return
-    val uFactory = uCall.getUastElementFactory(project) ?: return
-    val newCall = uFactory.createCallExpression(
-      uCall.receiver, methodName, uCall.valueArguments, null, uCall.kind, null
-    ) ?: return
-    val oldCall = uCall.getQualifiedParentOrThis()
-    oldCall.replace(newCall)
-  }
+    override fun applyFix(project: Project, descriptor: ProblemDescriptor) {
+        val uCall = if (descriptor.psiElement is PsiMethodCallExpression) {
+            descriptor.psiElement.firstChild.getUastParentOfType<UCallExpression>() ?: return
+        } else {
+            descriptor.psiElement.getUastParentOfType<UCallExpression>() ?: return
+        }
+        val uFactory = uCall.getUastElementFactory(project) ?: return
+        val newCall = uFactory.createCallExpression(
+            uCall.receiver, methodName, argsFilter(uCall.valueArguments), null, uCall.kind, null
+        ) ?: return
+        val oldCall = uCall.getQualifiedParentOrThis()
+        oldCall.replace(newCall)
+    }
 }
