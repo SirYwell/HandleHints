@@ -100,7 +100,7 @@ class LookupHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ssaAna
 
     private fun PsiExpression.asReferenceType(): Type {
         val referenceClass = this.asType()
-        if (referenceClass.isPrimitive()) {
+        if (referenceClass.isPrimitive() == TriState.YES) {
             emitMustBeReferenceType<Type>(this, referenceClass)
             return TopType
         }

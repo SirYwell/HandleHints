@@ -1,7 +1,9 @@
 package de.sirywell.handlehints.mhtype
 
+import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiExpression
 import com.intellij.psi.PsiMethodCallExpression
+import com.intellij.psi.PsiPrimitiveType
 import com.intellij.psi.util.parentOfType
 import de.sirywell.handlehints.MethodHandleBundle.message
 import de.sirywell.handlehints.TriState
@@ -22,7 +24,79 @@ class MethodHandleTransformer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmi
     // fun asSpreader()
 
     // TODO this is not exactly right...
-    fun asType(type: MethodHandleType, newType: MethodHandleType): MethodHandleType = TODO()
+    fun asType(
+        qualifierExpr: PsiExpression,
+        newTypeExpr: PsiExpression,
+        block: SsaConstruction.Block
+    ): MethodHandleType {
+        val qualifier = ssaAnalyzer.methodHandleType(qualifierExpr, block) ?: TopMethodHandleType
+        // TODO this is difficult to handle
+        if (qualifier.varargs != TriState.NO) return TopMethodHandleType
+        val newType = ssaAnalyzer.methodHandleType(newTypeExpr, block) ?: TopMethodHandleType
+        val returnType = convert(qualifierExpr, qualifier.returnType, newType.returnType, false)
+        val parameterTypes = convert(qualifierExpr, qualifier.parameterTypes, newType.parameterTypes)
+        return complete(returnType, parameterTypes)
+    }
+
+    private fun convert(
+        context: PsiExpression,
+        t0: TypeList,
+        t1: TypeList
+    ): TypeList {
+        val s0 = t0.sizeOrNull()
+        val s1 = t1.sizeOrNull()
+        if (s0 != null && s1 != null && s0 != s1) {
+            return emitProblem(context, "params size mismatch")
+        }
+        val l0 = t0.partialList()
+        val l1 = t1.partialList()
+        val list = l0.zip(l1) { p0, p1 -> convert(context, p1, p0, true) }
+        return if (s0 != null) {
+            // both have the same length
+            CompleteTypeList(list)
+        } else {
+            // we might lose some params, but that's good enough for an already incomplete list
+            IncompleteTypeList(list.toIndexedMap())
+        }
+    }
+
+    private fun convert(context: PsiElement, t0: Type, t1: Type, parameter: Boolean): Type {
+        val t0NotPrimitive = t0.isPrimitive() == TriState.NO
+        val t1NotPrimitive = t1.isPrimitive() == TriState.NO
+        if (t0NotPrimitive && t1NotPrimitive) {
+            // If T0 and T1 are references, then a cast to T1 is applied. [...]
+            return if (parameter) t0 else t1
+        }
+        val (join, identical) = t0.joinIdentical(t1)
+        if (identical == TriState.YES) {
+            return join
+        }
+        if (t0 !is ExactType || t1 !is ExactType) {
+            return join
+        }
+        val p0 = t0.psiType
+        val p1 = t1.psiType
+        if (!t0NotPrimitive && !t1NotPrimitive) {
+            // If T0 and T1 are primitives, then [...]
+            return if (p1.isAssignableFrom(p0)) {
+                if (parameter) t0 else t1
+            } else {
+                emitProblem(context, "incompatible")
+            }
+        }
+        if (t1NotPrimitive) {
+            // If T0 is a primitive and T1 a reference [...]
+            val b0 = (p0 as PsiPrimitiveType).getBoxedType(context)!!
+            return if (b0.isAssignableFrom(p1)) {
+                if (parameter) t0 else t1
+            } else {
+                emitProblem(context, "incompatible 2")
+            }
+        } else {
+            // If T0 is a reference and T1 a primitive [...]
+            return if (parameter) t0 else t1 // TODO this is a bit involved, but should be doable?
+        }
+    }
 
     // fun asVarargsCollector()
 
@@ -31,10 +105,10 @@ class MethodHandleTransformer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmi
         if (type !is CompleteMethodHandleType) return type
         val parameterTypes = type.parameterTypes
         val firstParamType =
-            // try to extract a first param if it exists
-            // - CompleteParameterList has a first param if the size is > 0
-            // - IncompleteParameterList has a first param as we assume it to be non-empty
-            // - BotParameterList may have some first param
+        // try to extract a first param if it exists
+        // - CompleteParameterList has a first param if the size is > 0
+        // - IncompleteParameterList has a first param as we assume it to be non-empty
+        // - BotParameterList may have some first param
             // - TopParameterList may have some first param
             if (parameterTypes is CompleteTypeLatticeElementList && parameterTypes.size > 0
                 || parameterTypes is IncompleteTypeLatticeElementList
@@ -46,7 +120,7 @@ class MethodHandleTransformer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmi
                 return emitProblem(typeExpr, message("problem.general.parameters.noParameter"))
             }
         if (firstParamType is ExactType) {
-            if (firstParamType.isPrimitive()) {
+            if (firstParamType.isPrimitive() == TriState.YES) {
                 return emitProblem(
                     typeExpr,
                     message("problem.merging.general.referenceTypeExpectedParameter", 0, firstParamType)

@@ -8,6 +8,7 @@ import com.intellij.psi.search.GlobalSearchScope
 import de.sirywell.handlehints.TriState
 import de.sirywell.handlehints.objectType
 import de.sirywell.handlehints.toTriState
+import io.kinference.primitives.types.toPrimitive
 import java.util.*
 
 @TypeInfo(TopType::class)
@@ -19,7 +20,7 @@ sealed interface Type : TypeLatticeElement<Type> {
 
     fun match(psiType: PsiType): TriState
 
-    fun isPrimitive() = false
+    fun isPrimitive(): TriState
 }
 
 data object BotType : Type, BotTypeLatticeElement<Type> {
@@ -27,6 +28,7 @@ data object BotType : Type, BotTypeLatticeElement<Type> {
 
     override fun erase(manager: PsiManager, scope: GlobalSearchScope) = this
     override fun match(psiType: PsiType) = TriState.UNKNOWN
+    override fun isPrimitive() = TriState.UNKNOWN
 }
 
 data object TopType : Type, TopTypeLatticeElement<Type> {
@@ -36,6 +38,7 @@ data object TopType : Type, TopTypeLatticeElement<Type> {
 
     override fun erase(manager: PsiManager, scope: GlobalSearchScope) = this
     override fun match(psiType: PsiType) = TriState.UNKNOWN
+    override fun isPrimitive() = TriState.UNKNOWN
 }
 
 @JvmRecord
@@ -84,8 +87,8 @@ data class ExactType(val psiType: PsiType) : Type {
 
     override fun match(psiType: PsiType) = (this.psiType == psiType).toTriState()
 
-    override fun isPrimitive(): Boolean {
-        return psiType is PsiPrimitiveType
+    override fun isPrimitive(): TriState {
+        return (psiType is PsiPrimitiveType).toTriState()
     }
 
     override fun toString(): String {
