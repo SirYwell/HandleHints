@@ -1,12 +1,15 @@
 package de.sirywell.handlehints.mhtype
 
 import com.intellij.psi.PsiExpression
+import com.intellij.psi.PsiMethodCallExpression
 import com.intellij.psi.PsiTypes
+import com.intellij.psi.util.parentOfType
 import de.sirywell.handlehints.*
 import de.sirywell.handlehints.MethodHandleBundle.message
 import de.sirywell.handlehints.dfa.SsaAnalyzer
 import de.sirywell.handlehints.dfa.SsaConstruction
 import de.sirywell.handlehints.inspection.ProblemEmitter
+import de.sirywell.handlehints.inspection.RedundantInvocationFix
 import de.sirywell.handlehints.type.*
 
 /**
@@ -237,11 +240,15 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
     // fun dropCoordinates() no VarHandle support, preview
 
     fun dropReturn(targetExpr: PsiExpression, block: SsaConstruction.Block): MethodHandleType {
-        val target = ssaAnalyzer.methodHandleType(targetExpr, block) ?: bottomType
-        if (target is CompleteMethodHandleType) {
-            return target.withReturnType(ExactType.voidType)
+        val target = ssaAnalyzer.methodHandleType(targetExpr, block) ?: topType
+        if (target.returnType == ExactType.voidType) {
+            emitRedundant(
+                targetExpr.parentOfType<PsiMethodCallExpression>()!!,
+                message("problem.transforming.dropReturn.redundant"),
+                RedundantInvocationFix()
+            )
         }
-        return target
+        return target.withReturnType(ExactType.voidType)
     }
 
     fun explicitCastArguments(
