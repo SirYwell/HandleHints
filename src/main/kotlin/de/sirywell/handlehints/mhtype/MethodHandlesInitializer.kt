@@ -1,21 +1,33 @@
 package de.sirywell.handlehints.mhtype
 
+import com.intellij.codeInspection.dataFlow.types.DfConstantType
 import com.intellij.psi.*
+import com.intellij.psi.util.parentOfType
 import de.sirywell.handlehints.*
 import de.sirywell.handlehints.MethodHandleBundle.message
 import de.sirywell.handlehints.dfa.SsaAnalyzer
 import de.sirywell.handlehints.dfa.SsaConstruction
 import de.sirywell.handlehints.inspection.ProblemEmitter
 import de.sirywell.handlehints.type.*
+import de.sirywell.intellij.ReplaceMethodCallFix
 
 private const val VAR_HANDLE_FQN = "java.lang.invoke.VarHandle"
+private val ZERO_VALUES = setOf(
+    null,
+    0.toByte(),
+    0.toShort(),
+    0.toChar(),
+    0,
+    0L,
+    false
+)
+
 
 /**
  * Contains methods from [java.lang.invoke.MethodHandles] that create
  * new [java.lang.invoke.MethodHandle]s.
  */
 class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ssaAnalyzer.typeData) {
-
     private val topType = TopMethodHandleType
 
     fun arrayConstructor(arrayClass: PsiExpression): MethodHandleType {
@@ -57,12 +69,22 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEm
 
     fun constant(typeExpr: PsiExpression, valueExpr: PsiExpression): MethodHandleType {
         val type = typeExpr.asType()
-        val valueType = valueExpr.type?.let { ExactType(it) } ?: BotType
+        val valueType = valueExpr.type?.let { ExactType(it) } ?: TopType
         if (type == ExactType.voidType) {
             return emitProblem(typeExpr, message("problem.creation.arguments.invalid.type", ExactType.voidType))
         }
         if (!typesAreCompatible(type, valueType, valueExpr)) {
             return emitProblem(valueExpr, message("problem.general.parameters.expected.type", type, valueType))
+        }
+        if (type is ExactType) {
+            val dfType = valueExpr.getDfType()
+            if (dfType is DfConstantType<*> && ZERO_VALUES.contains(dfType.value)) {
+                emitRedundant(
+                    typeExpr.parentOfType<PsiMethodCallExpression>()!!,
+                    message("problem.creation.constant.zero"),
+                    ReplaceMethodCallFix("zero") { it.take(1) }
+                )
+            }
         }
         return complete(type, listOf())
     }
@@ -136,8 +158,8 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEm
         }
         val varHandleType = PsiType.getTypeByName(VAR_HANDLE_FQN, methodTypeExpr.project, methodTypeExpr.resolveScope)
         return type.withParameterTypes(
-                type.parameterTypes.addAllAt(0, CompleteTypeList(listOf(ExactType(varHandleType))))
-            )
+            type.parameterTypes.addAllAt(0, CompleteTypeList(listOf(ExactType(varHandleType))))
+        )
     }
 
     private fun checkAccessModeType(
