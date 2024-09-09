@@ -8,7 +8,6 @@ import com.intellij.psi.search.GlobalSearchScope
 import de.sirywell.handlehints.TriState
 import de.sirywell.handlehints.objectType
 import de.sirywell.handlehints.toTriState
-import io.kinference.primitives.types.toPrimitive
 import java.util.*
 
 @TypeInfo(TopType::class)

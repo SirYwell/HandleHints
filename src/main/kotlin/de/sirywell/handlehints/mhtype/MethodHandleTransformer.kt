@@ -30,14 +30,19 @@ class MethodHandleTransformer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmi
         block: SsaConstruction.Block
     ): MethodHandleType {
         val qualifier = ssaAnalyzer.methodHandleType(qualifierExpr, block) ?: TopMethodHandleType
-        // TODO this is difficult to handle
+        // TODO varargs might be difficult to handle
         if (qualifier.varargs != TriState.NO) return TopMethodHandleType
         val newType = ssaAnalyzer.methodHandleType(newTypeExpr, block) ?: TopMethodHandleType
         val returnType = convert(qualifierExpr, qualifier.returnType, newType.returnType, false)
         val parameterTypes = convert(qualifierExpr, qualifier.parameterTypes, newType.parameterTypes)
-        return complete(returnType, parameterTypes)
+        val complete = complete(returnType, parameterTypes)
+        if (qualifier.joinIdentical(complete).second == TriState.YES) {
+            emitRedundant(newTypeExpr.parentOfType<PsiMethodCallExpression>()!!, "same type", RedundantInvocationFix())
+        }
+        return complete
     }
 
+    // assumes non-varargs situation
     private fun convert(
         context: PsiExpression,
         t0: TypeList,
@@ -46,7 +51,7 @@ class MethodHandleTransformer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmi
         val s0 = t0.sizeOrNull()
         val s1 = t1.sizeOrNull()
         if (s0 != null && s1 != null && s0 != s1) {
-            return emitProblem(context, "params size mismatch")
+            return emitProblem(context, message("problem.transforming.asType.parametersSizeMismatch"))
         }
         val l0 = t0.partialList()
         val l1 = t1.partialList()
@@ -81,7 +86,14 @@ class MethodHandleTransformer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmi
             return if (p1.isAssignableFrom(p0)) {
                 if (parameter) t0 else t1
             } else {
-                emitProblem(context, "incompatible")
+                emitProblem(
+                    context,
+                    message(
+                        "problem.transforming.asType.incompatiblePrimitiveConversion",
+                        p0.presentableText,
+                        p1.presentableText
+                    )
+                )
             }
         }
         if (t1NotPrimitive) {
@@ -90,7 +102,10 @@ class MethodHandleTransformer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmi
             return if (b0.isAssignableFrom(p1)) {
                 if (parameter) t0 else t1
             } else {
-                emitProblem(context, "incompatible 2")
+                emitProblem(
+                    context,
+                    message("problem.transforming.asType.incompatibleBoxing", p0.presentableText, p1.presentableText)
+                )
             }
         } else {
             // If T0 is a reference and T1 a primitive [...]
