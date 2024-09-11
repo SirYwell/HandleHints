@@ -147,7 +147,7 @@ fun PsiExpression.asType(): Type {
     return (JavaReflectionReferenceUtil.getReflectiveType(this)?.type
         ?: getConstantOfType<PsiType>())
         ?.let { ExactType(it) }
-        ?: BotType
+        ?: TopType
 }
 
 fun objectType(manager: PsiManager, scope: GlobalSearchScope): PsiType {

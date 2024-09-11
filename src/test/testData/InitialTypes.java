@@ -16,6 +16,20 @@ public class InitialTypes {
         <info descr="⊤">MethodHandle mh3 = create().methodHandle;</info>
     }
 
+    void m(Class<?> c00, Class<?> c01, boolean b) {
+        <info descr="(⊤)⊤">MethodType t00 = <info descr="(⊤)⊤">MethodType.methodType(c00, c01)</info>;</info>
+        <info descr="(⊤)⊤">MethodType t10 = <info descr="(⊤)⊤">MethodType.methodType(any(), any())</info>;</info>
+        if (b) {
+            <info descr="(int)int">t00 = <info descr="(int)int">MethodType.methodType(int.class, int.class)</info></info>;
+            <info descr="(int)int">MethodType t01 = t00;</info>
+        }
+        <info descr="(⊤)⊤">MethodType t02 = t00;</info>
+    }
+
+    Class<?> any() {
+        return int[].class.arrayType();
+    }
+
     private MethodHandle myMethodHandleMethod() {
         return MethodHandles.zero(Object.class);
     }
