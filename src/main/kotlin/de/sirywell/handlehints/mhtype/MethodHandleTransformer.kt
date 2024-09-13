@@ -4,6 +4,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiExpression
 import com.intellij.psi.PsiMethodCallExpression
 import com.intellij.psi.PsiPrimitiveType
+import com.intellij.psi.PsiTypes
 import com.intellij.psi.util.parentOfType
 import de.sirywell.handlehints.MethodHandleBundle.message
 import de.sirywell.handlehints.TriState
@@ -23,7 +24,6 @@ class MethodHandleTransformer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmi
 
     // fun asSpreader()
 
-    // TODO this is not exactly right...
     fun asType(
         qualifierExpr: PsiExpression,
         newTypeExpr: PsiExpression,
@@ -37,7 +37,11 @@ class MethodHandleTransformer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmi
         val parameterTypes = convert(qualifierExpr, qualifier.parameterTypes, newType.parameterTypes)
         val complete = complete(returnType, parameterTypes)
         if (qualifier.joinIdentical(complete).second == TriState.YES) {
-            emitRedundant(newTypeExpr.parentOfType<PsiMethodCallExpression>()!!, "same type", RedundantInvocationFix())
+            emitRedundant(
+                newTypeExpr.parentOfType<PsiMethodCallExpression>()!!,
+                message("problem.transforming.asType.redundant"),
+                RedundantInvocationFix()
+            )
         }
         return complete
     }
@@ -45,16 +49,16 @@ class MethodHandleTransformer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmi
     // assumes non-varargs situation
     private fun convert(
         context: PsiExpression,
-        t0: TypeList,
-        t1: TypeList
+        oldType: TypeList,
+        newType: TypeList,
     ): TypeList {
-        val s0 = t0.sizeOrNull()
-        val s1 = t1.sizeOrNull()
+        var s0 = oldType.sizeOrNull()
+        val s1 = newType.sizeOrNull()
         if (s0 != null && s1 != null && s0 != s1) {
             return emitProblem(context, message("problem.transforming.asType.parametersSizeMismatch"))
         }
-        val l0 = t0.partialList()
-        val l1 = t1.partialList()
+        val l0 = oldType.partialList()
+        val l1 = newType.partialList()
         val list = l0.zip(l1) { p0, p1 -> convert(context, p1, p0, true) }
         return if (s0 != null) {
             // both have the same length
@@ -66,13 +70,21 @@ class MethodHandleTransformer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmi
     }
 
     private fun convert(context: PsiElement, t0: Type, t1: Type, parameter: Boolean): Type {
+        val (join, identical) = t0.joinIdentical(t1)
+        if (!parameter && identical != TriState.YES) {
+            if (t0.match(PsiTypes.voidType()) == TriState.YES) {
+                return t1 // introduce zero value of type t1
+            }
+            if (t1.match(PsiTypes.voidType()) == TriState.YES) {
+                return t1
+            }
+        }
         val t0NotPrimitive = t0.isPrimitive() == TriState.NO
         val t1NotPrimitive = t1.isPrimitive() == TriState.NO
         if (t0NotPrimitive && t1NotPrimitive) {
             // If T0 and T1 are references, then a cast to T1 is applied. [...]
             return if (parameter) t0 else t1
         }
-        val (join, identical) = t0.joinIdentical(t1)
         if (identical == TriState.YES) {
             return join
         }
@@ -109,8 +121,19 @@ class MethodHandleTransformer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmi
             }
         } else {
             // If T0 is a reference and T1 a primitive [...]
-            return if (parameter) t0 else t1 // TODO this is a bit involved, but should be doable?
+            return if (canConvertReferenceToPrimitive(t0, t1)) {
+                if (parameter) t0 else t1
+            } else {
+                emitProblem(context, message("problem.transforming.asType.incompatibleToPrimitiveCast", t0, t1))
+            }
         }
+    }
+
+    private fun canConvertReferenceToPrimitive(
+        referenceType: ExactType,
+        primitiveType: ExactType
+    ): Boolean {
+        return primitiveType.psiType.isConvertibleFrom(referenceType.psiType)
     }
 
     // fun asVarargsCollector()
