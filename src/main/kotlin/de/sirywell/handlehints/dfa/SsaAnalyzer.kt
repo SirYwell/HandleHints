@@ -383,13 +383,13 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         val methodExpression = expression.methodExpression
         val qualifier = methodExpression.qualifierExpression
         return when (expression.methodName) {
-            // for now, let's ignore names and order
             "withoutName" -> qualifier?.memoryLayoutType(block)?.withName(WITHOUT_NAME)
             "withName" -> {
                 if (arguments.size != 1 || qualifier == null) return noMatch()
                 memoryLayoutHelper.withName(qualifier, arguments[0], block)
             }
 
+            // for now, let's ignore order
             "withOrder" -> qualifier?.type(block)
             "withByteAlignment" -> {
                 if (arguments.size != 1 || qualifier == null) return noMatch()
@@ -416,6 +416,11 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
             "arrayElementVarHandle" -> {
                 if (qualifier == null) return noMatch()
                 memoryLayoutHelper.arrayElementVarHandle(qualifier, arguments, block)
+            }
+
+            "byteOffsetHandle" -> {
+                if (qualifier == null) return noMatch()
+                memoryLayoutHelper.byteOffsetHandle(qualifier, arguments, methodExpression, block)
             }
 
             "varHandle" -> {
