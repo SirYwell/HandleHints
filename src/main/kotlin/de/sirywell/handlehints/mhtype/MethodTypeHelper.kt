@@ -16,16 +16,24 @@ import java.util.Collections.nCopies
 class MethodTypeHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ssaAnalyzer.typeData) {
     private val topType = TopMethodHandleType
 
+    private val warnOnVoid: (PsiExpression, Type) -> Type = { expr, type ->
+        if (type.joinIdentical(ExactType.voidType).second == TriState.YES) {
+            emitMustNotBeVoid(expr)
+        } else {
+            type
+        }
+    }
+
+
     fun appendParameterTypes(mhType: MethodHandleType, ptypesToInsert: List<PsiExpression>): MethodHandleType {
-        // TODO check types for void
-        val additionalTypes = ptypesToInsert.mapToTypes()
+        val additionalTypes = ptypesToInsert.mapToTypes(warnOnVoid)
         if (additionalTypes.isEmpty()) return mhType // no change
         val parameters = mhType.parameterTypes as? CompleteTypeLatticeElementList ?: return topType
         return withParameters(mhType, parameters.addAllAt(parameters.size, CompleteTypeList(additionalTypes)))
     }
 
     fun changeParameterType(mhType: MethodHandleType, num: PsiExpression, nptype: PsiExpression): MethodHandleType {
-        val type = nptype.asType() // TODO inspection on void
+        val type = warnOnVoid(nptype, nptype.asType())
         val pos = num.getConstantOfType<Int>() ?: return BotMethodHandleType
         val parameters = mhType.parameterTypes
         if (pos < 0 || parameters.sizeMatches { pos > it } == TriState.YES) return topType // TODO inspection
@@ -33,7 +41,7 @@ class MethodTypeHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ss
     }
 
     fun changeReturnType(mhType: MethodHandleType, nrtype: PsiExpression): MethodHandleType {
-        val type = nrtype.asType() // TODO inspection on void
+        val type = nrtype.asType()
         return mhType.withReturnType(type)
     }
 
@@ -78,8 +86,7 @@ class MethodTypeHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ss
         num: PsiExpression,
         ptypesToInsert: List<PsiExpression>
     ): MethodHandleType {
-        val types = ptypesToInsert.mapToTypes()
-        // TODO check types for void
+        val types = ptypesToInsert.mapToTypes(warnOnVoid)
         val parameters = mhType.parameterTypes
         val pos = num.getConstantOfType<Int>() ?: return complete(mhType.returnType, TopTypeList)
         if (pos < 0 || parameters.sizeMatches { pos > it } == TriState.YES) return topType // TODO inspection
@@ -99,7 +106,7 @@ class MethodTypeHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ss
 
     fun methodType(args: List<PsiExpression>): MethodHandleType {
         val rtype = args[0].asType()
-        val params = args.drop(1).map { it.asType() }
+        val params = args.drop(1).mapToTypes(warnOnVoid)
         return complete(rtype, params)
     }
 

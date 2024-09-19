@@ -64,15 +64,15 @@ class MethodHandleInspectionsTest : TypeAnalysisTestBase() {
 
     fun testMethodHandleWithVarargs() = doInspectionAndTypeCheckingTest()
 
-    fun testMethodTypeAppendParameterTypes() = doTypeCheckingTest()
+    fun testMethodTypeAppendParameterTypes() = doInspectionAndTypeCheckingTest()
 
-    fun testMethodTypeChangeParameterType() = doTypeCheckingTest()
+    fun testMethodTypeChangeParameterType() = doInspectionAndTypeCheckingTest()
 
     fun testMethodTypeChangeReturnType() = doTypeCheckingTest()
 
     fun testMethodTypeCreateBasic() = doTypeCheckingTest()
 
-    fun testMethodTypeCreateWithParameters() = doTypeCheckingTest()
+    fun testMethodTypeCreateWithParameters() = doInspectionAndTypeCheckingTest()
 
     fun testMethodTypeDropParameterTypes() = doTypeCheckingTest()
 
@@ -82,7 +82,7 @@ class MethodHandleInspectionsTest : TypeAnalysisTestBase() {
 
     fun testMethodTypeGenericMethodType() = doTypeCheckingTest()
 
-    fun testMethodTypeInsertParameterTypes() = doTypeCheckingTest()
+    fun testMethodTypeInsertParameterTypes() = doInspectionAndTypeCheckingTest()
 
     fun testMethodTypeWrap() = doTypeCheckingTest()
 
