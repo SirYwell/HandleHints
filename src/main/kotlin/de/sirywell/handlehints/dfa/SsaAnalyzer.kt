@@ -230,7 +230,11 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                     }
 
                     "asSpreader" -> TODO()
-                    "asType" -> TODO()
+                    "asType" -> {
+                        if (arguments.size != 1) return noMatch()
+                        val target = qualifier ?: return noMatch()
+                        methodHandleTransformer.asType(target, arguments[0], block)
+                    }
                     "asVarargsCollector" -> TODO()
                     "bindTo" -> {
                         if (arguments.size != 1) return noMatch()

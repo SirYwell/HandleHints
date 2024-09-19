@@ -62,6 +62,8 @@ class MethodHandleInspectionsTest : TypeAnalysisTestBase() {
 
     fun testMethodHandlesZero() = doInspectionTest()
 
+    fun testMethodHandleAsType() = doInspectionAndTypeCheckingTest()
+
     fun testMethodHandleWithVarargs() = doInspectionAndTypeCheckingTest()
 
     fun testMethodTypeAppendParameterTypes() = doTypeCheckingTest()
