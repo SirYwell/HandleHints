@@ -177,8 +177,6 @@ private class ReturningPathTraverser : PathTraverser<MemoryLayoutType?> {
         head: IndexedValue<SequenceElementType>
     ) = TopMemoryLayoutType
 
-    override fun onComplete(layoutType: ValueLayoutType, coords: MutableList<Type>) = null
-
     override fun onPathEmpty(layoutType: MemoryLayoutType, coords: MutableList<Type>) = layoutType
 
     override fun onTopPathElement(

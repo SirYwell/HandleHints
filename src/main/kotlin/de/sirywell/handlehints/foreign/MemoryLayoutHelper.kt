@@ -150,7 +150,11 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
         return layoutType.withTargetLayout(null)
     }
 
-    fun withTargetLayout(qualifier: PsiExpression, layoutExpr: PsiExpression, block: SsaConstruction.Block): MemoryLayoutType {
+    fun withTargetLayout(
+        qualifier: PsiExpression,
+        layoutExpr: PsiExpression,
+        block: SsaConstruction.Block
+    ): MemoryLayoutType {
         val layoutType =
             ssaAnalyzer.memoryLayoutType(qualifier, block) as? AddressLayoutType ?: return TopMemoryLayoutType
         val layout = ssaAnalyzer.memoryLayoutType(layoutExpr, block) ?: TopMemoryLayoutType
@@ -173,6 +177,20 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
         return list
             .map { it.byteAlignment ?: return null }
             .maxOrNull() ?: 1 // if empty, the alignment is 1
+    }
+
+    fun byteOffsetHandle(
+        qualifier: PsiExpression,
+        arguments: List<PsiExpression>,
+        methodExpr: PsiExpression,
+        block: SsaConstruction.Block
+    ): MethodHandleType {
+        val layoutType = ssaAnalyzer.memoryLayoutType(qualifier, block) ?: TopMemoryLayoutType
+        val path = toPath(arguments, block)
+        return MethodHandlePathTraverser(typeData) {
+            if (it == -1) methodExpr
+            else arguments[it]
+        }.traverse(path, layoutType, mutableListOf(ExactType.longType))
     }
 
     fun varHandle(
@@ -202,35 +220,32 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
     /**
      * Emits a warning if the last path element does not result in a ValueLayout
      */
-    class VarHandlePathTraverser(typeData: TypeData, private val contextElement: (Int) -> PsiExpression) :
-        ProblemEmitter(typeData), PathTraverser<VarHandleType> {
-        override fun onPathEmpty(layoutType: MemoryLayoutType, coords: MutableList<Type>): VarHandleType {
-            return when (layoutType) {
-                is NormalValueLayoutType -> onComplete(layoutType, coords)
-                else -> emitProblem(contextElement(-1), message("problem.foreign.memory.pathTargetNotValueLayout"))
-            }
-        }
+    abstract class HandlePathTraverser<T : TypeLatticeElement<T>>(
+        typeData: TypeData,
+        internal val contextElement: (Int) -> PsiExpression
+    ) :
+        ProblemEmitter(typeData), PathTraverser<T> {
 
         override fun onTopPathElement(
             path: List<IndexedValue<PathElementType>>,
             coords: MutableList<Type>,
             layoutType: MemoryLayoutType
-        ) = TopVarHandleType
+        ) = top()
+
+        abstract fun top(): T
 
         override fun onBottomPathElement(
             path: List<IndexedValue<PathElementType>>,
             coords: MutableList<Type>,
             layoutType: MemoryLayoutType
-        ) = BotVarHandleType // TODO does that make sense?
+        ) = bot() // TODO does that make sense?
 
-        override fun onTopLayout(path: List<IndexedValue<PathElementType>>, coords: MutableList<Type>): VarHandleType {
-            return CompleteVarHandleType(TopType, IncompleteTypeList(coords.toIndexedMap()))
-        }
+        abstract fun bot(): T
 
         override fun onBottomLayout(
             path: List<IndexedValue<PathElementType>>,
             coords: MutableList<Type>
-        ) = BotVarHandleType // TODO does that make sense?
+        ) = bot() // TODO does that make sense?
 
         override fun invalidAddressDereference(head: IndexedValue<DereferenceElementType>): MemoryLayoutType {
             return emitProblem(contextElement(head.index), message("problem.foreign.memory.dereferenceElementInvalid"))
@@ -280,11 +295,35 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
         ): MemoryLayoutType {
             return emitOutOfBounds(layoutType.elementCount, contextElement(head.index), index, true)
         }
+    }
 
-        override fun onComplete(
+    class VarHandlePathTraverser(
+        typeData: TypeData,
+        contextElement: (Int) -> PsiExpression
+    ) : HandlePathTraverser<VarHandleType>(typeData, contextElement) {
+
+        override fun onPathEmpty(layoutType: MemoryLayoutType, coords: MutableList<Type>): VarHandleType {
+            return when (layoutType) {
+                is NormalValueLayoutType -> onComplete(layoutType, coords)
+                else -> emitProblem(contextElement(-1), message("problem.foreign.memory.pathTargetNotValueLayout"))
+            }
+        }
+
+        override fun top() = TopVarHandleType
+
+        override fun bot() = BotVarHandleType
+
+        override fun onTopLayout(
+            path: List<IndexedValue<PathElementType>>,
+            coords: MutableList<Type>
+        ): VarHandleType {
+            return CompleteVarHandleType(TopType, IncompleteTypeList(coords.toIndexedMap()))
+        }
+
+        private fun onComplete(
             layoutType: ValueLayoutType,
             coords: MutableList<Type>
-        ): CompleteVarHandleType {
+        ): VarHandleType {
             if (layoutType is NormalValueLayoutType) {
                 return CompleteVarHandleType(layoutType.type, CompleteTypeList(coords))
             } else {
@@ -295,7 +334,44 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
         }
     }
 
-    fun arrayElementVarHandle(qualifier: PsiExpression, arguments: List<PsiExpression>, block: SsaConstruction.Block): VarHandleType {
+    class MethodHandlePathTraverser(
+        typeData: TypeData,
+        contextElement: (Int) -> PsiExpression
+    ) : HandlePathTraverser<MethodHandleType>(typeData, contextElement) {
+        override fun top() = TopMethodHandleType
+
+        override fun bot() = BotMethodHandleType
+
+        override fun onPathEmpty(
+            layoutType: MemoryLayoutType,
+            coords: MutableList<Type>
+        ): MethodHandleType {
+            return CompleteMethodHandleType(ExactType.longType, CompleteTypeList(coords), TriState.NO)
+        }
+
+        override fun onTopLayout(
+            path: List<IndexedValue<PathElementType>>,
+            coords: MutableList<Type>
+        ): MethodHandleType {
+            return CompleteMethodHandleType(TopType, IncompleteTypeList(coords.toIndexedMap()), TriState.NO)
+        }
+
+        override fun dereferenceElement(
+            layoutType: MemoryLayoutType,
+            head: IndexedValue<DereferenceElementType>
+        ): MemoryLayoutType {
+            return emitProblem(
+                contextElement(head.index),
+                message("problem.foreign.memory.dereferenceElementNotAllowed")
+            )
+        }
+    }
+
+    fun arrayElementVarHandle(
+        qualifier: PsiExpression,
+        arguments: List<PsiExpression>,
+        block: SsaConstruction.Block
+    ): VarHandleType {
         val layoutType = ssaAnalyzer.memoryLayoutType(qualifier, block) ?: TopMemoryLayoutType
         val memorySegmentType =
             PsiType.getTypeByName("java.lang.foreign.MemorySegment", qualifier.project, qualifier.resolveScope)
@@ -312,5 +388,6 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
         return SCALE_HANDLE
     }
 }
+
 private val SCALE_HANDLE_PARAMETERS = CompleteTypeList(listOf(ExactType.longType, ExactType.longType))
 private val SCALE_HANDLE = CompleteMethodHandleType(ExactType.longType, SCALE_HANDLE_PARAMETERS, TriState.NO)

@@ -18,6 +18,8 @@ class MemoryLayoutTypeTest : TypeAnalysisTestBase() {
     // fun testMemoryLayoutScaleHandle() = doTypeCheckingTest()
     // fun testMemoryLayoutArrayElementVarHandle() = doTypeCheckingTest()
 
+    fun testMemoryLayoutByteOffsetHandle() = doInspectionAndTypeCheckingTest()
+
     fun testMemoryLayoutWithName() = doTypeCheckingTest()
 
 

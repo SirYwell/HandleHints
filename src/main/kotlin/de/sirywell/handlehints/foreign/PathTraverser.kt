@@ -165,8 +165,6 @@ interface PathTraverser<T> {
         head: IndexedValue<SequenceElementType>
     ): MemoryLayoutType
 
-    fun onComplete(layoutType: ValueLayoutType, coords: MutableList<Type>): T
-
     fun onPathEmpty(layoutType: MemoryLayoutType, coords: MutableList<Type>): T
 
     fun onTopPathElement(
