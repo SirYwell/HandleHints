@@ -139,8 +139,8 @@ fun PsiExpression.getConstantLong(): Long? {
 }
 
 
-fun Collection<PsiExpression>.mapToTypes(): List<Type> {
-    return this.map { element -> element.asType() }
+fun Collection<PsiExpression>.mapToTypes(check: (PsiExpression, Type) -> Type = { _, t -> t}): List<Type> {
+    return this.map { element -> check(element, element.asType()) }
 }
 
 fun PsiExpression.asType(): Type {
