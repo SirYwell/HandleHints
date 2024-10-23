@@ -60,6 +60,8 @@ class MethodHandleInspectionsTest : TypeAnalysisTestBase() {
 
     fun testMethodHandlesThrowException() = doTypeCheckingTest()
 
+    fun testMethodHandlesTryFinally() = doInspectionAndTypeCheckingTest()
+
     fun testMethodHandlesZero() = doInspectionTest()
 
     fun testMethodHandleAsType() = doInspectionAndTypeCheckingTest()
