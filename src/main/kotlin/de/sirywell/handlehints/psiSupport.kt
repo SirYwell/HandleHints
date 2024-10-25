@@ -45,6 +45,10 @@ fun receiverIsFunctionDescriptor(element: PsiMethodCallExpression): Boolean {
     return element.resolveMethod()?.containingClass?.qualifiedName == "java.lang.foreign.FunctionDescriptor"
 }
 
+fun receiverIsLinker(element: PsiMethodCallExpression): Boolean {
+    return element.resolveMethod()?.containingClass?.qualifiedName == "java.lang.foreign.Linker"
+}
+
 fun methodHandleType(element: PsiElement): PsiClassType {
     return PsiType.getTypeByName("java.lang.invoke.MethodHandle", element.project, element.resolveScope)
 }
