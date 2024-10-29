@@ -9,6 +9,7 @@ import com.intellij.psi.controlFlow.WriteVariableInstruction
 import de.sirywell.handlehints.*
 import de.sirywell.handlehints.dfa.SsaConstruction.*
 import de.sirywell.handlehints.foreign.FunctionDescriptorHelper
+import de.sirywell.handlehints.foreign.LinkerHelper
 import de.sirywell.handlehints.foreign.MemoryLayoutHelper
 import de.sirywell.handlehints.foreign.PathElementHelper
 import de.sirywell.handlehints.mhtype.*
@@ -41,6 +42,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
     private val memoryLayoutHelper = MemoryLayoutHelper(this)
     private val pathElementHelper = PathElementHelper(this)
     private val functionDescriptorHelper = FunctionDescriptorHelper(this)
+    private val linkerHelper = LinkerHelper(this, functionDescriptorHelper)
 
     fun doTraversal() {
         ssaConstruction.traverse(::onRead, ::onWrite)
@@ -235,6 +237,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                         val target = qualifier ?: return noMatch()
                         methodHandleTransformer.asType(target, arguments[0], block)
                     }
+
                     "asVarargsCollector" -> TODO()
                     "bindTo" -> {
                         if (arguments.size != 1) return noMatch()
@@ -247,6 +250,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                         val target = qualifier ?: return noMatch()
                         methodHandleTransformer.withVarargs(target, arguments[0], block)
                     }
+
                     "describeConstable",
                     "invoke",
                     "invokeExact",
@@ -266,6 +270,8 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                 return pathElement(expression, arguments, block)
             } else if (receiverIsFunctionDescriptor(expression)) {
                 return functionDescriptor(expression, arguments, block)
+            } else if (receiverIsLinker(expression)) {
+                return linker(expression, arguments, block)
             } else {
                 return methodExpression.type?.let { topForType(it, expression) }
             }
@@ -301,6 +307,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         fun <T : TypeLatticeElement<T>> ter(block: Block, t: T, clazz: KClass<T>): TypeElementResolver<T> {
             return TypeElementResolver(this, block, t, clazz)
         }
+
         val resolver = (when (expression.type) {
             methodHandleType(expression) -> ter(block, BotMethodHandleType, MethodHandleType::class)
             varHandleType(expression) -> ter(block, BotVarHandleType, VarHandleType::class)
@@ -313,6 +320,30 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         return resolver.result
     }
 
+    private fun linker(
+        expression: PsiMethodCallExpression,
+        arguments: List<PsiExpression>,
+        block: Block
+    ): TypeLatticeElement<*>? {
+        return when (expression.methodName) {
+            "downcallHandle" -> {
+                if (arguments.isEmpty()) noMatch()
+                else if (arguments[0].type == functionDescriptorType(expression)) {
+                    linkerHelper.downcallHandle(arguments[0], arguments.subList(1), block)
+                } else {
+                    linkerHelper.downcallHandle(
+                        arguments[0],
+                        arguments.getOrNull(1) ?: return noMatch(), // if size == 1 -> no match
+                        arguments.subList(2),
+                        block
+                    )
+                }
+            }
+
+            else -> noMatch()
+        }
+    }
+
     private fun functionDescriptor(
         expression: PsiMethodCallExpression,
         arguments: List<PsiExpression>,
@@ -323,29 +354,35 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                 if (arguments.isEmpty()) noMatch()
                 else functionDescriptorHelper.of(arguments[0], arguments.subList(1), block)
             }
+
             "ofVoid" -> functionDescriptorHelper.ofVoid(arguments, block)
             "dropReturnLayout" -> {
                 val qualifier = expression.methodExpression.qualifierExpression ?: return noMatch()
                 functionDescriptorHelper.dropReturnLayout(qualifier, block)
             }
+
             "appendArgumentLayouts" -> {
                 val qualifier = expression.methodExpression.qualifierExpression ?: return noMatch()
                 functionDescriptorHelper.appendArgumentLayouts(qualifier, arguments, block)
             }
+
             "changeReturnLayout" -> {
                 if (arguments.size != 1) return noMatch()
                 val qualifier = expression.methodExpression.qualifierExpression ?: return noMatch()
                 functionDescriptorHelper.changeReturnLayout(qualifier, arguments[0], block)
             }
+
             "insertArgumentLayouts" -> {
                 if (arguments.isEmpty()) return noMatch()
                 val qualifier = expression.methodExpression.qualifierExpression ?: return noMatch()
                 functionDescriptorHelper.insertArgumentLayouts(qualifier, arguments[0], arguments.subList(1), block)
             }
+
             "toMethodType" -> {
                 val qualifier = expression.methodExpression.qualifierExpression ?: return noMatch()
                 functionDescriptorHelper.toMethodType(qualifier, block)
             }
+
             else -> noMatch()
         }
     }
@@ -367,10 +404,12 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                 if (arguments.size != 1) noMatch()
                 else pathElementHelper.groupElement(arguments[0])
             }
+
             "dereferenceElement" -> {
                 if (arguments.isNotEmpty()) return noMatch()
                 else pathElementHelper.dereferenceElement()
             }
+
             else -> noMatch()
         }
     }
@@ -433,6 +472,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                 if (qualifier == null) return noMatch()
                 memoryLayoutHelper.withoutTargetLayout(qualifier, block)
             }
+
             "withTargetLayout" -> {
                 if (qualifier == null || arguments.size != 1) return noMatch()
                 memoryLayoutHelper.withTargetLayout(qualifier, arguments[0], block)
