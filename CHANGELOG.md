@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+- Add `FunctionDescriptor` type analysis
+- Add `MethodHandle#withVarargs` type analysis
+- Add inspection and quick fix for redundant `MethodHandles#dropReturn` calls
+- Add inspection and quick fix for `MethodHandles#constant` calls that can be replaced by `MethodHandles#zero` calls
+- Add `MethodHandle#asType` type analysis, including inspections and quick fixes
+- Add `MemoryLayout#byteOffsetHandle` type analysis
+- Add inspection for `void` parameter types
+- Add `Linker#downcallHandle` type analysis
+- Improve `MethodHandles#tryFinally` type analysis
+
 ## [0.2.1] - 2024-08-12
 
 ### Fixed
