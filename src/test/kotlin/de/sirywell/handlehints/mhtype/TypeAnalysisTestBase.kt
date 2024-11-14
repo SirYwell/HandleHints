@@ -1,6 +1,5 @@
 package de.sirywell.handlehints.mhtype
 
-import com.intellij.refactoring.suggested.startOffset
 import com.intellij.testFramework.fixtures.LightJavaCodeInsightFixtureTestCase
 import de.sirywell.handlehints.inspection.MethodHandleEditInspection
 
@@ -23,7 +22,7 @@ abstract class TypeAnalysisTestBase : LightJavaCodeInsightFixtureTestCase() {
 
     protected fun doTypeCheckingTest(onlyAfterCaret: Boolean) {
         val methodHandleTypeHelperInspection =
-            if (onlyAfterCaret) MethodHandleTypeHelperInspection { it.startOffset > myFixture.caretOffset }
+            if (onlyAfterCaret) MethodHandleTypeHelperInspection { it.textRange.startOffset > myFixture.caretOffset }
             else MethodHandleTypeHelperInspection { true }
         myFixture.enableInspections(methodHandleTypeHelperInspection)
         myFixture.testHighlighting(false, true, false, getTestName(false) + ".java")

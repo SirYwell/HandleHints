@@ -208,9 +208,12 @@ jobs:
           path: ${{ needs.build.outputs.pluginVerifierHomeDir }}/ides
           key: plugin-verifier-${{ hashFiles('build/listProductsReleases.txt') }}
 
-      # Run Verify Plugin task and IntelliJ Plugin Verifier tool
-      - name: Run Plugin Verification tasks
+      # Run Verify Plugin task
+      - name: Run Plugin Verification task
         run: ./gradlew verifyPlugin -Dplugin.verifier.home.dir=${{ needs.build.outputs.pluginVerifierHomeDir }}
+      - name: Run IntelliJ Plugin Verifier task
+        run: ./gradlew runPluginVerifier -Dplugin.verifier.home.dir=${{ needs.build.outputs.pluginVerifierHomeDir }}
+      # and IntelliJ Plugin Verifier tool
 
       # Collect Plugin Verifier Result
       - name: Collect Plugin Verifier Result
