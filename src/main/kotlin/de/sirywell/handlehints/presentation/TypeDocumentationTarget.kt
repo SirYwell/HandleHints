@@ -6,7 +6,7 @@ import com.intellij.platform.backend.documentation.DocumentationTarget
 import com.intellij.platform.backend.presentation.TargetPresentation
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiIdentifier
-import com.intellij.refactoring.suggested.createSmartPointer
+import com.intellij.psi.SmartPointerManager
 import de.sirywell.handlehints.TypeData
 
 @Suppress("UnstableApiUsage")
@@ -18,8 +18,9 @@ class TypeDocumentationTarget(private val identifier: PsiIdentifier, private val
     }
 
     override fun createPointer(): Pointer<out DocumentationTarget> {
-        val idPointer = identifier.createSmartPointer()
-        val elPointer = element.createSmartPointer()
+        val pointerManager = SmartPointerManager.getInstance(identifier.project)
+        val idPointer = pointerManager.createSmartPsiElementPointer(identifier)
+        val elPointer = pointerManager.createSmartPsiElementPointer(element)
         return Pointer {
             val identifier = idPointer.element ?: return@Pointer null
             val element = elPointer.element ?: return@Pointer null
