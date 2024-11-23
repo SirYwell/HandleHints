@@ -5,6 +5,7 @@ import com.intellij.psi.PsiType
 import de.sirywell.handlehints.TriState
 import de.sirywell.handlehints.dfa.SsaAnalyzer
 import de.sirywell.handlehints.dfa.SsaConstruction
+import de.sirywell.handlehints.findPsiType
 import de.sirywell.handlehints.inspection.ProblemEmitter
 import de.sirywell.handlehints.type.*
 
@@ -28,11 +29,7 @@ class LinkerHelper(
 
     private fun buildLeadingParams(methodType: MethodHandleType, context: PsiExpression): TypeList {
         val memorySegmentType = ExactType(
-            PsiType.getTypeByName(
-                "java.lang.foreign.MemorySegment",
-                context.project,
-                context.resolveScope
-            )
+            findPsiType("java.lang.foreign.MemorySegment", context)
         )
         val (_, identical) = methodType.returnType.joinIdentical(memorySegmentType)
         return when (identical) {
@@ -50,11 +47,7 @@ class LinkerHelper(
                     listOf(
                         memorySegmentType,
                         ExactType(
-                            PsiType.getTypeByName(
-                                "java.lang.foreign.SegmentAllocator",
-                                context.project,
-                                context.resolveScope
-                            )
+                            findPsiType("java.lang.foreign.SegmentAllocator", context)
                         )
                     )
                 )

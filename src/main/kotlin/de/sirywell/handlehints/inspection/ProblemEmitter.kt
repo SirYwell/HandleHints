@@ -2,6 +2,7 @@ package de.sirywell.handlehints.inspection
 
 import com.intellij.codeInspection.LocalQuickFix
 import com.intellij.codeInspection.ProblemHighlightType
+import com.intellij.psi.PsiClassObjectAccessExpression
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiExpression
 import com.intellij.psi.PsiTypes
@@ -51,14 +52,21 @@ abstract class ProblemEmitter(protected val typeData: TypeData) {
 
     protected inline fun <reified T : TypeLatticeElement<T>> emitMustBeArrayType(
         refc: PsiExpression,
-        referenceClass: Type
+        referenceClass: Type,
+        suggestFix: Boolean
     ): T {
-        return emitProblem(
-            refc, message(
-                "problem.merging.general.arrayTypeExpected",
-                referenceClass,
-            )
-        )
+        val message = message("problem.general.arrayTypeExpected", referenceClass)
+        return if (suggestFix) {
+            val fix = if (refc is PsiClassObjectAccessExpression) {
+                AddArrayDimensionFix()
+            } else {
+                WrapWithInvocationFix("arrayType", false)
+            }
+            emitProblem(refc, message, fix)
+
+        } else {
+            emitProblem(refc, message)
+        }
     }
 
     protected fun emitIncompatibleReturnTypes(

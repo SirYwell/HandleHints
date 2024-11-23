@@ -775,8 +775,14 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                 methodHandlesInitializer.zero(arguments[0].asType())
             }
 
-            "byteArrayViewVarHandle",
-            "byteBufferViewVarHandle",
+            "byteArrayViewVarHandle" -> {
+                if (arguments.size != 2) return noMatch()
+                methodHandlesInitializer.byteArrayViewVarHandle(arguments[0], arguments[1])
+            }
+            "byteBufferViewVarHandle" -> {
+                if (arguments.size != 2) return noMatch()
+                methodHandlesInitializer.byteBufferViewVarHandle(arguments[0], arguments[1])
+            }
             "classData",
             "classDataAt",
             "lookup",

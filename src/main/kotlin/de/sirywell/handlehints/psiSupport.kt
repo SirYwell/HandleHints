@@ -15,6 +15,9 @@ import java.lang.invoke.MethodType.methodType
 val PsiMethodCallExpression.methodName
     get() = this.methodExpression.referenceName
 
+fun findPsiType(qName: String, context: PsiElement) =
+    PsiType.getTypeByName(qName, context.project, context.resolveScope)
+
 fun isJavaLangInvoke(element: PsiMethodCallExpression) =
     (element.resolveMethod()?.containingClass?.containingFile as? PsiJavaFile)?.packageName == "java.lang.invoke"
 
@@ -32,7 +35,7 @@ fun receiverIsMethodType(element: PsiMethodCallExpression) = receiverIsInvokeCla
 fun receiverIsLookup(element: PsiMethodCallExpression) = receiverIsInvokeClass(element, "MethodHandles.Lookup")
 
 fun receiverIsMemoryLayout(element: PsiMethodCallExpression): Boolean {
-    val superType = PsiType.getTypeByName("java.lang.foreign.MemoryLayout", element.project, element.resolveScope)
+    val superType = findPsiType("java.lang.foreign.MemoryLayout", element)
     val actual = PsiTypesUtil.getClassType(element.resolveMethod()?.containingClass ?: return false)
     return superType.isAssignableFrom(actual)
 }
@@ -50,23 +53,23 @@ fun receiverIsLinker(element: PsiMethodCallExpression): Boolean {
 }
 
 fun methodHandleType(element: PsiElement): PsiClassType {
-    return PsiType.getTypeByName("java.lang.invoke.MethodHandle", element.project, element.resolveScope)
+    return findPsiType("java.lang.invoke.MethodHandle", element)
 }
 
 fun varHandleType(element: PsiElement): PsiClassType {
-    return PsiType.getTypeByName("java.lang.invoke.VarHandle", element.project, element.resolveScope)
+    return findPsiType("java.lang.invoke.VarHandle", element)
 }
 
 fun methodTypeType(element: PsiElement): PsiClassType {
-    return PsiType.getTypeByName("java.lang.invoke.MethodType", element.project, element.resolveScope)
+    return findPsiType("java.lang.invoke.MethodType", element)
 }
 
 fun pathElementType(element: PsiElement): PsiClassType {
-    return PsiType.getTypeByName("java.lang.foreign.MemoryLayout.PathElement", element.project, element.resolveScope)
+    return findPsiType("java.lang.foreign.MemoryLayout.PathElement", element)
 }
 
 fun functionDescriptorType(element: PsiElement): PsiClassType {
-    return PsiType.getTypeByName("java.lang.foreign.FunctionDescriptor", element.project, element.resolveScope)
+    return findPsiType("java.lang.foreign.FunctionDescriptor", element)
 }
 
 fun objectType(element: PsiElement): PsiType {
@@ -95,7 +98,7 @@ fun memoryLayoutTypes(context: PsiElement): Set<PsiType> {
             "java.lang.foreign.ValueLayout.OfDouble",
             "java.lang.foreign.AddressLayout",
         )
-            .map { PsiType.getTypeByName(it, context.project, context.resolveScope) }
+            .map { findPsiType(it, context) }
             .toSet()
     }.memoryLayoutTypes
 }
@@ -143,7 +146,7 @@ fun PsiExpression.getConstantLong(): Long? {
 }
 
 
-fun Collection<PsiExpression>.mapToTypes(check: (PsiExpression, Type) -> Type = { _, t -> t}): List<Type> {
+fun Collection<PsiExpression>.mapToTypes(check: (PsiExpression, Type) -> Type = { _, t -> t }): List<Type> {
     return this.map { element -> check(element, element.asType()) }
 }
 
