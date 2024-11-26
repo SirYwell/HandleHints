@@ -2,6 +2,8 @@ package de.sirywell.handlehints.dfa
 
 import com.intellij.codeInsight.hints.ParameterHintsPassFactory
 import com.intellij.lang.jvm.JvmModifier
+import com.intellij.openapi.diagnostic.ControlFlowException
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.psi.*
 import com.intellij.psi.controlFlow.*
 import com.intellij.psi.util.PsiEditorUtil
@@ -15,7 +17,7 @@ class MethodHandleElementVisitor : JavaRecursiveElementWalkingVisitor() {
     private val typeData = TypeData()
     override fun visitMethod(method: PsiMethod) {
         if (method.body == null) return
-        scanElement(method.body!!)
+        runWithContext({ "${method.name} in file ${method.containingFile.name}" }) { scanElement(method.body!!) }
     }
 
     override fun visitClassInitializer(initializer: PsiClassInitializer) {
@@ -56,8 +58,19 @@ class MethodHandleElementVisitor : JavaRecursiveElementWalkingVisitor() {
     }
 
     fun scan(param: PsiFile): TypeData {
-        visitFile(param)
+        runWithContext({ "file ${param.name}" }) { visitFile(param) }
         return typeData
+    }
+
+    private fun runWithContext(context: () -> String, run: () -> Unit) {
+        try {
+            run()
+        } catch (e: Throwable) {
+            if (e !is ControlFlowException) {
+                LOG.error("error while processing ${context()}", e)
+            }
+            throw e
+        }
     }
 
     private fun addFieldWrite(controlFlow: ControlFlow, field: PsiField): ControlFlow {
@@ -102,6 +115,7 @@ class MethodHandleElementVisitor : JavaRecursiveElementWalkingVisitor() {
     }
 
     companion object {
+        private val LOG = Logger.getInstance(SsaAnalyzer::class.java)
         private val WRITE_VARIABLE_CTOR: MethodHandle by lazy {
             val writeVariableInstructionClass = WriteVariableInstruction::class.java
             val lookup = MethodHandles.privateLookupIn(writeVariableInstructionClass, MethodHandles.lookup())
