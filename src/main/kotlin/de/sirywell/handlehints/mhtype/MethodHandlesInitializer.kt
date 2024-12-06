@@ -65,7 +65,35 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEm
         return complete(ExactType.intType, listOf(arrayType))
     }
 
-    // byteArray/BufferViewVarHandle() no VarHandle support
+    fun byteArrayViewVarHandle(arrayClass: PsiExpression, byteOrder: PsiExpression): VarHandleType {
+        return varHandleForCollectionType(arrayClass, ExactType(PsiTypes.byteType().createArrayType()))
+    }
+
+    fun byteBufferViewVarHandle(arrayClass: PsiExpression, byteOrder: PsiExpression): VarHandleType {
+        return varHandleForCollectionType(arrayClass, ExactType(findPsiType("java.nio.ByteBuffer", arrayClass)))
+    }
+
+    private fun varHandleForCollectionType(arrayClass: PsiExpression, collectionType: Type): CompleteVarHandleType {
+        val arrayType = arrayClass.asArrayType { isSupportedViewHandleComponentType(it) }
+        var componentType = arrayType.componentType()
+        if (componentType is ExactType && !isSupportedViewHandleComponentType(componentType.psiType)) {
+            componentType = emitMustBeViewHandleSupportedComponentType(arrayClass, componentType)
+        }
+        return CompleteVarHandleType(componentType, CompleteTypeList(listOf(collectionType, ExactType.intType)))
+    }
+
+    private fun isSupportedViewHandleComponentType(type: PsiType): Boolean {
+        return type == PsiTypes.shortType()
+                || type == PsiTypes.charType()
+                || type == PsiTypes.intType()
+                || type == PsiTypes.longType()
+                || type == PsiTypes.floatType()
+                || type == PsiTypes.doubleType()
+    }
+
+    private fun emitMustBeViewHandleSupportedComponentType(expr: PsiExpression, type: Type): Type {
+        return emitProblem<Type>(expr, message("problem.general.array.unsupportedViewHandleComponentType", type))
+    }
 
     fun constant(typeExpr: PsiExpression, valueExpr: PsiExpression): MethodHandleType {
         val type = typeExpr.asType()
@@ -123,10 +151,10 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEm
         return complete(type, listOf())
     }
 
-    private fun PsiExpression.asArrayType(): Type {
+    private fun PsiExpression.asArrayType(validComponentTypeCheck: (PsiType) -> Boolean = { false }): Type {
         val referenceClass = this.asType()
         if (referenceClass is ExactType && referenceClass.psiType !is PsiArrayType) {
-            return emitMustBeArrayType(this, referenceClass)
+            return emitMustBeArrayType(this, referenceClass, validComponentTypeCheck(referenceClass.psiType))
         }
         return referenceClass
     }
@@ -156,7 +184,7 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEm
         if (accessType != null) {
             type = checkAccessModeType(accessType, type, exact, methodTypeExpr)
         }
-        val varHandleType = PsiType.getTypeByName(VAR_HANDLE_FQN, methodTypeExpr.project, methodTypeExpr.resolveScope)
+        val varHandleType = findPsiType(VAR_HANDLE_FQN, methodTypeExpr)
         return type.withParameterTypes(
             type.parameterTypes.addAllAt(0, CompleteTypeList(listOf(ExactType(varHandleType))))
         )

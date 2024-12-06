@@ -3,13 +3,10 @@ package de.sirywell.handlehints.foreign
 import com.intellij.codeInspection.LocalQuickFix.from
 import com.intellij.psi.PsiExpression
 import com.intellij.psi.PsiType
+import de.sirywell.handlehints.*
 import de.sirywell.handlehints.MethodHandleBundle.message
-import de.sirywell.handlehints.TriState
-import de.sirywell.handlehints.TypeData
 import de.sirywell.handlehints.dfa.SsaAnalyzer
 import de.sirywell.handlehints.dfa.SsaConstruction
-import de.sirywell.handlehints.getConstantLong
-import de.sirywell.handlehints.getConstantOfType
 import de.sirywell.handlehints.inspection.AdjustAlignmentFix
 import de.sirywell.handlehints.inspection.AdjustPaddingFix
 import de.sirywell.handlehints.inspection.ProblemEmitter
@@ -202,7 +199,7 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
         val layoutType = ssaAnalyzer.memoryLayoutType(qualifier, block) ?: TopMemoryLayoutType
         val path = toPath(arguments, block)
         val memorySegmentType =
-            PsiType.getTypeByName("java.lang.foreign.MemorySegment", qualifier.project, qualifier.resolveScope)
+            findPsiType("java.lang.foreign.MemorySegment", qualifier)
         return VarHandlePathTraverser(typeData) {
             if (it == -1) methodExpr
             else arguments[it]
@@ -328,7 +325,7 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
                 return CompleteVarHandleType(layoutType.type, CompleteTypeList(coords))
             } else {
                 val ctx = contextElement(-1) // good enough for us
-                val type = PsiType.getTypeByName("java.lang.foreign.MemorySegment", ctx.project, ctx.resolveScope)
+                val type = findPsiType("java.lang.foreign.MemorySegment", ctx)
                 return CompleteVarHandleType(ExactType(type), CompleteTypeList(coords))
             }
         }
@@ -374,7 +371,7 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
     ): VarHandleType {
         val layoutType = ssaAnalyzer.memoryLayoutType(qualifier, block) ?: TopMemoryLayoutType
         val memorySegmentType =
-            PsiType.getTypeByName("java.lang.foreign.MemorySegment", qualifier.project, qualifier.resolveScope)
+            findPsiType("java.lang.foreign.MemorySegment", qualifier)
         val coords = mutableListOf(ExactType(memorySegmentType), *SCALE_HANDLE_PARAMETERS.typeList.toTypedArray())
         val path = toPath(arguments, block)
         return VarHandlePathTraverser(typeData) {

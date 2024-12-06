@@ -4,6 +4,7 @@ import com.intellij.psi.PsiExpression
 import com.intellij.psi.PsiType
 import de.sirywell.handlehints.dfa.SsaAnalyzer
 import de.sirywell.handlehints.dfa.SsaConstruction
+import de.sirywell.handlehints.findPsiType
 import de.sirywell.handlehints.getConstantOfType
 import de.sirywell.handlehints.inspection.ProblemEmitter
 import de.sirywell.handlehints.type.*
@@ -70,11 +71,7 @@ class FunctionDescriptorHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEm
     fun toMethodType(qualifier: PsiExpression, block: SsaConstruction.Block): MethodHandleType {
         val q = ssaAnalyzer.functionDescriptorType(qualifier, block) ?: TopFunctionDescriptorType
         val memorySegmentType = ExactType(
-            PsiType.getTypeByName(
-                "java.lang.foreign.MemorySegment",
-                qualifier.project,
-                qualifier.resolveScope
-            )
+            findPsiType("java.lang.foreign.MemorySegment", qualifier)
         )
         return q.toMethodType(memorySegmentType)
     }

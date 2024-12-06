@@ -1,5 +1,6 @@
 package de.sirywell.handlehints.type
 
+import com.intellij.psi.PsiArrayType
 import com.intellij.psi.PsiManager
 import com.intellij.psi.PsiPrimitiveType
 import com.intellij.psi.PsiType
@@ -20,6 +21,8 @@ sealed interface Type : TypeLatticeElement<Type> {
     fun match(psiType: PsiType): TriState
 
     fun isPrimitive(): TriState
+
+    fun componentType(): Type
 }
 
 data object BotType : Type, BotTypeLatticeElement<Type> {
@@ -28,6 +31,7 @@ data object BotType : Type, BotTypeLatticeElement<Type> {
     override fun erase(manager: PsiManager, scope: GlobalSearchScope) = this
     override fun match(psiType: PsiType) = TriState.UNKNOWN
     override fun isPrimitive() = TriState.UNKNOWN
+    override fun componentType() = this
 }
 
 data object TopType : Type, TopTypeLatticeElement<Type> {
@@ -38,6 +42,7 @@ data object TopType : Type, TopTypeLatticeElement<Type> {
     override fun erase(manager: PsiManager, scope: GlobalSearchScope) = this
     override fun match(psiType: PsiType) = TriState.UNKNOWN
     override fun isPrimitive() = TriState.UNKNOWN
+    override fun componentType() = this
 }
 
 @JvmRecord
@@ -88,6 +93,13 @@ data class ExactType(val psiType: PsiType) : Type {
 
     override fun isPrimitive(): TriState {
         return (psiType is PsiPrimitiveType).toTriState()
+    }
+
+    override fun componentType(): Type {
+        if (psiType is PsiArrayType) {
+            return ExactType(psiType.componentType)
+        }
+        return TopType
     }
 
     override fun toString(): String {

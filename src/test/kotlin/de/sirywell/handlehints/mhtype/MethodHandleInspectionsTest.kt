@@ -42,6 +42,10 @@ class MethodHandleInspectionsTest : TypeAnalysisTestBase() {
 
     fun testMethodHandlesArrayLength() = doTypeCheckingTest()
 
+    fun testMethodHandlesByteArrayViewVarHandle() = doInspectionAndTypeCheckingTest()
+
+    fun testMethodHandlesByteBufferViewVarHandle() = doInspectionAndTypeCheckingTest()
+
     fun testMethodHandlesCatchException() = doTypeCheckingTest()
 
     fun testMethodHandlesCollectArguments() = doTypeCheckingTest(true)
