@@ -302,13 +302,48 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
         filterExpr: PsiExpression,
         block: SsaConstruction.Block
     ): MethodHandleType {
-        val target = ssaAnalyzer.methodHandleType(targetExpr, block) ?: bottomType
-        val filter = ssaAnalyzer.methodHandleType(filterExpr, block) ?: bottomType
-        // TODO proper handling of bottom/top
-        if (filter !is CompleteMethodHandleType || filter.parameterTypes.hasSize(1) == TriState.NO) {
-            return topType
+        val target = ssaAnalyzer.methodHandleType(targetExpr, block) ?: TopMethodHandleType
+        val filter = ssaAnalyzer.methodHandleType(filterExpr, block) ?: TopMethodHandleType
+        val compareTo0 = filter.parameterTypes.compareSize(0)
+        val compareTo1 = filter.parameterTypes.compareSize(1)
+        when (target.returnType.match(PsiTypes.voidType())) {
+            TriState.YES -> if (compareTo0 == PartialOrder.GT) {
+                // filter expects parameters when target returns void...
+                return emitProblem(filterExpr, message("problem.merging.filterReturnValue.voidButParameters"))
+            }
+
+            TriState.UNKNOWN -> if (compareTo1 == PartialOrder.GT) {
+                return emitProblem(
+                    filterExpr,
+                    message("problem.merging.filterReturnValue.filterMustHaveAtMostOneParameter")
+                )
+            }
+
+            TriState.NO -> {
+                if (compareTo0 == PartialOrder.EQ) {
+                    return emitProblem(
+                        filterExpr,
+                        message("problem.merging.filterReturnValue.filterMustHaveParameterOfType", target.returnType)
+                    )
+                } else if (compareTo1 == PartialOrder.GT) {
+                    return emitProblem(
+                        filterExpr,
+                        message("problem.merging.filterReturnValue.filterMustHaveAtMostOneParameter")
+                    )
+                }
+                val filterParameter = filter.parameterTypeAt(0)
+                if (filterParameter.joinIdentical(target.returnType).second == TriState.NO) {
+                    return emitProblem(
+                        filterExpr,
+                        message(
+                            "problem.merging.filterReturnValue.incompatibleFilterParameter",
+                            filterParameter,
+                            target.returnType
+                        )
+                    )
+                }
+            }
         }
-        if (target.returnType.join(filter.parameterTypes[0]) == TopType) return topType
         return target.withReturnType(filter.returnType)
     }
 

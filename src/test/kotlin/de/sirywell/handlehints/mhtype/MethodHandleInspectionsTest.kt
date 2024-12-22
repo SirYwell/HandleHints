@@ -54,6 +54,8 @@ class MethodHandleInspectionsTest : TypeAnalysisTestBase() {
 
     fun testMethodHandlesEmpty() = doTypeCheckingTest()
 
+    fun testMethodHandlesFilterReturnValue() = doInspectionAndTypeCheckingTest()
+
     fun testMethodHandlesIdentity() = doTypeCheckingTest()
 
     fun testMethodHandlesTableSwitch() = doTypeCheckingTest()
