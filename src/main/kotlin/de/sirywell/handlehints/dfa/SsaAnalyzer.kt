@@ -688,7 +688,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
             }
 
             "filterReturnValue" -> {
-                if (arguments.size != 1) return noMatch()
+                if (arguments.size != 2) return noMatch()
                 methodHandlesMerger.filterReturnValue(arguments[0], arguments[1], block)
             }
 
