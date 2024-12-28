@@ -287,4 +287,16 @@ class TypePrinter : TypeVisitor<TypePrinter.PrintContext, Unit> {
         context.append("⊥")
     }
 
+    override fun visit(type: KnownInvocationBehavior, context: PrintContext) {
+
+    }
+
+    override fun visit(type: TopInvocationBehavior, context: PrintContext) {
+
+    }
+
+    override fun visit(type: BotInvocationBehavior, context: PrintContext) {
+
+    }
+
 }

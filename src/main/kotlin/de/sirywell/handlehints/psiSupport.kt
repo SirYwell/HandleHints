@@ -27,6 +27,9 @@ fun receiverIsInvokeClass(element: PsiMethodCallExpression, className: String) =
 fun receiverIsMethodHandle(element: PsiMethodCallExpression) =
     receiverIsInvokeClass(element, "MethodHandle")
 
+fun receiverIsVarHandle(element: PsiMethodCallExpression) =
+    receiverIsInvokeClass(element, "VarHandle")
+
 fun receiverIsMethodHandles(element: PsiMethodCallExpression) =
     receiverIsInvokeClass(element, "MethodHandles")
 

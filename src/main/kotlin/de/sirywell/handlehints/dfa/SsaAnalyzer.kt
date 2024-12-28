@@ -36,6 +36,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
     private val methodHandlesMerger = MethodHandlesMerger(this)
     private val methodHandlesInitializer = MethodHandlesInitializer(this)
     private val methodHandleTransformer = MethodHandleTransformer(this)
+    private val varHandleHelper = VarHandleHelper(this)
     private val lookupHelper = LookupHelper(this)
     private val methodTypeHelper = MethodTypeHelper(this)
 
@@ -262,6 +263,8 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                     in objectMethods -> unrelatedType()
                     else -> warnUnsupported(expression, "MethodHandle")
                 }
+            } else if (receiverIsVarHandle(expression)) {
+                return varHandle(expression, arguments, block)
             } else if (receiverIsLookup(expression)) {
                 return lookup(expression, arguments, block)
             } else if (receiverIsMemoryLayout(expression)) {
@@ -508,6 +511,25 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
     private fun residesInValueLayout(variable: PsiVariable): Boolean {
         val clazz = variable.parent as? PsiClass ?: return false
         return clazz.qualifiedName.equals("java.lang.foreign.ValueLayout")
+    }
+
+    private fun varHandle(
+        expression: PsiMethodCallExpression,
+        arguments: List<PsiExpression>,
+        block: Block
+    ) : TypeLatticeElement<*>? {
+        val qualifier = expression.methodExpression.qualifierExpression
+        return when (expression.methodName) {
+            "withInvokeBehavior" -> {
+                if (arguments.isNotEmpty() || qualifier == null) noMatch()
+                else varHandleHelper.withInvokeBehavior(qualifier, block)
+            }
+            "withInvokeExactBehavior" -> {
+                if (arguments.isNotEmpty() || qualifier == null) noMatch()
+                else varHandleHelper.withInvokeExactBehavior(qualifier, block)
+            }
+            else -> noMatch()
+        }
     }
 
     private fun lookup(
@@ -825,6 +847,13 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         return type
     }
 
+    @JvmName("varHandleType_extension")
+    private fun PsiExpression.varHandleType(block: Block): VarHandleType? {
+        val type = resolveType(this, block) as? VarHandleType ?: return null
+        typeData[this] = type
+        return type
+    }
+
     @JvmName("memoryLayoutType_extension")
     private fun PsiExpression.memoryLayoutType(block: Block): MemoryLayoutType? {
         val type = resolveType(this, block) as? MemoryLayoutType ?: return null
@@ -849,6 +878,8 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
     fun type(expression: PsiExpression, block: Block) = expression.type(block)
 
     fun methodHandleType(expression: PsiExpression, block: Block) = expression.methodHandleType(block)
+
+    fun varHandleType(expression: PsiExpression, block: Block) = expression.varHandleType(block)
 
     fun memoryLayoutType(expression: PsiExpression, block: Block) = expression.memoryLayoutType(block)
 

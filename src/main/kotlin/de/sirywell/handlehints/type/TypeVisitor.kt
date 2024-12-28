@@ -42,4 +42,7 @@ interface TypeVisitor<C, R> {
     fun visit(type: CompleteFunctionDescriptorType, context: C): R
     fun visit(type: TopFunctionDescriptorType, context: C): R
     fun visit(type: BotFunctionDescriptorType, context: C): R
+    fun visit(type: KnownInvocationBehavior, context: C): R
+    fun visit(type: TopInvocationBehavior, context: C): R
+    fun visit(type: BotInvocationBehavior, context: C): R
 }
