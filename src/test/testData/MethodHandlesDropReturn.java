@@ -10,6 +10,6 @@ class MethodHandlesDropReturn {
     // dropping doesn't make sense, but type stays!
     <info descr="(int)void">MethodHandle mh02 = <warning descr="MethodHandle to drop return from already has return type 'void'."><info descr="(int)void">MethodHandles.dropReturn(mh01)</info></warning>;</info>
     // we don't know if dropping makes sense - assume it does
-    <info descr="⊤">MethodHandle mh11 = <info descr="⊤">MethodHandles.dropReturn(mh10)</info>;</info>
+    <info descr="({⊤})void">MethodHandle mh11 = <info descr="({⊤})void">MethodHandles.dropReturn(mh10)</info>;</info>
   }
 }

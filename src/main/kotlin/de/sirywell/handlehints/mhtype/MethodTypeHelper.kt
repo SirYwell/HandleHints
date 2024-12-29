@@ -16,17 +16,8 @@ import java.util.Collections.nCopies
 class MethodTypeHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ssaAnalyzer.typeData) {
     private val topType = TopMethodHandleType
 
-    private val warnOnVoid: (PsiExpression, Type) -> Type = { expr, type ->
-        if (type.joinIdentical(ExactType.voidType).second == TriState.YES) {
-            emitMustNotBeVoid(expr)
-        } else {
-            type
-        }
-    }
-
-
     fun appendParameterTypes(mhType: MethodHandleType, ptypesToInsert: List<PsiExpression>): MethodHandleType {
-        val additionalTypes = ptypesToInsert.mapToTypes(warnOnVoid)
+        val additionalTypes = ptypesToInsert.mapToTypes(::warnOnVoid)
         if (additionalTypes.isEmpty()) return mhType // no change
         val parameters = mhType.parameterTypes as? CompleteTypeLatticeElementList ?: return topType
         return withParameters(mhType, parameters.addAllAt(parameters.size, CompleteTypeList(additionalTypes)))
@@ -86,7 +77,7 @@ class MethodTypeHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ss
         num: PsiExpression,
         ptypesToInsert: List<PsiExpression>
     ): MethodHandleType {
-        val types = ptypesToInsert.mapToTypes(warnOnVoid)
+        val types = ptypesToInsert.mapToTypes(::warnOnVoid)
         val parameters = mhType.parameterTypes
         val pos = num.getConstantOfType<Int>() ?: return complete(mhType.returnType, TopTypeList)
         if (pos < 0 || parameters.sizeMatches { pos > it } == TriState.YES) return topType // TODO inspection
@@ -106,7 +97,7 @@ class MethodTypeHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ss
 
     fun methodType(args: List<PsiExpression>): MethodHandleType {
         val rtype = args[0].asType()
-        val params = args.drop(1).mapToTypes(warnOnVoid)
+        val params = args.drop(1).mapToTypes(::warnOnVoid)
         return complete(rtype, params)
     }
 

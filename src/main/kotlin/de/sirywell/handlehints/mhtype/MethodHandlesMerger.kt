@@ -224,18 +224,18 @@ class MethodHandlesMerger(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter
 
     fun dropArguments(
         targetExpr: PsiExpression,
-        pos: Int,
+        posExpr: PsiExpression,
         valueTypes: List<PsiExpression>,
         block: SsaConstruction.Block
     ): MethodHandleType {
-        val types = valueTypes.mapToTypes()
+        val types = valueTypes.mapToTypes(::warnOnVoid)
+        val pos = posExpr.nonNegativeInt() ?: return TopMethodHandleType
         val target = ssaAnalyzer.methodHandleType(targetExpr, block) ?: bottomType
-        val signature = target
-        if (signature.parameterTypes.compareSize(pos) == PartialOrder.LT) {
-            return emitOutOfBounds(signature.parameterTypes.sizeOrNull()?.toLong(), targetExpr, pos.toLong(), false)
+        if (target.parameterTypes.compareSize(pos) == PartialOrder.LT) {
+            return emitOutOfBounds(target.parameterTypes.sizeOrNull()?.toLong(), posExpr, pos.toLong(), false)
         }
-        val list = signature.parameterTypes.addAllAt(pos, CompleteTypeList(types))
-        return signature.withParameterTypes(list)
+        val list = target.parameterTypes.addAllAt(pos, CompleteTypeList(types))
+        return target.withParameterTypes(list)
     }
 
     // fun dropArgumentsToMatch()

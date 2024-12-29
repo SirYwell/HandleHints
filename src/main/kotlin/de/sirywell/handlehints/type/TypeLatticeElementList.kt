@@ -17,6 +17,7 @@ sealed interface TypeLatticeElementList<T : TypeLatticeElement<T>> : TypeLattice
         return when (compareSize(size)) {
             PartialOrder.LT,
             PartialOrder.GT -> TriState.NO
+
             PartialOrder.EQ -> TriState.YES
             PartialOrder.UNORDERED -> TriState.UNKNOWN
         }
@@ -90,10 +91,13 @@ abstract class BotTypeLatticeElementList<T : TypeLatticeElement<T>> : TypeLattic
 abstract class TopTypeLatticeElementList<T : TypeLatticeElement<T>> : TypeLatticeElementList<T> {
     override fun parameterType(index: Int) = top()
     override fun joinIdentical(other: TypeLatticeElementList<T>) = this to TriState.UNKNOWN
+
     override fun dropFirst(n: Int) = this
     override fun removeAt(index: Int, n: Int) = this
-    override fun addAllAt(index: Int, typeLatticeElementList: TypeLatticeElementList<T>) = this
-    override fun setAt(index: Int, type: T) = topList()
+    override fun addAllAt(index: Int, typeLatticeElementList: TypeLatticeElementList<T>) =
+        incomplete(typeLatticeElementList.toMap().mapKeys { it.key + index }.toSortedMap())
+
+    override fun setAt(index: Int, type: T) = incomplete(sortedMapOf(index to type))
 
     override fun sizeMatches(predicate: (Int) -> Boolean) = TriState.UNKNOWN
     override fun compareSize(value: Int): PartialOrder {
@@ -110,7 +114,8 @@ abstract class TopTypeLatticeElementList<T : TypeLatticeElement<T>> : TypeLattic
     override fun lastOrNull() = null
 }
 
-abstract class CompleteTypeLatticeElementList<T : TypeLatticeElement<T>>(val typeList: List<T>) : TypeLatticeElementList<T> {
+abstract class CompleteTypeLatticeElementList<T : TypeLatticeElement<T>>(val typeList: List<T>) :
+    TypeLatticeElementList<T> {
     val size get() = typeList.size
     override fun parameterType(index: Int): T {
         return typeList.getOrElse(index) { top() }
@@ -160,7 +165,7 @@ abstract class CompleteTypeLatticeElementList<T : TypeLatticeElement<T>>(val typ
     }
 
     override fun addAllAt(index: Int, typeLatticeElementList: TypeLatticeElementList<T>): TypeLatticeElementList<T> {
-        if (index > size) return topList()
+        if (index > size || index < 0) return topList()
         return when (typeLatticeElementList) {
             is BotTypeLatticeElementList<T> -> incomplete(typeList.subList(0, index).toIndexedMap())
             is TopTypeLatticeElementList<T> -> topList()
@@ -202,7 +207,8 @@ abstract class CompleteTypeLatticeElementList<T : TypeLatticeElement<T>>(val typ
     }
 }
 
-abstract class IncompleteTypeLatticeElementList<T : TypeLatticeElement<T>>(val knownTypes: SortedMap<Int, T>) : TypeLatticeElementList<T> {
+abstract class IncompleteTypeLatticeElementList<T : TypeLatticeElement<T>>(val knownTypes: SortedMap<Int, T>) :
+    TypeLatticeElementList<T> {
     override fun parameterType(index: Int): T {
         return knownTypes[index] ?: top()
     }
@@ -215,8 +221,10 @@ abstract class IncompleteTypeLatticeElementList<T : TypeLatticeElement<T>>(val k
             is IncompleteTypeLatticeElementList -> {
                 val new = (knownTypes.entries + (other.knownTypes.entries))
                     .stream()
-                    .collect(Collectors.toMap({ it.key }, { it.value to TriState.UNKNOWN },
-                        { (type, _), (o, _) -> type.joinIdentical(o) })
+                    .collect(
+                        Collectors.toMap(
+                            { it.key }, { it.value to TriState.UNKNOWN },
+                            { (type, _), (o, _) -> type.joinIdentical(o) })
                     )
                 val identical = if (paramsAreIdentical(new.values) == TriState.NO) {
                     TriState.NO
