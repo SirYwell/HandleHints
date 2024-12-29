@@ -38,9 +38,11 @@ data object BotMethodHandleType : MethodHandleType, BotTypeLatticeElement<Method
 data object TopMethodHandleType : MethodHandleType, TopTypeLatticeElement<MethodHandleType> {
     override fun joinIdentical(other: MethodHandleType) = this to TriState.UNKNOWN
 
-    override fun withReturnType(returnType: Type) = this
+    override fun withReturnType(returnType: Type) =
+        CompleteMethodHandleType(returnType, parameterTypes, varargs)
 
-    override fun withParameterTypes(parameterTypes: TypeList) = this
+    override fun withParameterTypes(parameterTypes: TypeList) =
+        CompleteMethodHandleType(returnType, parameterTypes, varargs)
 
     override fun withVarargs(varargs: TriState) = this
 

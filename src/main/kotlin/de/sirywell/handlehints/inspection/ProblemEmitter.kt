@@ -7,6 +7,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiExpression
 import com.intellij.psi.PsiTypes
 import de.sirywell.handlehints.MethodHandleBundle.message
+import de.sirywell.handlehints.TriState
 import de.sirywell.handlehints.TypeData
 import de.sirywell.handlehints.type.*
 import org.jetbrains.annotations.Nls
@@ -103,5 +104,13 @@ abstract class ProblemEmitter(protected val typeData: TypeData) {
             it.registerProblem(element, message, ProblemHighlightType.GENERIC_ERROR_OR_WARNING, *quickFixes)
         }
 
+    }
+
+    protected fun warnOnVoid(expr: PsiExpression, type: Type) : Type {
+        return if (type.joinIdentical(ExactType.voidType).second == TriState.YES) {
+            emitMustNotBeVoid(expr)
+        } else {
+            type
+        }
     }
 }
