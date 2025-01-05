@@ -314,7 +314,7 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
             path: List<IndexedValue<PathElementType>>,
             coords: MutableList<Type>
         ): VarHandleType {
-            return CompleteVarHandleType(TopType, IncompleteTypeList(coords.toIndexedMap()))
+            return CompleteVarHandleType(TopType, IncompleteTypeList(coords.toIndexedMap()), KnownInvocationBehavior.INVOKE)
         }
 
         private fun onComplete(
@@ -322,11 +322,11 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
             coords: MutableList<Type>
         ): VarHandleType {
             if (layoutType is NormalValueLayoutType) {
-                return CompleteVarHandleType(layoutType.type, CompleteTypeList(coords))
+                return CompleteVarHandleType(layoutType.type, CompleteTypeList(coords), KnownInvocationBehavior.INVOKE)
             } else {
                 val ctx = contextElement(-1) // good enough for us
                 val type = findPsiType("java.lang.foreign.MemorySegment", ctx)
-                return CompleteVarHandleType(ExactType(type), CompleteTypeList(coords))
+                return CompleteVarHandleType(ExactType(type), CompleteTypeList(coords), KnownInvocationBehavior.INVOKE)
             }
         }
     }

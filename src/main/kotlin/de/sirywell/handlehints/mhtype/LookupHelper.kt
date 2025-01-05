@@ -135,12 +135,12 @@ class LookupHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(ssaAna
     fun findStaticVarHandle(declExpr: PsiExpression, typeExpr: PsiExpression): VarHandleType {
         declExpr.asReferenceType() // problem reporting only, not needed otherwise
         val type = typeExpr.asNonVoidType()
-        return CompleteVarHandleType(type, CompleteTypeList(listOf()))
+        return CompleteVarHandleType(type, CompleteTypeList(listOf()), KnownInvocationBehavior.INVOKE)
     }
 
     fun findVarHandle(recvExpr: PsiExpression, typeExpr: PsiExpression): VarHandleType {
         val recv = recvExpr.asReferenceType()
         val type = typeExpr.asNonVoidType()
-        return CompleteVarHandleType(type, CompleteTypeList(listOf(recv)))
+        return CompleteVarHandleType(type, CompleteTypeList(listOf(recv)), KnownInvocationBehavior.INVOKE)
     }
 }

@@ -51,7 +51,11 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEm
     fun arrayElementVarHandle(arrayClass: PsiExpression): VarHandleType {
         val arrayType = arrayClass.asArrayType()
         val componentType = getComponentType(arrayType)
-        return CompleteVarHandleType(componentType, CompleteTypeList(listOf(arrayType, ExactType.intType)))
+        return CompleteVarHandleType(
+            componentType,
+            CompleteTypeList(listOf(arrayType, ExactType.intType)),
+            KnownInvocationBehavior.INVOKE
+        )
     }
 
     private fun getComponentType(arrayType: Type) = if (arrayType !is ExactType) {
@@ -79,7 +83,11 @@ class MethodHandlesInitializer(private val ssaAnalyzer: SsaAnalyzer) : ProblemEm
         if (componentType is ExactType && !isSupportedViewHandleComponentType(componentType.psiType)) {
             componentType = emitMustBeViewHandleSupportedComponentType(arrayClass, componentType)
         }
-        return CompleteVarHandleType(componentType, CompleteTypeList(listOf(collectionType, ExactType.intType)))
+        return CompleteVarHandleType(
+            componentType,
+            CompleteTypeList(listOf(collectionType, ExactType.intType)),
+            KnownInvocationBehavior.INVOKE
+        )
     }
 
     private fun isSupportedViewHandleComponentType(type: PsiType): Boolean {
