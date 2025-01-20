@@ -79,11 +79,11 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         if (variable is PsiField) {
             if (variable.hasModifier(JvmModifier.FINAL)) {
                 // can not be changed, and we record the value in constructors
-                return element.qualifierExpression !is PsiThisExpression
+                return element.qualifierExpression != null && element.qualifierExpression !is PsiThisExpression
             }
             return true
         }
-        return true
+        return variable !is PsiLocalVariable && variable !is PsiParameter
     }
 
     private fun join(first: TypeLatticeElement<*>, second: TypeLatticeElement<*>): TypeLatticeElement<*> {

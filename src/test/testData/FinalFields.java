@@ -18,6 +18,7 @@ public class FinalFields {
     }
 
     <info descr="(⊤)int">private final MethodType methodType;</info>
+    private MethodType mutableMethodType;
 
     FinalFields() {
         <info descr="(String)int">this.methodType = <info descr="(String)int">MethodType.methodType(int.class, String.class)</info></info>;
@@ -39,5 +40,6 @@ public class FinalFields {
         <info descr="(double)⊤">MethodHandle ms = <info descr="(double)⊤">MethodHandles.empty(METHOD_TYPE)</info>;</info>
 
         <info descr="(⊤)int">MethodHandle mn = <info descr="(⊤)int">MethodHandles.empty(this.methodType)</info>;</info>
+        <info descr="⊤">MethodType mmt = mutableMethodType;</info>
     }
 }
