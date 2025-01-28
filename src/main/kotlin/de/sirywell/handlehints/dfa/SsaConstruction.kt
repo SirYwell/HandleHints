@@ -172,6 +172,14 @@ class SsaConstruction<T>(private val controlFlow: ControlFlow) {
         fun appendOperand(value: Value<T>, block: Block) {
             blockToValue[block] = value
         }
+
+        override fun hashCode(): Int {
+            return System.identityHashCode(this)
+        }
+
+        override fun equals(other: Any?): Boolean {
+            return this === other
+        }
     }
 
     data class Holder<T>(val value: T) : Value<T>

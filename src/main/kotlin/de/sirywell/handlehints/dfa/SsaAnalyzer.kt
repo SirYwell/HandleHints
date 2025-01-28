@@ -62,8 +62,9 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         } else if (value is Phi) {
             val type = value.blockToValue.values
                 .flatMap { if (it is Holder) listOf(it.value) else resolvePhi(it as Phi) }
-                .reduce { acc, mhType -> join(acc, mhType) }
+                .reduceOrNull { acc, mhType -> join(acc, mhType) }
             typeData[element] = type
+                ?: topForType(instruction.variable.type, instruction.variable)
         } else {
             typeData[element] = typeData[instruction.variable] ?: return
         }
@@ -72,10 +73,17 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
     @Suppress("UnstableApiUsage")
     private fun isUnstableVariable(element: PsiReferenceExpression, variable: PsiVariable): Boolean {
         // always assume static final variables are stable, no matter how they are referenced
-        return !(variable.hasModifier(JvmModifier.STATIC) && variable.hasModifier(JvmModifier.FINAL))
-                // otherwise, if it has a qualifier, it must be 'this' to be stable
-                && element.qualifierExpression != null
-                && element.qualifierExpression !is PsiThisExpression
+        if (variable.hasModifier(JvmModifier.STATIC) && variable.hasModifier(JvmModifier.FINAL)) {
+            return false
+        }
+        if (variable is PsiField) {
+            if (variable.hasModifier(JvmModifier.FINAL)) {
+                // can not be changed, and we record the value in constructors
+                return element.qualifierExpression != null && element.qualifierExpression !is PsiThisExpression
+            }
+            return true
+        }
+        return variable !is PsiLocalVariable && variable !is PsiParameter
     }
 
     private fun join(first: TypeLatticeElement<*>, second: TypeLatticeElement<*>): TypeLatticeElement<*> {
@@ -91,12 +99,19 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         throw AssertionError("unexpected join: $first - $second")
     }
 
-    private fun <T> resolvePhi(phi: Phi<T>, mut: MutableList<T> = mutableListOf()): List<T> {
+    private fun <T> resolvePhi(
+        phi: Phi<T>,
+        mut: MutableList<T> = mutableListOf(),
+        seen: MutableSet<Phi<T>> = mutableSetOf() // avoid StackOverflowError
+    ): List<T> {
+        if (!seen.add(phi)) {
+            return mut.toList()
+        }
         phi.blockToValue.values.forEach {
             if (it is Holder) {
                 mut.add(it.value)
             } else {
-                resolvePhi(it as Phi<T>, mut)
+                resolvePhi(it as Phi<T>, mut, seen)
             }
         }
         return mut.toList()
@@ -517,17 +532,19 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
         expression: PsiMethodCallExpression,
         arguments: List<PsiExpression>,
         block: Block
-    ) : TypeLatticeElement<*>? {
+    ): TypeLatticeElement<*>? {
         val qualifier = expression.methodExpression.qualifierExpression
         return when (expression.methodName) {
             "withInvokeBehavior" -> {
                 if (arguments.isNotEmpty() || qualifier == null) noMatch()
                 else varHandleHelper.withInvokeBehavior(qualifier, block)
             }
+
             "withInvokeExactBehavior" -> {
                 if (arguments.isNotEmpty() || qualifier == null) noMatch()
                 else varHandleHelper.withInvokeExactBehavior(qualifier, block)
             }
+
             else -> noMatch()
         }
     }
@@ -801,10 +818,12 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
                 if (arguments.size != 2) return noMatch()
                 methodHandlesInitializer.byteArrayViewVarHandle(arguments[0], arguments[1])
             }
+
             "byteBufferViewVarHandle" -> {
                 if (arguments.size != 2) return noMatch()
                 methodHandlesInitializer.byteBufferViewVarHandle(arguments[0], arguments[1])
             }
+
             "classData",
             "classDataAt",
             "lookup",
