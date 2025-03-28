@@ -203,7 +203,7 @@ class MemoryLayoutHelper(private val ssaAnalyzer: SsaAnalyzer) : ProblemEmitter(
         return VarHandlePathTraverser(typeData) {
             if (it == -1) methodExpr
             else arguments[it]
-        }.traverse(path, layoutType, mutableListOf(ExactType(memorySegmentType)))
+        }.traverse(path, layoutType, mutableListOf(ExactType(memorySegmentType), ExactType.longType))
     }
 
     private fun toPath(
