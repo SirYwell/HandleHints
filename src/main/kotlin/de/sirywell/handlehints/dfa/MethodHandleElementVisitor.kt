@@ -40,8 +40,8 @@ class MethodHandleElementVisitor : JavaRecursiveElementWalkingVisitor() {
 
     private fun applyAnalysis(controlFlow: ControlFlow, body: PsiElement) {
         SsaAnalyzer(controlFlow, typeData).doTraversal()
-        SwingUtilities.invokeLater {
-            PsiEditorUtil.getInstance().findEditorByPsiElement(body.parent)?.let {
+        PsiEditorUtil.getInstance().findEditorByPsiElement(body.parent)?.let {
+            SwingUtilities.invokeLater {
                 @Suppress("UnstableApiUsage")
                 ParameterHintsPassFactory.forceHintsUpdateOnNextPass(it)
             }
