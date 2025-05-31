@@ -668,8 +668,7 @@ class SsaAnalyzer(private val controlFlow: ControlFlow, val typeData: TypeData) 
 
             "dropArguments" -> {
                 if (arguments.size < 3) return noMatch()
-                val i = arguments[1].getConstantOfType<Int>() ?: return notConstant<MethodHandleType>()
-                methodHandlesMerger.dropArguments(arguments[0], i, arguments.subList(2), block)
+                methodHandlesMerger.dropArguments(arguments[0], arguments[1], arguments.subList(2), block)
             }
 
             "dropArgumentsToMatch" -> notConstant<MethodHandleType>() // likely too difficult to get something precise here

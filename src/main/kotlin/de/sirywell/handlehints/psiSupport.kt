@@ -137,6 +137,10 @@ inline fun <reified T> PsiExpression.getConstantOfType(): T? {
     return getDfType()?.getConstantOfType(T::class.java)
 }
 
+inline fun <reified T> DfType.getConstantOfType(): T? {
+    return this.getConstantOfType(T::class.java)
+}
+
 @Suppress("UnstableApiUsage")
 fun PsiExpression.getDfType(): DfType? {
     return (getDataflowResult(this) as DataflowResult?)

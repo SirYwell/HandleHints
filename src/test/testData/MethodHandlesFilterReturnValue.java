@@ -20,8 +20,8 @@ class MethodHandlesFilterReturnValue {
     <info descr="⊤">MethodHandle mh14 = <info descr="⊤">MethodHandles.filterReturnValue(mh01, <warning descr="Filter must accept at most one parameter">mh06</warning>)</info>;</info>
 
     // if we don't know the target return type, both 0 and 1 param filters might be fine
-    <info descr="⊤">MethodHandle mh20 = <info descr="⊤">MethodHandles.filterReturnValue(mh03, mh05)</info>;</info>
-    <info descr="⊤">MethodHandle mh21 = <info descr="⊤">MethodHandles.filterReturnValue(mh03, mh00)</info>;</info>
+    <info descr="({⊤})void">MethodHandle mh20 = <info descr="({⊤})void">MethodHandles.filterReturnValue(mh03, mh05)</info>;</info>
+    <info descr="({⊤})void">MethodHandle mh21 = <info descr="({⊤})void">MethodHandles.filterReturnValue(mh03, mh00)</info>;</info>
     <info descr="⊤">MethodHandle mh22 = <info descr="⊤">MethodHandles.filterReturnValue(mh03, <warning descr="Filter must accept at most one parameter">mh06</warning>)</info>;</info>
   }
 }
