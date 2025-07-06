@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+## [0.3.3] - 2025-07-06
+
+- Improved type analysis and inspections for `MethodHandles#dropArguments`
+- Fixed multi-threading issue
+
 ## [0.3.2] - 2025-04-26
 
 - chore: Changelog update - `v0.3.1` by @github-actions in https://github.com/SirYwell/HandleHints/pull/147
@@ -56,7 +61,8 @@
 
 - Initial scaffold created from [IntelliJ Platform Plugin Template](https://github.com/JetBrains/intellij-platform-plugin-template)
 
-[Unreleased]: https://github.com/SirYwell/HandleHints/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/SirYwell/HandleHints/compare/v0.3.3...HEAD
+[0.3.3]: https://github.com/SirYwell/HandleHints/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/SirYwell/HandleHints/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/SirYwell/HandleHints/compare/v0.2.1...v0.3.1
 [0.2.1]: https://github.com/SirYwell/HandleHints/compare/v0.2.0...v0.2.1
